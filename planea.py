@@ -9,10 +9,28 @@ import argparse
 
 # argument parsing part
 parser = argparse.ArgumentParser()
-parser.parse_args()
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--daily",
+                    help="If you want to calculate how many words a day you will need.",
+                    action="store_true")
+group.add_argument("--time",
+                    help="If you want to know how much total time will it take to finish.",
+                    action="store_true")
+group.add_argument("--words",
+                    help="If you want to know how many words will it have at the end.",
+                    action="store_true")
+args = parser.parse_args()
 
 
 def main():
+    if args.daily:
+        print("calculate the words a day you will need.")
+    elif args.time:
+        print("Calculate the time you'll need to finish your work.")
+    elif args.words:
+        print("Calculate the total words your work will have.")
+    else:
+        print("No option selected. Doing nothing ...")
     return
 
 
