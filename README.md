@@ -23,3 +23,4 @@ You need any two of these variables to fix the third one. So, there are three me
 * Add the possibility to make different plans for weekends.
 * Add a file plan to store the data.
 * Add the ability to follow the plan, and recalculate given the new data.
+* Add a graph with the words done and the ones expected.
