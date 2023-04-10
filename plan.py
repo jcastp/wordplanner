@@ -3,14 +3,14 @@ import math
 
 """class for the Plan."""
 
-
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0):
+    def __init__(self, daily=0, total=0, time=0, words=0):
         """Initialize the values."""
         self.daily = daily
         self.total = total
         self.time = time
+        self.words = words # this is the amount of words in the current plan
 
     def calculate_daily(self):
         """calculate the daily amount of words needed, based on time

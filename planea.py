@@ -23,7 +23,9 @@ args = parser.parse_args()
 
 
 def main():
-    if args.daily:
+    
+    # these are made up data to work with the initial draft.
+    if args.daily:        
         print("calculate the words a day you will need.")
         newplan = plan.Plan(total=80000, time=60)
         newplan.calculate_daily()
