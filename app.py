@@ -13,6 +13,7 @@ from rich.text import Text
 
 import plan
 import calendar_view
+import plan_storage
 
 
 class MonthlyCalendarWidget(Widget):
@@ -216,6 +217,7 @@ class MainMenuScreen(Screen):
                 Button("Calculate days needed", id="btn_calc_time", variant="primary"),
                 Button("Calculate total words", id="btn_calc_words", variant="primary"),
                 Button("Calculate daily words", id="btn_calc_daily", variant="primary"),
+                Button("Load Saved Plan", id="btn_load_plan", variant="success"),
                 Button("Exit", id="btn_exit", variant="error"),
                 id="menu_buttons"
             ),
@@ -257,6 +259,9 @@ class MainMenuScreen(Screen):
                     ("time", "Days you have available:")
                 ]
             ))
+        elif button_id == "btn_load_plan":
+            # Load saved plan
+            self.app.push_screen(LoadPlanScreen())
         elif button_id == "btn_exit":
             self.app.exit()
 
@@ -374,6 +379,8 @@ class ResultsScreen(Screen):
                 Button("Weekly Summary View", id="btn_weekly", variant="primary"),
                 Button("Both Views", id="btn_both", variant="primary"),
                 Button("Skip Calendar", id="btn_skip", variant="default"),
+                Static(""),
+                Button("Save This Plan", id="btn_save", variant="success"),
                 id="calendar_buttons"
             ),
             id="results_container"
@@ -387,6 +394,9 @@ class ResultsScreen(Screen):
         if button_id in ["btn_monthly", "btn_weekly", "btn_both"]:
             # Ask for start date
             self.app.push_screen(DateInputScreen(self.plan_obj, button_id))
+        elif button_id == "btn_save":
+            # Save the plan
+            self.app.push_screen(SavePlanScreen(self.plan_obj))
         elif button_id == "btn_skip":
             self.app.pop_screen()
 
@@ -538,6 +548,145 @@ class CalendarScreen(Screen):
         self.app.pop_screen()
 
 
+class SavePlanScreen(Screen):
+    """Screen for naming and saving a plan."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True),
+    ]
+
+    def __init__(self, plan_obj: plan.Plan, **kwargs):
+        super().__init__(**kwargs)
+        self.plan_obj = plan_obj
+
+    def compose(self) -> ComposeResult:
+        """Create the save plan UI."""
+        yield Header()
+
+        yield Container(
+            Static("[bold cyan]Save Your Plan[/bold cyan]", id="save_title"),
+            Static(""),
+            Label("Give your plan a name:"),
+            Input(placeholder="e.g., My Novel, Short Story Project", id="input_plan_name"),
+            Static(""),
+            Horizontal(
+                Button("Save", id="btn_save", variant="success"),
+                Button("Cancel", id="btn_cancel", variant="error"),
+                id="save_button_row"
+            ),
+            id="save_container"
+        )
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "btn_save":
+            name_input = self.query_one("#input_plan_name", Input)
+            plan_name = name_input.value.strip()
+
+            if not plan_name:
+                self.notify("Please enter a name for your plan!", severity="error")
+                return
+
+            try:
+                # Set the plan name
+                self.plan_obj.name = plan_name
+
+                # Save the plan
+                filepath = plan_storage.save_plan(self.plan_obj)
+
+                self.notify(f"Plan saved successfully to {filepath.name}!", severity="information")
+                self.app.pop_screen()
+            except Exception as e:
+                self.notify(f"Error saving plan: {e}", severity="error")
+
+        elif event.button.id == "btn_cancel":
+            self.app.pop_screen()
+
+    def action_cancel(self) -> None:
+        """Cancel and return."""
+        self.app.pop_screen()
+
+
+class LoadPlanScreen(Screen):
+    """Screen for loading a saved plan."""
+
+    BINDINGS = [
+        Binding("escape", "back", "Back", show=True),
+    ]
+
+    def compose(self) -> ComposeResult:
+        """Create the load plan UI."""
+        yield Header()
+
+        with VerticalScroll(id="load_scroll"):
+            yield Static("[bold cyan]Load a Saved Plan[/bold cyan]", id="load_title")
+            yield Static("")
+
+            # Get list of saved plans
+            saved_plans = plan_storage.list_saved_plans()
+
+            if not saved_plans:
+                yield Static("[yellow]No saved plans found.[/yellow]")
+                yield Static("")
+                yield Button("Back to Main Menu", id="btn_back", variant="default")
+            else:
+                yield Static(f"[dim]Found {len(saved_plans)} saved plan(s)[/dim]")
+                yield Static("")
+
+                # Create a button for each saved plan
+                for idx, plan_info in enumerate(saved_plans):
+                    plan_name = plan_info['name']
+                    total = plan_info['total']
+                    daily = plan_info['daily']
+                    time = plan_info['time']
+                    created = plan_info['created_date']
+                    created_str = created.strftime("%Y-%m-%d %H:%M") if created else "Unknown"
+
+                    yield Button(
+                        f"{plan_name}\n{total:,.0f} words | {daily:,.0f}/day | {time:.0f} days | Created: {created_str}",
+                        id=f"btn_load_{idx}",
+                        variant="primary"
+                    )
+                    yield Static("")
+
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        button_id = event.button.id
+
+        if button_id == "btn_back":
+            self.app.pop_screen()
+        elif button_id.startswith("btn_load_"):
+            # Extract index
+            idx = int(button_id.split("_")[-1])
+
+            # Get saved plans list
+            saved_plans = plan_storage.list_saved_plans()
+
+            if idx < len(saved_plans):
+                plan_info = saved_plans[idx]
+                filepath = plan_info['path']
+
+                try:
+                    # Load the plan
+                    loaded_plan = plan_storage.load_plan(filepath)
+
+                    self.notify(f"Loaded plan: {loaded_plan.name}", severity="information")
+
+                    # Show results screen with loaded plan
+                    self.app.pop_screen()  # Close load screen
+                    self.app.push_screen(ResultsScreen(loaded_plan))
+
+                except Exception as e:
+                    self.notify(f"Error loading plan: {e}", severity="error")
+
+    def action_back(self) -> None:
+        """Go back."""
+        self.app.pop_screen()
+
+
 class WordPlannerApp(App):
     """Main Textual application for word planning."""
 
@@ -655,6 +804,52 @@ class WordPlannerApp(App):
 
     #date_button_row Button {
         margin: 0 1;
+    }
+
+    #save_container {
+        width: 80;
+        height: auto;
+        align: center middle;
+        padding: 2;
+    }
+
+    #save_title {
+        text-align: center;
+        width: 100%;
+        padding: 1;
+        text-style: bold;
+    }
+
+    #save_button_row {
+        width: 100%;
+        height: auto;
+        align: center middle;
+        padding: 1 0;
+    }
+
+    #save_button_row Button {
+        margin: 0 1;
+    }
+
+    #load_scroll {
+        width: 100%;
+        height: 1fr;
+        padding: 1 2;
+        overflow-y: auto;
+    }
+
+    #load_title {
+        text-align: center;
+        width: 100%;
+        padding: 1;
+        text-style: bold;
+    }
+
+    #load_scroll Button {
+        width: 90%;
+        margin: 0 5;
+        height: auto;
+        min-height: 5;
     }
 
     #calendar_container {

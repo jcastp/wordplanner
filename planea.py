@@ -6,6 +6,7 @@ It intends to get a plan for daily work on words per day."""
 from datetime import datetime
 import plan
 import calendar_view
+import plan_storage
 
 
 def get_positive_number(prompt):
@@ -33,16 +34,17 @@ def show_menu():
     print("   → Calculate total words I'll write")
     print("\n3. I know my goal (total words) and available time")
     print("   → Calculate daily words I need to write")
+    print("\n4. Load a saved plan")
     print("\n0. Exit")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
+            choice = int(input("\nEnter your choice (0-4): "))
+            if choice in [0, 1, 2, 3, 4]:
                 return choice
             else:
-                print("Please enter a number between 0 and 3.")
+                print("Please enter a number between 0 and 4.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -56,6 +58,76 @@ def display_results(newplan):
     print(f"Time needed: {newplan.time:.1f} days")
     print(f"Daily goal: {newplan.daily:,.1f} words per day")
     print("-" * 50)
+
+
+def save_plan_prompt(newplan):
+    """Ask user if they want to save the plan."""
+    save = input("\nWould you like to save this plan? (y/n): ").lower()
+    if save == 'y':
+        plan_name = input("Enter a name for this plan: ").strip()
+        if not plan_name:
+            print("No name provided, plan not saved.")
+            return
+
+        try:
+            newplan.name = plan_name
+            filepath = plan_storage.save_plan(newplan)
+            print(f"\n✓ Plan saved successfully to: {filepath}")
+        except Exception as e:
+            print(f"\n✗ Error saving plan: {e}")
+
+
+def load_saved_plan():
+    """Load a saved plan from disk."""
+    print("\n" + "=" * 50)
+    print("LOAD SAVED PLAN")
+    print("=" * 50)
+
+    saved_plans = plan_storage.list_saved_plans()
+
+    if not saved_plans:
+        print("\nNo saved plans found.")
+        input("\nPress Enter to continue...")
+        return None
+
+    print(f"\nFound {len(saved_plans)} saved plan(s):\n")
+
+    for idx, plan_info in enumerate(saved_plans, start=1):
+        plan_name = plan_info['name']
+        total = plan_info['total']
+        daily = plan_info['daily']
+        time = plan_info['time']
+        created = plan_info['created_date']
+        created_str = created.strftime("%Y-%m-%d %H:%M") if created else "Unknown"
+
+        print(f"{idx}. {plan_name}")
+        print(f"   {total:,.0f} words | {daily:,.0f}/day | {time:.0f} days")
+        print(f"   Created: {created_str}\n")
+
+    print("0. Cancel")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nSelect a plan to load (0 to cancel): "))
+            if choice == 0:
+                return None
+            if 1 <= choice <= len(saved_plans):
+                plan_info = saved_plans[choice - 1]
+                filepath = plan_info['path']
+
+                try:
+                    loaded_plan = plan_storage.load_plan(filepath)
+                    print(f"\n✓ Loaded plan: {loaded_plan.name}")
+                    return loaded_plan
+                except Exception as e:
+                    print(f"\n✗ Error loading plan: {e}")
+                    input("\nPress Enter to continue...")
+                    return None
+            else:
+                print(f"Please enter a number between 0 and {len(saved_plans)}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
 
 def show_calendar_options(newplan):
@@ -125,6 +197,7 @@ def main():
             newplan = plan.Plan(total=total, daily=daily)
             newplan.calculate_time()
             display_results(newplan)
+            save_plan_prompt(newplan)
             show_calendar_options(newplan)
 
         elif choice == 2:
@@ -136,6 +209,7 @@ def main():
             newplan = plan.Plan(daily=daily, time=time)
             newplan.calculate_words()
             display_results(newplan)
+            save_plan_prompt(newplan)
             show_calendar_options(newplan)
 
         elif choice == 3:
@@ -147,7 +221,15 @@ def main():
             newplan = plan.Plan(total=total, time=time)
             newplan.calculate_daily()
             display_results(newplan)
+            save_plan_prompt(newplan)
             show_calendar_options(newplan)
+
+        elif choice == 4:
+            # Load a saved plan
+            loaded_plan = load_saved_plan()
+            if loaded_plan:
+                display_results(loaded_plan)
+                show_calendar_options(loaded_plan)
 
         # Ask if user wants to make another calculation
         print("\n")
