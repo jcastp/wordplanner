@@ -3,7 +3,9 @@
 """This is an intended clone for the pacemaker.press site.
 It intends to get a plan for daily work on words per day."""
 
+from datetime import datetime
 import plan
+import calendar_view
 
 
 def get_positive_number(prompt):
@@ -56,6 +58,54 @@ def display_results(newplan):
     print("-" * 50)
 
 
+def show_calendar_options(newplan):
+    """Ask user if they want to see calendar views."""
+    print("\n" + "=" * 50)
+    print("CALENDAR VIEWS")
+    print("=" * 50)
+    print("\nWould you like to see your plan as a calendar?")
+    print("\n1. Monthly calendar view (day-by-day breakdown)")
+    print("2. Weekly summary view")
+    print("3. Both views")
+    print("0. Skip calendar view")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-3): "))
+            if choice in [0, 1, 2, 3]:
+                if choice == 0:
+                    return
+
+                # Get start date
+                print("\nWhen would you like to start writing?")
+                print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
+                print("Or press Enter for today's date")
+
+                date_input = input("Start date: ").strip()
+                if date_input == "":
+                    start_date = datetime.now()
+                else:
+                    try:
+                        start_date = datetime.strptime(date_input, "%Y-%m-%d")
+                    except ValueError:
+                        print("Invalid format, using today's date")
+                        start_date = datetime.now()
+
+                # Display chosen views
+                if choice == 1 or choice == 3:
+                    calendar_view.display_calendar_view(newplan, start_date)
+
+                if choice == 2 or choice == 3:
+                    calendar_view.display_weekly_summary(newplan, start_date)
+
+                return
+            else:
+                print("Please enter a number between 0 and 3.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
 def main():
     """Main function to run the interactive word planner."""
 
@@ -75,6 +125,7 @@ def main():
             newplan = plan.Plan(total=total, daily=daily)
             newplan.calculate_time()
             display_results(newplan)
+            show_calendar_options(newplan)
 
         elif choice == 2:
             # Know daily words and time → calculate total words
@@ -85,6 +136,7 @@ def main():
             newplan = plan.Plan(daily=daily, time=time)
             newplan.calculate_words()
             display_results(newplan)
+            show_calendar_options(newplan)
 
         elif choice == 3:
             # Know total words and time → calculate daily words
@@ -95,6 +147,7 @@ def main():
             newplan = plan.Plan(total=total, time=time)
             newplan.calculate_daily()
             display_results(newplan)
+            show_calendar_options(newplan)
 
         # Ask if user wants to make another calculation
         print("\n")
