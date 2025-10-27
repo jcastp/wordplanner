@@ -464,7 +464,7 @@ class CalendarScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "back", "Back", show=True),
-        Binding("q", "quit_to_menu", "Main Menu", show=True),
+        Binding("m", "quit_to_menu", "Main Menu", show=True, priority=True),
         Binding("up", "scroll_up", "Scroll Up", show=False),
         Binding("down", "scroll_down", "Scroll Down", show=False),
     ]
@@ -521,8 +521,21 @@ class CalendarScreen(Screen):
     def action_quit_to_menu(self) -> None:
         """Return to main menu."""
         # Pop all screens to return to main menu
-        while len(self.app.screen_stack) > 1:
-            self.app.pop_screen()
+        # Schedule multiple pops - we need to pop CalendarScreen, DateInputScreen, ResultsScreen, and InputScreen
+        def pop_multiple():
+            try:
+                # Pop DateInputScreen
+                self.app.pop_screen()
+                # Pop ResultsScreen
+                self.app.pop_screen()
+                # Pop InputScreen
+                self.app.pop_screen()
+            except Exception:
+                pass
+
+        # Pop CalendarScreen first, then schedule the rest
+        self.app.call_after_refresh(pop_multiple)
+        self.app.pop_screen()
 
 
 class WordPlannerApp(App):
