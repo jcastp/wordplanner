@@ -127,6 +127,7 @@ def display_calendar_view(plan_obj, start_date):
             if days_remaining == 0:
                 break
 
+        # Print the table for this month before checking if we're done
         console.print(table)
         console.print()
 

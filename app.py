@@ -45,6 +45,7 @@ class MonthlyCalendarWidget(Widget):
         while days_remaining > 0 and months_shown < max_months:
             months_shown += 1
             first_of_month = datetime(current_date.year, current_date.month, 1)
+
             if first_of_month > self.end_date:
                 break
 
@@ -97,9 +98,15 @@ class MonthlyCalendarWidget(Widget):
                 if days_remaining == 0:
                     break
 
+            # Yield the table for this month before checking if we're done
             yield table
 
-            if days_added_this_month == 0 or days_remaining <= 0:
+            # Safety check: if we didn't add any days this month, we've gone past the plan
+            if days_added_this_month == 0:
+                break
+
+            # Exit if we've finished all days
+            if days_remaining <= 0:
                 break
 
             # Move to next month
@@ -458,6 +465,8 @@ class CalendarScreen(Screen):
     BINDINGS = [
         Binding("escape", "back", "Back", show=True),
         Binding("q", "quit_to_menu", "Main Menu", show=True),
+        Binding("up", "scroll_up", "Scroll Up", show=False),
+        Binding("down", "scroll_down", "Scroll Down", show=False),
     ]
 
     def __init__(self, plan_obj: plan.Plan, start_date: datetime, view_type: str, **kwargs):
@@ -470,13 +479,21 @@ class CalendarScreen(Screen):
         """Create the calendar display."""
         yield Header()
 
+        # Add scroll instructions
+        yield Static(
+            "[dim]Use ↑/↓ arrow keys, Page Up/Down, or mouse wheel to scroll through the calendar[/dim]",
+            id="scroll_hint"
+        )
+
         with VerticalScroll(id="calendar_scroll"):
             # Show appropriate views based on view_type
             if self.view_type == "btn_monthly":
                 yield MonthlyCalendarWidget(self.plan_obj, self.start_date)
+                yield Static("")  # Spacer
                 yield MilestonesWidget(self.plan_obj, self.start_date)
             elif self.view_type == "btn_weekly":
                 yield WeeklySummaryWidget(self.plan_obj, self.start_date)
+                yield Static("")  # Spacer
                 yield MilestonesWidget(self.plan_obj, self.start_date)
             elif self.view_type == "btn_both":
                 yield MonthlyCalendarWidget(self.plan_obj, self.start_date)
@@ -486,6 +503,16 @@ class CalendarScreen(Screen):
                 yield MilestonesWidget(self.plan_obj, self.start_date)
 
         yield Footer()
+
+    def action_scroll_up(self) -> None:
+        """Scroll up in the calendar."""
+        scroll = self.query_one("#calendar_scroll", VerticalScroll)
+        scroll.scroll_up()
+
+    def action_scroll_down(self) -> None:
+        """Scroll down in the calendar."""
+        scroll = self.query_one("#calendar_scroll", VerticalScroll)
+        scroll.scroll_down()
 
     def action_back(self) -> None:
         """Go back."""
@@ -629,10 +656,18 @@ class WordPlannerApp(App):
         padding: 2;
     }
 
+    #scroll_hint {
+        width: 100%;
+        text-align: center;
+        padding: 0 0 1 0;
+        background: $panel;
+    }
+
     #calendar_scroll {
         width: 100%;
-        height: 100%;
+        height: 1fr;
         padding: 1 2;
+        overflow-y: auto;
     }
 
     .calendar-summary {
@@ -653,6 +688,21 @@ class WordPlannerApp(App):
         padding: 2 0 1 0;
         text-align: center;
         text-style: bold;
+    }
+
+    MonthlyCalendarWidget {
+        width: 100%;
+        height: auto;
+    }
+
+    WeeklySummaryWidget {
+        width: 100%;
+        height: auto;
+    }
+
+    MilestonesWidget {
+        width: 100%;
+        height: auto;
     }
 
     .month-table {
