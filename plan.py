@@ -3,6 +3,7 @@ import math
 
 """class for the Plan."""
 
+
 class Plan():
     """simple class to store a plan and its attributes."""
     def __init__(self, daily=0, total=0, time=0, words=0):
