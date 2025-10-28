@@ -599,19 +599,24 @@ def modify_plan(current_plan):
         total_calendar_days = current_plan.time + current_plan.spare_days
         print(f"  Total calendar duration: {total_calendar_days:.0f} days")
     print(f"  Writing pattern: {current_plan.pattern}")
+    if current_plan.start_date:
+        print(f"  Start date: {current_plan.start_date.strftime('%Y-%m-%d')}")
+    else:
+        print(f"  Start date: Not set")
     print("\nWhat would you like to modify?")
     print("\n1. Total words")
     print("2. Daily words")
     print("3. Writing days")
     print("4. Spare days")
     print("5. Writing pattern")
-    print("6. Modify two values (third will be calculated)")
+    print("6. Start date")
+    print("7. Modify two values (third will be calculated)")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-6): "))
+            choice = int(input("\nEnter your choice (0-7): "))
             if choice == 0:
                 return False  # No changes made
 
@@ -701,6 +706,20 @@ def modify_plan(current_plan):
                 return True
 
             elif choice == 6:
+                # Change start date
+                if current_plan.start_date:
+                    print(f"\nCurrent start date: {current_plan.start_date.strftime('%Y-%m-%d')}")
+                else:
+                    print(f"\nCurrent start date: Not set")
+
+                print("\nEnter new start date (YYYY-MM-DD, e.g., 2025-10-28)")
+                print("Or press Enter for today's date")
+                new_start_date = get_date_input("Start date: ")
+                current_plan.start_date = new_start_date
+                print(f"\n✓ Start date changed to: {new_start_date.strftime('%Y-%m-%d')}")
+                return True
+
+            elif choice == 7:
                 # Modify two values, calculate the third
                 print("\nWhich value should be calculated?")
                 print("1. Calculate total words (from daily × time)")
@@ -737,7 +756,7 @@ def modify_plan(current_plan):
                         print("Invalid input. Please enter a number.")
 
             else:
-                print("Please enter a number between 0 and 6.")
+                print("Please enter a number between 0 and 7.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -816,58 +835,14 @@ def show_calendar_options(newplan):
 
                 # Get start date
                 if newplan.start_date:
-                    # Plan has a saved start date - show menu
-                    print("\n" + "-" * 50)
-                    print(f"This plan has a saved start date: {newplan.start_date.strftime('%Y-%m-%d')}")
-
-                    # Check if saved date is in the past
-                    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                    saved_date_normalized = newplan.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-                    if saved_date_normalized < today:
-                        days_ago = (today - saved_date_normalized).days
-                        print(f"⚠ Warning: This date is {days_ago} day(s) in the past.")
-
-                    print("-" * 50)
-                    print("\n1. Use saved date [default]")
-                    print("2. Enter a new date")
-                    print("0. Cancel")
-                    print("-" * 50)
-
-                    date_choice_made = False
-                    while not date_choice_made:
-                        date_input = input("\nEnter your choice (0-2, or Enter for default): ").strip()
-
-                        # Empty input means use default (saved date)
-                        if date_input == "":
-                            start_date = newplan.start_date
-                            date_choice_made = True
-                            continue
-
-                        try:
-                            date_choice = int(date_input)
-                            if date_choice == 0:
-                                return
-                            elif date_choice == 1:
-                                start_date = newplan.start_date
-                                date_choice_made = True
-                            elif date_choice == 2:
-                                print("\nEnter new start date (YYYY-MM-DD, e.g., 2025-10-28)")
-                                print("Or press Enter for today's date")
-                                start_date = get_date_input("Start date: ")
-                                date_choice_made = True
-                            else:
-                                print("Please enter a number between 0 and 2.")
-                        except ValueError:
-                            print("Invalid input. Please enter a number.")
+                    # Plan has a saved start date - use it directly
+                    start_date = newplan.start_date
                 else:
-                    # No saved start date - ask for one
-                    print("\nWhen would you like to start writing?")
-                    print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
-                    print("Or press Enter for today's date")
-                    start_date = get_date_input("Start date: ")
-
-                # Save the start_date to the plan object
-                newplan.start_date = start_date
+                    # No saved start date - this shouldn't happen for new plans,
+                    # but if it does, use today
+                    print("\n⚠ No start date set. Using today's date.")
+                    start_date = datetime.now()
+                    newplan.start_date = start_date
 
                 # Display chosen views
                 if choice == 1 or choice == 3:
