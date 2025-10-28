@@ -99,6 +99,29 @@ Distribute your writing goals with different patterns to match your energy and s
   - Remove custom goals (revert to pattern/weekend settings)
   - Clear all custom goals at once
 
+#### Plan Templates
+- **Pre-configured Templates** - Start writing faster with ready-made plans
+  - NaNoWriMo: 50,000 words in 30 days (1,667 words/day)
+  - Short Story: 5,000 words in 7 days
+  - Novel Draft: 80,000 words in 60 days
+  - Blog Post: 1,500 words in 1 day
+  - Academic Paper: 10,000 words in 14 days
+  - Novella: 30,000 words in 30 days
+  - Screenplay: 25,000 words in 45 days
+  - Weekly Goal: 7,000 words in 7 days
+  - Daily Sprint (1K): 30,000 words at 1,000/day
+  - Daily Habit (500): 15,000 words at 500/day
+- **Template Customization** - Adapt templates to your needs
+  - Modify word count, duration, or daily goals
+  - Choose start date
+  - Apply suggested writing patterns
+  - Configure suggested weekend modes
+  - Save customized templates for reuse
+- **Smart Suggestions** - Templates include recommended settings
+  - Suggested writing patterns for optimal pacing
+  - Recommended weekend configurations
+  - Intensity recommendations
+
 #### Flexible Plan Management
 - Save & Load Plans - Save multiple writing projects with custom names
 - Modify Plans - Change any value and automatically recalculate
@@ -571,7 +594,87 @@ Goal: Adjust specific days for events, deadlines, or special circumstances
            Goal reverted to: 1,000 words (pattern-based)
    ```
 
-### Example 9: Analyzing Your Writing Progress with Graphs
+### Example 9: Quick Start with Templates
+
+Goal: Start a new writing project quickly using pre-configured templates
+
+1. NaNoWriMo Challenge
+   ```
+   Choose: "Create from template"
+
+   Display shows template categories:
+   Popular:
+     1. NaNoWriMo: 50,000 words in 30 days (1,667 words/day)
+        National Novel Writing Month - Write a 50,000 word novel in 30 days
+     2. Short Story: 5,000 words in 7 days (714 words/day)
+        Complete a short story in one week
+     3. Blog Post: 1,500 words in 1 day (1,500 words/day)
+        Write a comprehensive blog post
+
+   Select: "1" (NaNoWriMo)
+
+   Template details shown:
+     Total words: 50,000
+     Duration: 30 days
+     Daily goal: 1,667 words/day
+     Suggested pattern: flat
+     Suggested weekend mode: different
+
+   "Use this template as-is?" → Yes
+   Start date: 2025-11-01
+   "Apply suggested 'flat' pattern?" → Yes
+   "Configure weekend settings as suggested?" → Yes
+     Suggested weekend goal: 2,500 words/day
+     "Use this weekend goal?" → Yes
+
+   Result: Complete NaNoWriMo plan created in seconds!
+   ```
+
+2. Customize a Template
+   ```
+   Choose: "Create from template"
+   Select: "3" (Novel Draft)
+
+   "Use this template as-is?" → No
+
+   Customize:
+     "Change total word count?" → Yes
+       Enter total words: 100000
+     "Change duration (days)?" → Yes
+       Enter number of days: 90
+
+   Result: 100,000 word novel in 90 days (1,111 words/day)
+           Customized from template
+   ```
+
+3. Weekly Writing Habit Template
+   ```
+   Select: "8" (Weekly Writing Goal)
+
+   Template: 7,000 words in 7 days (1,000 words/day)
+
+   "Use this template as-is?" → Yes
+   Start date: [Today]
+   "Apply suggested 'flat' pattern?" → Yes
+
+   Result: Consistent daily writing habit
+           Perfect for maintaining momentum
+   ```
+
+4. Academic Writing Template
+   ```
+   Select: "5" (Academic Paper)
+
+   Template: 10,000 words in 14 days
+   Suggested weekend mode: spare (focus on weekdays)
+
+   "Configure weekend settings as suggested?" → Yes
+
+   Result: Academic paper plan
+           No weekend work (weekdays only: 1,429 words/day)
+   ```
+
+### Example 10: Analyzing Your Writing Progress with Graphs
 
 Goal: Visualize your progress and analyze your writing patterns
 
@@ -667,6 +770,7 @@ planeapalabras/
 ├── plan_storage.py            # Save/load functionality
 ├── plan_export.py             # Export functionality (CSV, iCal, Markdown)
 ├── progress_analytics.py      # Progress graphs and analytics
+├── plan_templates.py          # Pre-configured plan templates
 ├── README.md                  # This file - user documentation
 ├── CLAUDE.md                  # Developer documentation for AI
 ├── future-improvements.md     # Roadmap and planned features
@@ -718,6 +822,16 @@ Exports are named with the plan name and timestamp in the appropriate format:
   - View all customized days at a glance
   - Remove custom goals to revert to default
   - Clear all custom goals at once
+- **Plan Templates** - Quick start with pre-configured templates:
+  - 10 ready-to-use templates for common writing goals
+  - Popular templates: NaNoWriMo, Short Story, Blog Post
+  - Long form: Novel Draft, Novella, Screenplay
+  - Academic: Research Paper or Thesis Chapter
+  - Habits: Weekly Goal, 1K Daily Sprint, 500 Daily Habit
+  - Templates organized by category for easy browsing
+  - Each template includes suggested patterns and weekend modes
+  - Full customization available (modify any template before creating)
+  - Instant plan creation or customize to your needs
 - **Enhanced Plan Display** - Better visibility:
   - Weekend settings shown in plan summary
   - Custom day goals count displayed
@@ -891,6 +1005,9 @@ A: Use the weekend quick actions in the spare days menu. Choose "Modify plan" th
 
 Q: Can I customize the word goal for a specific day?
 A: Yes! Use "Modify plan" then "Edit individual day goals" to set custom word counts for any specific date. This is perfect for busy days (set lower goal), extra writing time (set higher goal), or special events. Custom goals override pattern-based goals and weekend settings. You can view all customized days, remove individual customizations, or clear all at once.
+
+Q: Is there a quick way to start a new plan without entering all the details?
+A: Yes! Use "Create from template" from the main menu. Choose from 10 pre-configured templates including NaNoWriMo (50,000 words in 30 days), Short Story (5,000 words in 7 days), Novel Draft (80,000 words in 60 days), Academic Paper, and more. Each template includes suggested patterns and weekend modes. You can use templates as-is or customize them before creating your plan.
 
 Q: Can I export my plan to Google Calendar or other calendar apps?
 A: Yes! Use the "Export plan" option and choose iCal/ICS format. The exported .ics file can be imported into Google Calendar, Apple Calendar, Outlook, and most other calendar applications. You'll get daily events with your word goals and spare days marked.

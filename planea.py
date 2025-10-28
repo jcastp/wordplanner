@@ -10,6 +10,7 @@ import calendar_view
 import plan_storage
 import plan_export
 import progress_analytics
+import plan_templates
 
 
 def get_yes_no(prompt, default='y'):
@@ -92,17 +93,18 @@ def initial_menu():
     print("=" * 50)
     print("\nWhat would you like to do?")
     print("\n1. Create a new plan")
-    print("2. Load an existing plan")
+    print("2. Create from template")
+    print("3. Load an existing plan")
     print("0. Exit")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-2): "))
-            if choice in [0, 1, 2]:
+            choice = int(input("\nEnter your choice (0-3): "))
+            if choice in [0, 1, 2, 3]:
                 return choice
             else:
-                print("Please enter a number between 0 and 2.")
+                print("Please enter a number between 0 and 3.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -1650,6 +1652,150 @@ def configure_weekend_settings(current_plan):
                 print("\n⚠ Invalid input, using default weekend days (Sat, Sun)")
 
 
+def create_plan_from_template():
+    """Create a plan from a pre-defined template."""
+    print("\n" + "=" * 50)
+    print("CREATE FROM TEMPLATE")
+    print("=" * 50)
+
+    # Get templates by category
+    categories = plan_templates.list_templates_by_category()
+    all_templates = plan_templates.get_all_templates()
+
+    # Display templates by category
+    template_list = []
+    option_num = 1
+
+    for category, template_keys in categories.items():
+        print(f"\n{category}:")
+        for key in template_keys:
+            template = all_templates[key]
+            print(f"  {option_num}. {template}")
+            print(f"     {template.description}")
+            template_list.append((key, template))
+            option_num += 1
+
+    print(f"\n0. Cancel")
+    print("=" * 50)
+
+    # Get user choice
+    while True:
+        try:
+            choice = int(input(f"\nSelect a template (0-{len(template_list)}): "))
+            if choice == 0:
+                return  # Cancel
+            elif 1 <= choice <= len(template_list):
+                template_key, selected_template = template_list[choice - 1]
+                break
+            else:
+                print(f"Please enter a number between 0 and {len(template_list)}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    # Show template details
+    print("\n" + "=" * 50)
+    print(f"TEMPLATE: {selected_template.name}")
+    print("=" * 50)
+    print(f"Description: {selected_template.description}")
+    print(f"Total words: {selected_template.total:,}")
+    if selected_template.time:
+        print(f"Duration: {selected_template.time} days")
+    if selected_template.daily:
+        print(f"Daily goal: {selected_template.daily:,.0f} words/day")
+    if selected_template.suggested_pattern:
+        print(f"Suggested pattern: {selected_template.suggested_pattern}")
+    if selected_template.suggested_weekend_mode:
+        print(f"Suggested weekend mode: {selected_template.suggested_weekend_mode}")
+
+    # Ask if user wants to customize
+    if not get_yes_no("\nUse this template as-is?", default='y'):
+        print("\n" + "=" * 50)
+        print("CUSTOMIZE TEMPLATE")
+        print("=" * 50)
+
+        # Allow customization
+        if get_yes_no("Change total word count?", default='n'):
+            new_total = get_positive_number("Enter total words: ")
+            selected_template.total = new_total
+
+        if selected_template.time and get_yes_no("Change duration (days)?", default='n'):
+            new_time = get_positive_number("Enter number of days: ")
+            selected_template.time = new_time
+            selected_template.daily = None  # Will be recalculated
+
+        elif selected_template.daily and get_yes_no("Change daily goal?", default='n'):
+            new_daily = get_positive_number("Enter daily words: ")
+            selected_template.daily = new_daily
+            selected_template.time = None  # Will be recalculated
+
+    # Ask for start date
+    print("\n" + "=" * 50)
+    print("PLAN START DATE")
+    print("=" * 50)
+    print("\nWhen would you like to start writing?")
+    print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
+    print("Or press Enter for today's date")
+    start_date = get_date_input("Start date: ")
+
+    # Create plan from template
+    newplan = selected_template.create_plan(start_date=start_date)
+    newplan.name = selected_template.name
+
+    print(f"\n✓ Created plan from template: {selected_template.name}")
+    print(f"  Start date: {start_date.strftime('%Y-%m-%d')}")
+
+    # Apply suggested pattern if available
+    if selected_template.suggested_pattern:
+        if get_yes_no(f"\nApply suggested '{selected_template.suggested_pattern}' pattern?", default='y'):
+            newplan.pattern = selected_template.suggested_pattern
+            if selected_template.suggested_pattern != 'flat':
+                # Ask for intensity
+                print("\nPattern intensity:")
+                print("1. Mild")
+                print("2. Moderate (recommended)")
+                print("3. Extreme")
+
+                while True:
+                    try:
+                        intensity_choice = int(input("Select intensity (1-3): "))
+                        if intensity_choice == 1:
+                            newplan.pattern_config = {'intensity': 'mild'}
+                            break
+                        elif intensity_choice == 2:
+                            newplan.pattern_config = {'intensity': 'moderate'}
+                            break
+                        elif intensity_choice == 3:
+                            newplan.pattern_config = {'intensity': 'extreme'}
+                            break
+                        else:
+                            print("Please enter 1, 2, or 3.")
+                    except ValueError:
+                        print("Invalid input. Please enter a number.")
+
+            print(f"✓ Applied {newplan.pattern} pattern")
+
+    # Apply suggested weekend mode if available
+    if selected_template.suggested_weekend_mode and selected_template.suggested_weekend_mode != 'same':
+        if get_yes_no(f"\nConfigure weekend settings as suggested?", default='y'):
+            if selected_template.suggested_weekend_mode == 'different':
+                newplan.weekend_mode = 'different'
+                # Suggest 1.5x the daily goal for weekends
+                suggested_weekend_goal = int(newplan.daily * 1.5)
+                print(f"\nSuggested weekend goal: {suggested_weekend_goal:,.0f} words/day")
+                if get_yes_no("Use this weekend goal?", default='y'):
+                    newplan.weekend_daily = suggested_weekend_goal
+                else:
+                    weekend_goal = get_positive_number("Enter weekend daily goal: ")
+                    newplan.weekend_daily = weekend_goal
+                print(f"✓ Weekend mode: different ({newplan.weekend_daily:,.0f} words/day)")
+            elif selected_template.suggested_weekend_mode == 'spare':
+                newplan.weekend_mode = 'spare'
+                print("✓ Weekend mode: spare (no writing on weekends)")
+
+    # Handle plan actions
+    handle_plan_actions(newplan)
+
+
 def create_new_plan():
     """Handle the creation of a new plan."""
     calc_choice = choose_calculation_method()
@@ -1727,6 +1873,10 @@ def main():
             create_new_plan()
 
         elif choice == 2:
+            # Create from template
+            create_plan_from_template()
+
+        elif choice == 3:
             # Load a saved plan
             loaded_plan = load_saved_plan()
             if loaded_plan:

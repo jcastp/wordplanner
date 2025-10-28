@@ -8,3 +8,12 @@ dependencies = [
     "rich>=13.0.0",
     "plotext>=5.0.0"
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "freezegun>=1.2.0",
+    "faker>=18.0.0",
+]
