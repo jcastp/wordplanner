@@ -35,34 +35,43 @@ def display_calendar_view(plan_obj, start_date):
     """
     console = Console()
 
-    # Calculate end date
-    end_date = start_date + timedelta(days=int(plan_obj.time) - 1)
+    # Calculate end dates
+    writing_end_date = start_date + timedelta(days=int(plan_obj.time) - 1)
+    total_days = int(plan_obj.time) + int(plan_obj.spare_days)
+    final_end_date = start_date + timedelta(days=total_days - 1)
 
     # Display plan summary
     console.print()
-    summary = Panel(
+    summary_text = (
         f"[bold cyan]Total Words:[/bold cyan] {plan_obj.total:,.0f}\n"
         f"[bold green]Daily Goal:[/bold green] {plan_obj.daily:,.0f} words/day\n"
-        f"[bold yellow]Duration:[/bold yellow] {plan_obj.time:.0f} days\n"
-        f"[bold magenta]Start Date:[/bold magenta] {start_date.strftime('%B %d, %Y')}\n"
-        f"[bold magenta]End Date:[/bold magenta] {end_date.strftime('%B %d, %Y')}",
-        title="[bold]Your Writing Plan[/bold]",
-        border_style="blue"
+        f"[bold yellow]Writing Days:[/bold yellow] {plan_obj.time:.0f} days\n"
     )
+    if plan_obj.spare_days > 0:
+        summary_text += f"[bold orange1]Spare Days:[/bold orange1] {plan_obj.spare_days:.0f} days (0 words)\n"
+        summary_text += f"[bold yellow]Total Duration:[/bold yellow] {total_days:.0f} days\n"
+
+    summary_text += (
+        f"[bold magenta]Start Date:[/bold magenta] {start_date.strftime('%B %d, %Y')}\n"
+        f"[bold magenta]End Date:[/bold magenta] {final_end_date.strftime('%B %d, %Y')}"
+    )
+
+    summary = Panel(summary_text, title="[bold]Your Writing Plan[/bold]", border_style="blue")
     console.print(summary)
     console.print()
 
     # Group days by month
     current_date = start_date
-    days_remaining = int(plan_obj.time)
+    days_remaining = total_days  # Include spare days in calendar
+    day_number = 1  # Track current day number (1-indexed)
     max_months = 24  # Safety limit: don't show more than 24 months
     months_shown = 0
 
     while days_remaining > 0 and months_shown < max_months:
         months_shown += 1
-        # Safety check: if current_date is past end_date, break to prevent infinite loop
+        # Safety check: if current_date is past final_end_date, break to prevent infinite loop
         first_of_month = datetime(current_date.year, current_date.month, 1)
-        if first_of_month > end_date:
+        if first_of_month > final_end_date:
             break
 
         # Create a table for this month
@@ -102,19 +111,24 @@ def display_calendar_view(plan_obj, start_date):
                     # Create date for this day
                     day_date = datetime(current_date.year, current_date.month, day)
 
-                    # Check if this day is in our writing plan
-                    if start_date <= day_date <= end_date:
-                        # Calculate cumulative words by this date
-                        days_elapsed = (day_date - start_date).days + 1
-                        cumulative_words = int(days_elapsed * plan_obj.daily)
-
+                    # Check if this day is in our writing plan (including spare days)
+                    if start_date <= day_date <= final_end_date:
                         # Format the cell
                         cell_text = Text()
                         cell_text.append(f"{day}\n", style="bold white")
-                        cell_text.append(f"{plan_obj.daily:,.0f}w", style="green")
+
+                        # Check if this specific day is a spare day
+                        if day_number in plan_obj.spare_days_dates:
+                            # Spare day
+                            cell_text.append("SPARE", style="orange1 italic")
+                        else:
+                            # Writing day
+                            cell_text.append(f"{plan_obj.daily:,.0f}w", style="green")
+
                         row.append(cell_text)
 
                         days_remaining -= 1
+                        day_number += 1
                         days_added_this_month += 1
                         if days_remaining == 0:
                             break
@@ -146,7 +160,7 @@ def display_calendar_view(plan_obj, start_date):
             current_date = datetime(current_date.year, current_date.month + 1, 1)
 
     # Display progress milestones
-    display_milestones(console, plan_obj, start_date, end_date)
+    display_milestones(console, plan_obj, start_date, writing_end_date)
 
 
 def display_milestones(console, plan_obj, start_date, end_date):
@@ -191,22 +205,36 @@ def display_weekly_summary(plan_obj, start_date):
 
     table.add_column("Week", justify="center", style="cyan", width=8)
     table.add_column("Dates", justify="center", style="yellow", width=30)
+    table.add_column("Writing Days", justify="center", style="green", width=15)
+    table.add_column("Spare Days", justify="center", style="orange1", width=12)
     table.add_column("Daily Goal", justify="right", style="green", width=15)
     table.add_column("Weekly Total", justify="right", style="bold green", width=15)
     table.add_column("Cumulative", justify="right", style="bold cyan", width=15)
 
+    total_days = int(plan_obj.time) + plan_obj.spare_days
     current_date = start_date
-    days_remaining = int(plan_obj.time)
+    day_number = 1
     week_num = 1
     cumulative_words = 0
+    days_remaining = total_days
 
     while days_remaining > 0:
         # Calculate days in this week
         days_in_week = min(7, days_remaining)
         week_end = current_date + timedelta(days=days_in_week - 1)
 
+        # Count writing days and spare days in this week
+        writing_days_in_week = 0
+        spare_days_in_week = 0
+
+        for i in range(days_in_week):
+            if (day_number + i) in plan_obj.spare_days_dates:
+                spare_days_in_week += 1
+            else:
+                writing_days_in_week += 1
+
         # Calculate words for this week
-        weekly_words = int(plan_obj.daily * days_in_week)
+        weekly_words = int(plan_obj.daily * writing_days_in_week)
         cumulative_words += weekly_words
 
         # Format date range
@@ -215,12 +243,15 @@ def display_weekly_summary(plan_obj, start_date):
         table.add_row(
             f"{week_num}",
             date_range,
+            f"{writing_days_in_week}",
+            f"{spare_days_in_week}" if spare_days_in_week > 0 else "-",
             f"{plan_obj.daily:,.0f}",
             f"{weekly_words:,}",
             f"{cumulative_words:,}"
         )
 
         current_date = week_end + timedelta(days=1)
+        day_number += days_in_week
         days_remaining -= days_in_week
         week_num += 1
 

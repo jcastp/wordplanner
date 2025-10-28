@@ -137,8 +137,12 @@ def display_results(newplan):
     print("YOUR WRITING PLAN")
     print("-" * 50)
     print(f"Total words: {newplan.total:,.0f} words")
-    print(f"Time needed: {newplan.time:.1f} days")
-    print(f"Daily goal: {newplan.daily:,.1f} words per day")
+    print(f"Writing days: {newplan.time:.0f} days")
+    print(f"Daily goal: {newplan.daily:,.0f} words per day")
+    if newplan.spare_days > 0:
+        print(f"Spare days: {newplan.spare_days:.0f} days (0 words)")
+        total_calendar_days = newplan.time + newplan.spare_days
+        print(f"Total calendar duration: {total_calendar_days:.0f} days")
     print("-" * 50)
 
 
@@ -193,6 +197,165 @@ def plan_actions_menu():
             print("Invalid input. Please enter a number.")
 
 
+def manage_spare_days(current_plan):
+    """Interactively manage spare days for the plan."""
+    from datetime import timedelta
+
+    total_calendar_days = int(current_plan.time) + current_plan.spare_days
+
+    while True:
+        print("\n" + "=" * 50)
+        print("MANAGE SPARE DAYS")
+        print("=" * 50)
+        print("\nSpare days are days with 0 words (holidays, urgent matters, etc.)")
+        print(f"Writing days: {current_plan.time:.0f}")
+        print(f"Spare days: {current_plan.spare_days}")
+        print(f"Total calendar duration: {total_calendar_days} days")
+
+        if current_plan.spare_days > 0:
+            print("\nCurrent spare days:")
+            sorted_spare = sorted(current_plan.spare_days_dates)
+
+            # Show spare days with dates if start_date is set
+            if current_plan.start_date:
+                for day_num in sorted_spare:
+                    spare_date = current_plan.start_date + timedelta(days=day_num - 1)
+                    print(f"  Day {day_num}: {spare_date.strftime('%Y-%m-%d (%A)')}")
+            else:
+                print(f"  Days: {', '.join(map(str, sorted_spare))}")
+
+        print("\nOptions:")
+        print("1. Add spare day(s)")
+        print("2. Remove spare day(s)")
+        print("3. Clear all spare days")
+        print("0. Done")
+        print("=" * 50)
+
+        try:
+            choice = int(input("\nEnter your choice (0-3): "))
+
+            if choice == 0:
+                return len(current_plan.spare_days_dates) > 0  # Return True if modified
+
+            elif choice == 1:
+                # Add spare days
+                # Maximum reasonable limit: writing days + 365 (one year of potential spare days)
+                max_allowed_day = int(current_plan.time) + 365
+
+                print(f"\nCurrent plan has {int(current_plan.time)} writing days across {total_calendar_days} calendar days")
+                print("Enter day numbers separated by commas (e.g., 5,10,15)")
+                print("Or enter a range (e.g., 10-15)")
+                print(f"Day numbers must be between 1 and {max_allowed_day}")
+
+                days_input = input("Day(s) to mark as spare: ").strip()
+
+                if not days_input:
+                    continue
+
+                try:
+                    new_spare_days = []
+
+                    # Parse input (handles both comma-separated and ranges)
+                    parts = days_input.split(',')
+                    for part in parts:
+                        part = part.strip()
+                        if '-' in part:
+                            # Range
+                            start, end = part.split('-')
+                            start, end = int(start.strip()), int(end.strip())
+                            if start > end:
+                                start, end = end, start
+                            new_spare_days.extend(range(start, end + 1))
+                        else:
+                            # Single day
+                            new_spare_days.append(int(part))
+
+                    # Validate day numbers
+                    invalid_days = [d for d in new_spare_days if d < 1 or d > max_allowed_day]
+                    if invalid_days:
+                        print(f"\n✗ Invalid day numbers: {invalid_days}")
+                        print(f"  Days must be between 1 and {max_allowed_day}")
+                        continue
+
+                    # Add to spare days (avoid duplicates)
+                    added_count = 0
+                    for day in new_spare_days:
+                        if day not in current_plan.spare_days_dates:
+                            current_plan.spare_days_dates.append(day)
+                            added_count += 1
+
+                    total_calendar_days = int(current_plan.time) + current_plan.spare_days
+
+                    print(f"\n✓ Added {added_count} spare day(s)")
+                    if added_count < len(new_spare_days):
+                        print(f"  ({len(new_spare_days) - added_count} were already marked as spare)")
+                    print(f"New total calendar duration: {total_calendar_days} days")
+
+                except ValueError:
+                    print("\n✗ Invalid input format. Use numbers separated by commas or ranges (e.g., 5,10-15,20)")
+
+            elif choice == 2:
+                # Remove spare days
+                if current_plan.spare_days == 0:
+                    print("\n✗ No spare days to remove")
+                    continue
+
+                print("\nEnter day numbers to remove (comma-separated or range)")
+                days_input = input("Day(s) to remove from spare: ").strip()
+
+                if not days_input:
+                    continue
+
+                try:
+                    days_to_remove = []
+
+                    # Parse input
+                    parts = days_input.split(',')
+                    for part in parts:
+                        part = part.strip()
+                        if '-' in part:
+                            start, end = part.split('-')
+                            start, end = int(start.strip()), int(end.strip())
+                            if start > end:
+                                start, end = end, start
+                            days_to_remove.extend(range(start, end + 1))
+                        else:
+                            days_to_remove.append(int(part))
+
+                    # Remove from spare days
+                    removed_count = 0
+                    for day in days_to_remove:
+                        if day in current_plan.spare_days_dates:
+                            current_plan.spare_days_dates.remove(day)
+                            removed_count += 1
+
+                    total_calendar_days = int(current_plan.time) + current_plan.spare_days
+
+                    print(f"\n✓ Removed {removed_count} spare day(s)")
+                    if removed_count < len(days_to_remove):
+                        print(f"  ({len(days_to_remove) - removed_count} were not spare days)")
+
+                except ValueError:
+                    print("\n✗ Invalid input format")
+
+            elif choice == 3:
+                # Clear all spare days
+                if current_plan.spare_days == 0:
+                    print("\n✗ No spare days to clear")
+                    continue
+
+                if get_yes_no(f"Clear all {current_plan.spare_days} spare days?", default='n'):
+                    current_plan.spare_days_dates.clear()
+                    total_calendar_days = int(current_plan.time)
+                    print("\n✓ All spare days cleared")
+
+            else:
+                print("Please enter a number between 0 and 3.")
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
 def modify_plan(current_plan):
     """Allow user to modify plan values and recalculate."""
     print("\n" + "=" * 50)
@@ -201,18 +364,23 @@ def modify_plan(current_plan):
     print("\nCurrent values:")
     print(f"  Total words: {current_plan.total:,.0f}")
     print(f"  Daily words: {current_plan.daily:,.0f}")
-    print(f"  Time (days): {current_plan.time:.1f}")
+    print(f"  Writing days: {current_plan.time:.0f}")
+    print(f"  Spare days: {current_plan.spare_days:.0f}")
+    if current_plan.spare_days > 0:
+        total_calendar_days = current_plan.time + current_plan.spare_days
+        print(f"  Total calendar duration: {total_calendar_days:.0f} days")
     print("\nWhat would you like to modify?")
     print("\n1. Total words")
     print("2. Daily words")
-    print("3. Time (days)")
-    print("4. Modify two values (third will be calculated)")
+    print("3. Writing days")
+    print("4. Spare days")
+    print("5. Modify two values (third will be calculated)")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-4): "))
+            choice = int(input("\nEnter your choice (0-5): "))
             if choice == 0:
                 return False  # No changes made
 
@@ -286,6 +454,12 @@ def modify_plan(current_plan):
                         print("Invalid input. Please enter a number.")
 
             elif choice == 4:
+                # Manage spare days
+                modified = manage_spare_days(current_plan)
+                if modified:
+                    return True
+
+            elif choice == 5:
                 # Modify two values, calculate the third
                 print("\nWhich value should be calculated?")
                 print("1. Calculate total words (from daily × time)")
@@ -297,14 +471,14 @@ def modify_plan(current_plan):
                         calc_choice = int(input("Enter your choice (1-3): "))
                         if calc_choice == 1:
                             daily = get_positive_number("Enter daily words: ")
-                            time = get_positive_number("Enter time (days): ")
+                            time = get_positive_number("Enter writing days: ")
                             current_plan.daily = daily
                             current_plan.time = time
                             current_plan.calculate_words()
                             return True
                         elif calc_choice == 2:
                             total = get_positive_number("Enter total words: ")
-                            time = get_positive_number("Enter time (days): ")
+                            time = get_positive_number("Enter writing days: ")
                             current_plan.total = total
                             current_plan.time = time
                             current_plan.calculate_daily()
@@ -322,7 +496,7 @@ def modify_plan(current_plan):
                         print("Invalid input. Please enter a number.")
 
             else:
-                print("Please enter a number between 0 and 4.")
+                print("Please enter a number between 0 and 5.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
