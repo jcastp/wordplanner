@@ -199,30 +199,54 @@ def plan_actions_menu():
 
 def manage_spare_days(current_plan):
     """Interactively manage spare days for the plan."""
-    from datetime import timedelta
+    from datetime import timedelta, datetime as dt
+
+    # Check if start_date is set
+    if not current_plan.start_date:
+        print("\n✗ You must set a start date before managing spare days.")
+        print("  Please view a calendar first to set a start date.")
+        return False
 
     total_calendar_days = int(current_plan.time) + current_plan.spare_days
+    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
     while True:
         print("\n" + "=" * 50)
         print("MANAGE SPARE DAYS")
         print("=" * 50)
         print("\nSpare days are days with 0 words (holidays, urgent matters, etc.)")
+        print(f"Plan period: {current_plan.start_date.strftime('%Y-%m-%d')} to {plan_end_date.strftime('%Y-%m-%d')}")
         print(f"Writing days: {current_plan.time:.0f}")
         print(f"Spare days: {current_plan.spare_days}")
-        print(f"Total calendar duration: {total_calendar_days} days")
 
         if current_plan.spare_days > 0:
             print("\nCurrent spare days:")
-            sorted_spare = sorted(current_plan.spare_days_dates)
 
-            # Show spare days with dates if start_date is set
-            if current_plan.start_date:
-                for day_num in sorted_spare:
-                    spare_date = current_plan.start_date + timedelta(days=day_num - 1)
-                    print(f"  Day {day_num}: {spare_date.strftime('%Y-%m-%d (%A)')}")
-            else:
-                print(f"  Days: {', '.join(map(str, sorted_spare))}")
+            # Filter out any old integer-based spare days and convert if possible
+            valid_spare_dates = []
+            old_format_count = 0
+
+            for spare_item in current_plan.spare_days_dates:
+                if isinstance(spare_item, int):
+                    # Old format (day number) - skip or convert if we have start_date
+                    old_format_count += 1
+                    if current_plan.start_date:
+                        # Convert old day number to actual date
+                        from datetime import timedelta
+                        converted_date = current_plan.start_date + timedelta(days=spare_item - 1)
+                        valid_spare_dates.append(converted_date)
+                else:
+                    # New format (datetime object)
+                    valid_spare_dates.append(spare_item)
+
+            # Update the list with converted dates
+            if old_format_count > 0:
+                current_plan.spare_days_dates = valid_spare_dates
+                print(f"  (Converted {old_format_count} spare days from old format)")
+
+            sorted_spare = sorted(valid_spare_dates)
+            for spare_date in sorted_spare:
+                print(f"  {spare_date.strftime('%Y-%m-%d (%A)')}")
 
         print("\nOptions:")
         print("1. Add spare day(s)")
@@ -238,105 +262,149 @@ def manage_spare_days(current_plan):
                 return len(current_plan.spare_days_dates) > 0  # Return True if modified
 
             elif choice == 1:
-                # Add spare days
-                # Maximum reasonable limit: writing days + 365 (one year of potential spare days)
-                max_allowed_day = int(current_plan.time) + 365
+                # Add spare days by date
+                print("\nEnter dates to mark as spare days:")
+                print("  Format: YYYY-MM-DD (e.g., 2025-12-25)")
+                print("  Multiple dates: separated by commas (e.g., 2025-12-25,2025-12-26)")
+                print("  Date range: use 'to' (e.g., 2025-12-24 to 2025-12-26)")
+                print(f"  Valid range: {current_plan.start_date.strftime('%Y-%m-%d')} to ~1 year later")
 
-                print(f"\nCurrent plan has {int(current_plan.time)} writing days across {total_calendar_days} calendar days")
-                print("Enter day numbers separated by commas (e.g., 5,10,15)")
-                print("Or enter a range (e.g., 10-15)")
-                print(f"Day numbers must be between 1 and {max_allowed_day}")
+                dates_input = input("Date(s): ").strip()
 
-                days_input = input("Day(s) to mark as spare: ").strip()
-
-                if not days_input:
+                if not dates_input:
                     continue
 
                 try:
-                    new_spare_days = []
+                    new_spare_dates = []
 
-                    # Parse input (handles both comma-separated and ranges)
-                    parts = days_input.split(',')
-                    for part in parts:
-                        part = part.strip()
-                        if '-' in part:
-                            # Range
-                            start, end = part.split('-')
-                            start, end = int(start.strip()), int(end.strip())
-                            if start > end:
-                                start, end = end, start
-                            new_spare_days.extend(range(start, end + 1))
+                    # Check if it's a range (contains 'to')
+                    if ' to ' in dates_input.lower():
+                        # Date range
+                        parts = dates_input.lower().split(' to ')
+                        if len(parts) == 2:
+                            start_str = parts[0].strip()
+                            end_str = parts[1].strip()
+
+                            start_date = dt.strptime(start_str, "%Y-%m-%d")
+                            end_date = dt.strptime(end_str, "%Y-%m-%d")
+
+                            if start_date > end_date:
+                                start_date, end_date = end_date, start_date
+
+                            # Generate all dates in range
+                            current = start_date
+                            while current <= end_date:
+                                new_spare_dates.append(current)
+                                current += timedelta(days=1)
                         else:
-                            # Single day
-                            new_spare_days.append(int(part))
+                            print("\n✗ Invalid range format. Use: YYYY-MM-DD to YYYY-MM-DD")
+                            continue
+                    else:
+                        # Comma-separated dates
+                        date_strings = [d.strip() for d in dates_input.split(',')]
+                        for date_str in date_strings:
+                            if date_str:
+                                new_spare_dates.append(dt.strptime(date_str, "%Y-%m-%d"))
 
-                    # Validate day numbers
-                    invalid_days = [d for d in new_spare_days if d < 1 or d > max_allowed_day]
-                    if invalid_days:
-                        print(f"\n✗ Invalid day numbers: {invalid_days}")
-                        print(f"  Days must be between 1 and {max_allowed_day}")
+                    # Validate dates are reasonable (within plan period + 1 year buffer)
+                    max_allowed_date = current_plan.start_date + timedelta(days=365 + int(current_plan.time))
+                    min_allowed_date = current_plan.start_date
+
+                    invalid_dates = []
+                    for d in new_spare_dates:
+                        if d < min_allowed_date or d > max_allowed_date:
+                            invalid_dates.append(d.strftime('%Y-%m-%d'))
+
+                    if invalid_dates:
+                        print(f"\n✗ Some dates are outside the valid range:")
+                        for d in invalid_dates[:5]:  # Show first 5
+                            print(f"  {d}")
+                        if len(invalid_dates) > 5:
+                            print(f"  ... and {len(invalid_dates) - 5} more")
                         continue
 
                     # Add to spare days (avoid duplicates)
                     added_count = 0
-                    for day in new_spare_days:
-                        if day not in current_plan.spare_days_dates:
-                            current_plan.spare_days_dates.append(day)
+                    for new_date in new_spare_dates:
+                        # Check if already in spare days
+                        is_duplicate = False
+                        for existing in current_plan.spare_days_dates:
+                            if new_date.date() == existing.date():
+                                is_duplicate = True
+                                break
+
+                        if not is_duplicate:
+                            current_plan.spare_days_dates.append(new_date)
                             added_count += 1
 
                     total_calendar_days = int(current_plan.time) + current_plan.spare_days
+                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
                     print(f"\n✓ Added {added_count} spare day(s)")
-                    if added_count < len(new_spare_days):
-                        print(f"  ({len(new_spare_days) - added_count} were already marked as spare)")
-                    print(f"New total calendar duration: {total_calendar_days} days")
+                    if added_count < len(new_spare_dates):
+                        print(f"  ({len(new_spare_dates) - added_count} were already marked as spare)")
 
-                except ValueError:
-                    print("\n✗ Invalid input format. Use numbers separated by commas or ranges (e.g., 5,10-15,20)")
+                except ValueError as e:
+                    print(f"\n✗ Invalid date format: {e}")
+                    print("  Please use YYYY-MM-DD format (e.g., 2025-12-25)")
 
             elif choice == 2:
-                # Remove spare days
+                # Remove spare days by date
                 if current_plan.spare_days == 0:
                     print("\n✗ No spare days to remove")
                     continue
 
-                print("\nEnter day numbers to remove (comma-separated or range)")
-                days_input = input("Day(s) to remove from spare: ").strip()
+                print("\nEnter dates to remove from spare days:")
+                print("  Format: YYYY-MM-DD or comma-separated dates")
+                print("  Or use range: YYYY-MM-DD to YYYY-MM-DD")
 
-                if not days_input:
+                dates_input = input("Date(s): ").strip()
+
+                if not dates_input:
                     continue
 
                 try:
-                    days_to_remove = []
+                    dates_to_remove = []
 
-                    # Parse input
-                    parts = days_input.split(',')
-                    for part in parts:
-                        part = part.strip()
-                        if '-' in part:
-                            start, end = part.split('-')
-                            start, end = int(start.strip()), int(end.strip())
-                            if start > end:
-                                start, end = end, start
-                            days_to_remove.extend(range(start, end + 1))
-                        else:
-                            days_to_remove.append(int(part))
+                    # Check if it's a range
+                    if ' to ' in dates_input.lower():
+                        parts = dates_input.lower().split(' to ')
+                        if len(parts) == 2:
+                            start_date = dt.strptime(parts[0].strip(), "%Y-%m-%d")
+                            end_date = dt.strptime(parts[1].strip(), "%Y-%m-%d")
+
+                            if start_date > end_date:
+                                start_date, end_date = end_date, start_date
+
+                            current = start_date
+                            while current <= end_date:
+                                dates_to_remove.append(current)
+                                current += timedelta(days=1)
+                    else:
+                        # Comma-separated
+                        date_strings = [d.strip() for d in dates_input.split(',')]
+                        for date_str in date_strings:
+                            if date_str:
+                                dates_to_remove.append(dt.strptime(date_str, "%Y-%m-%d"))
 
                     # Remove from spare days
                     removed_count = 0
-                    for day in days_to_remove:
-                        if day in current_plan.spare_days_dates:
-                            current_plan.spare_days_dates.remove(day)
-                            removed_count += 1
+                    for remove_date in dates_to_remove:
+                        for i, spare_date in enumerate(current_plan.spare_days_dates[:]):
+                            if remove_date.date() == spare_date.date():
+                                current_plan.spare_days_dates.remove(spare_date)
+                                removed_count += 1
+                                break
 
                     total_calendar_days = int(current_plan.time) + current_plan.spare_days
+                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
                     print(f"\n✓ Removed {removed_count} spare day(s)")
-                    if removed_count < len(days_to_remove):
-                        print(f"  ({len(days_to_remove) - removed_count} were not spare days)")
+                    if removed_count < len(dates_to_remove):
+                        print(f"  ({len(dates_to_remove) - removed_count} were not spare days)")
 
-                except ValueError:
-                    print("\n✗ Invalid input format")
+                except ValueError as e:
+                    print(f"\n✗ Invalid date format: {e}")
 
             elif choice == 3:
                 # Clear all spare days
@@ -347,6 +415,7 @@ def manage_spare_days(current_plan):
                 if get_yes_no(f"Clear all {current_plan.spare_days} spare days?", default='n'):
                     current_plan.spare_days_dates.clear()
                     total_calendar_days = int(current_plan.time)
+                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
                     print("\n✓ All spare days cleared")
 
             else:

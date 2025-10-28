@@ -63,7 +63,6 @@ def display_calendar_view(plan_obj, start_date):
     # Group days by month
     current_date = start_date
     days_remaining = total_days  # Include spare days in calendar
-    day_number = 1  # Track current day number (1-indexed)
     max_months = 24  # Safety limit: don't show more than 24 months
     months_shown = 0
 
@@ -117,8 +116,8 @@ def display_calendar_view(plan_obj, start_date):
                         cell_text = Text()
                         cell_text.append(f"{day}\n", style="bold white")
 
-                        # Check if this specific day is a spare day
-                        if day_number in plan_obj.spare_days_dates:
+                        # Check if this specific date is a spare day
+                        if plan_obj.is_spare_day(day_date):
                             # Spare day
                             cell_text.append("SPARE", style="orange1 italic")
                         else:
@@ -128,7 +127,6 @@ def display_calendar_view(plan_obj, start_date):
                         row.append(cell_text)
 
                         days_remaining -= 1
-                        day_number += 1
                         days_added_this_month += 1
                         if days_remaining == 0:
                             break
@@ -213,7 +211,6 @@ def display_weekly_summary(plan_obj, start_date):
 
     total_days = int(plan_obj.time) + plan_obj.spare_days
     current_date = start_date
-    day_number = 1
     week_num = 1
     cumulative_words = 0
     days_remaining = total_days
@@ -227,11 +224,13 @@ def display_weekly_summary(plan_obj, start_date):
         writing_days_in_week = 0
         spare_days_in_week = 0
 
+        check_date = current_date
         for i in range(days_in_week):
-            if (day_number + i) in plan_obj.spare_days_dates:
+            if plan_obj.is_spare_day(check_date):
                 spare_days_in_week += 1
             else:
                 writing_days_in_week += 1
+            check_date += timedelta(days=1)
 
         # Calculate words for this week
         weekly_words = int(plan_obj.daily * writing_days_in_week)
@@ -251,7 +250,6 @@ def display_weekly_summary(plan_obj, start_date):
         )
 
         current_date = week_end + timedelta(days=1)
-        day_number += days_in_week
         days_remaining -= days_in_week
         week_num += 1
 
