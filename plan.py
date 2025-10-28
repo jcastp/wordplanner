@@ -124,7 +124,7 @@ class Plan():
             # Create a valley curve using cosine
             # cos(0) = 1, cos(pi) = -1, cos(2pi) = 1
             progress = day / num_days
-            curve = math.cos(progress * math.pi)  # Goes from 1 to -1 to 1
+            curve = math.cos(progress * 2 * math.pi) # Goes from 1 to -1 to 1
 
             # Map curve to multiplier range
             # curve: 1 to -1, map to: peak_multiplier to valley_multiplier
