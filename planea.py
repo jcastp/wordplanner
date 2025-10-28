@@ -10,6 +10,36 @@ import calendar_view
 import plan_storage
 
 
+def get_yes_no(prompt, default='y'):
+    """
+    Get a yes/no answer from user with a default value.
+
+    Args:
+        prompt: The question to ask
+        default: 'y' or 'n' for the default answer (selected with Enter)
+
+    Returns:
+        True for yes, False for no
+    """
+    if default.lower() == 'y':
+        options = "[Y/n]"
+    else:
+        options = "[y/N]"
+
+    while True:
+        response = input(f"{prompt} {options}: ").strip().lower()
+
+        if response == "":
+            # Use default
+            return default.lower() == 'y'
+        elif response in ['y', 'yes']:
+            return True
+        elif response in ['n', 'no']:
+            return False
+        else:
+            print("Please enter 'y' for yes or 'n' for no (or press Enter for default).")
+
+
 def get_positive_number(prompt):
     """Get a positive number from user input with validation."""
     while True:
@@ -44,8 +74,7 @@ def get_date_input(prompt_text="Start date: "):
         if selected_date_normalized < today:
             days_ago = (today - selected_date_normalized).days
             print(f"\n⚠ Warning: This date is {days_ago} day(s) in the past.")
-            confirm = input("Do you want to use this date anyway? (y/n): ").lower()
-            if confirm == 'y':
+            if get_yes_no("Do you want to use this date anyway?", default='n'):
                 return selected_date
             else:
                 print("Please enter a new date.")
@@ -115,13 +144,11 @@ def display_results(newplan):
 
 def save_plan_prompt(newplan):
     """Ask user if they want to save the plan."""
-    save = input("\nWould you like to save this plan? (y/n): ").lower()
-    if save == 'y':
+    if get_yes_no("\nWould you like to save this plan?", default='y'):
         # If plan already has a name, ask if they want to keep it or change it
         if newplan.name:
             print(f"\nCurrent plan name: {newplan.name}")
-            change_name = input("Keep this name? (y/n): ").lower()
-            if change_name == 'y':
+            if get_yes_no("Keep this name?", default='y'):
                 plan_name = newplan.name
             else:
                 plan_name = input("Enter a new name for this plan: ").strip()
