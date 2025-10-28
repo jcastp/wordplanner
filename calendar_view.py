@@ -63,6 +63,24 @@ def display_calendar_view(plan_obj, start_date):
         f"[bold magenta]End Date:[/bold magenta] {final_end_date.strftime('%B %d, %Y')}"
     )
 
+    # Add progress information if any progress has been recorded
+    if plan_obj.progress:
+        total_written = plan_obj.get_total_written()
+        completion = plan_obj.get_completion_percentage()
+        on_track, info = plan_obj.is_on_track()
+
+        summary_text += "\n\n[bold white]Progress:[/bold white]\n"
+        summary_text += f"  Written: {total_written:,} words ({completion:.1f}%)\n"
+        summary_text += f"  Remaining: {plan_obj.get_remaining_words():,} words\n"
+
+        if info.get('status'):
+            if info['status'] == 'ahead':
+                summary_text += f"  [bold green]✓ AHEAD[/bold green] by {info['difference']:,.0f} words"
+            elif info['status'] == 'on_track':
+                summary_text += f"  [bold green]✓ ON TRACK[/bold green]"
+            else:
+                summary_text += f"  [bold red]⚠ BEHIND[/bold red] by {abs(info['difference']):,.0f} words"
+
     summary = Panel(summary_text, title="[bold]Your Writing Plan[/bold]", border_style="blue")
     console.print(summary)
     console.print()
@@ -130,7 +148,35 @@ def display_calendar_view(plan_obj, start_date):
                         else:
                             # Writing day - use pattern-based goal
                             daily_goal = plan_obj.get_daily_goal(date=day_date)
-                            cell_text.append(f"{daily_goal:,.0f}w", style="green")
+
+                            # Get progress status for this date
+                            progress_status = plan_obj.get_progress_status_for_date(day_date)
+
+                            # Determine style based on progress status
+                            if progress_status == 'exceeded':
+                                style = "bold green"
+                                actual = plan_obj.get_progress_for_date(day_date)
+                                cell_text.append(f"{daily_goal:,.0f}w\n", style="dim white")
+                                cell_text.append(f"✓{actual:,.0f}", style=style)
+                            elif progress_status == 'met':
+                                style = "green"
+                                cell_text.append(f"{daily_goal:,.0f}w\n", style="dim white")
+                                cell_text.append("✓", style=style)
+                            elif progress_status == 'partial':
+                                style = "yellow"
+                                actual = plan_obj.get_progress_for_date(day_date)
+                                cell_text.append(f"{daily_goal:,.0f}w\n", style="dim white")
+                                cell_text.append(f"~{actual:,.0f}", style=style)
+                            elif progress_status == 'missed':
+                                style = "red"
+                                cell_text.append(f"{daily_goal:,.0f}w\n", style="dim white")
+                                cell_text.append("✗", style=style)
+                            elif progress_status == 'future':
+                                style = "blue"
+                                cell_text.append(f"{daily_goal:,.0f}w", style=style)
+                            else:
+                                # No goal or other status
+                                cell_text.append(f"{daily_goal:,.0f}w", style="green")
 
                         row.append(cell_text)
 

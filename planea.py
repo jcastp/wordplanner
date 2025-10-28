@@ -239,6 +239,28 @@ def display_results(newplan):
         print(f"Spare days: {newplan.spare_days:.0f} days (0 words)")
         total_calendar_days = newplan.time + newplan.spare_days
         print(f"Total calendar duration: {total_calendar_days:.0f} days")
+
+    # Show progress information if available
+    if newplan.progress:
+        print("-" * 50)
+        total_written = newplan.get_total_written()
+        completion = newplan.get_completion_percentage()
+        remaining = newplan.get_remaining_words()
+
+        print(f"Progress: {total_written:,} words written ({completion:.1f}%)")
+        print(f"Remaining: {remaining:,} words")
+
+        # Show on-track status if start date is set
+        if newplan.start_date:
+            on_track, info = newplan.is_on_track()
+            if info.get('status'):
+                if info['status'] == 'ahead':
+                    print(f"Status: ✓ AHEAD by {info['difference']:,.0f} words")
+                elif info['status'] == 'on_track':
+                    print(f"Status: ✓ ON TRACK")
+                else:
+                    print(f"Status: ⚠ BEHIND by {abs(info['difference']):,.0f} words")
+
     print("-" * 50)
 
 
@@ -316,19 +338,21 @@ def plan_actions_menu():
     print("PLAN ACTIONS")
     print("=" * 50)
     print("\nWhat would you like to do with this plan?")
-    print("\n1. Modify plan")
-    print("2. View calendar")
-    print("3. Save plan")
+    print("\n1. Update progress")
+    print("2. View progress summary")
+    print("3. Modify plan")
+    print("4. View calendar")
+    print("5. Save plan")
     print("0. Go back to main menu")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
+            choice = int(input("\nEnter your choice (0-5): "))
+            if choice in [0, 1, 2, 3, 4, 5]:
                 return choice
             else:
-                print("Please enter a number between 0 and 3.")
+                print("Please enter a number between 0 and 5.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -851,6 +875,394 @@ def show_calendar_options(newplan):
             print("Invalid input. Please enter a number.")
 
 
+def update_progress(current_plan):
+    """Update progress for the writing plan."""
+    if not current_plan.start_date:
+        print("\n✗ You must set a start date before tracking progress.")
+        print("  Please view a calendar first to set a start date.")
+        input("\nPress Enter to continue...")
+        return
+
+    while True:
+        print("\n" + "=" * 50)
+        print("UPDATE PROGRESS")
+        print("=" * 50)
+        print("\nOptions:")
+        print("1. Quick entry (today's words)")
+        print("2. Enter for a specific date")
+        print("3. View all progress entries")
+        print("0. Done")
+        print("=" * 50)
+
+        try:
+            choice = int(input("\nEnter your choice (0-3): "))
+
+            if choice == 0:
+                return
+
+            elif choice == 1:
+                # Quick entry for today
+                today = datetime.now()
+                print(f"\nEntering progress for: {today.strftime('%Y-%m-%d (%A)')}")
+
+                # Check if it's a spare day
+                if current_plan.is_spare_day(today):
+                    print("⚠ Note: This is a spare day (0 words expected)")
+
+                # Show existing progress if any
+                existing = current_plan.get_progress_for_date(today)
+                if existing is not None:
+                    print(f"Current progress: {existing:,} words")
+
+                # Get goal for today
+                daily_goal = current_plan.get_daily_goal(date=today)
+                print(f"Goal for today: {daily_goal:,.0f} words")
+
+                word_count_input = input("\nHow many words did you write today? (or press Enter to cancel): ").strip()
+
+                if word_count_input == "":
+                    continue
+
+                try:
+                    word_count = int(word_count_input)
+                    if word_count < 0:
+                        print("✗ Word count cannot be negative")
+                        continue
+
+                    current_plan.record_progress(today, word_count)
+                    print(f"\n✓ Progress recorded: {word_count:,} words")
+
+                    # Check if goal was met
+                    if word_count >= daily_goal:
+                        print("🎉 You met your daily goal!")
+                    elif word_count > 0:
+                        remaining = daily_goal - word_count
+                        print(f"   ({remaining:,.0f} words short of goal)")
+
+                    # Check overall status and offer recalculation
+                    check_and_offer_recalculation(current_plan)
+
+                except ValueError:
+                    print("✗ Invalid input. Please enter a number.")
+
+            elif choice == 2:
+                # Enter for specific date
+                print("\nEnter the date (YYYY-MM-DD):")
+                date_input = input("Date: ").strip()
+
+                if date_input == "":
+                    continue
+
+                try:
+                    entry_date = datetime.strptime(date_input, "%Y-%m-%d")
+
+                    # Check if date is in plan range
+                    if entry_date < current_plan.start_date:
+                        print(f"\n✗ Date is before plan start ({current_plan.start_date.strftime('%Y-%m-%d')})")
+                        continue
+
+                    print(f"\nEntering progress for: {entry_date.strftime('%Y-%m-%d (%A)')}")
+
+                    # Check if it's a spare day
+                    if current_plan.is_spare_day(entry_date):
+                        print("⚠ Note: This is a spare day (0 words expected)")
+
+                    # Show existing progress if any
+                    existing = current_plan.get_progress_for_date(entry_date)
+                    if existing is not None:
+                        print(f"Current progress: {existing:,} words")
+
+                    # Get goal for this date
+                    daily_goal = current_plan.get_daily_goal(date=entry_date)
+                    print(f"Goal for this day: {daily_goal:,.0f} words")
+
+                    word_count_input = input("\nWords written: ").strip()
+
+                    if word_count_input == "":
+                        continue
+
+                    word_count = int(word_count_input)
+                    if word_count < 0:
+                        print("✗ Word count cannot be negative")
+                        continue
+
+                    current_plan.record_progress(entry_date, word_count)
+                    print(f"\n✓ Progress recorded: {word_count:,} words")
+
+                    # Check overall status and offer recalculation
+                    check_and_offer_recalculation(current_plan)
+
+                except ValueError as e:
+                    print(f"✗ Invalid input: {e}")
+
+            elif choice == 3:
+                # View all progress entries
+                if not current_plan.progress:
+                    print("\n✗ No progress entries recorded yet")
+                    input("\nPress Enter to continue...")
+                    continue
+
+                print("\n" + "=" * 50)
+                print("ALL PROGRESS ENTRIES")
+                print("=" * 50)
+
+                # Sort by date
+                sorted_dates = sorted(current_plan.progress.keys())
+
+                for date_str in sorted_dates:
+                    entry_date = datetime.strptime(date_str, "%Y-%m-%d")
+                    word_count = current_plan.progress[date_str]
+                    daily_goal = current_plan.get_daily_goal(date=entry_date)
+
+                    status_icon = "✓" if word_count >= daily_goal else "○"
+                    print(f"{status_icon} {entry_date.strftime('%Y-%m-%d (%A)')}: {word_count:,} words (goal: {daily_goal:,.0f})")
+
+                input("\nPress Enter to continue...")
+
+            else:
+                print("Please enter a number between 0 and 3.")
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def check_and_offer_recalculation(current_plan):
+    """Check if user is on track and offer recalculation if needed."""
+    on_track, info = current_plan.is_on_track()
+
+    if on_track and info['status'] == 'on_track':
+        # Exactly on track, no need to recalculate
+        return
+
+    print("\n" + "-" * 50)
+    print("PROGRESS STATUS")
+    print("-" * 50)
+
+    if info['status'] == 'ahead':
+        print(f"✓ You're AHEAD of schedule!")
+        print(f"  Expected: {info['expected_words']:,.0f} words")
+        print(f"  Actual: {info['actual_words']:,.0f} words")
+        print(f"  Ahead by: {info['difference']:,.0f} words ({info['percent_diff']:.1f}%)")
+
+        if get_yes_no("\nWould you like to adjust your plan?", default='n'):
+            offer_ahead_recalculation(current_plan, info)
+
+    elif info['status'] == 'behind':
+        print(f"⚠ You're BEHIND schedule")
+        print(f"  Expected: {info['expected_words']:,.0f} words")
+        print(f"  Actual: {info['actual_words']:,.0f} words")
+        print(f"  Behind by: {abs(info['difference']):,.0f} words ({abs(info['percent_diff']):.1f}%)")
+
+        if get_yes_no("\nWould you like to adjust your plan?", default='y'):
+            offer_behind_recalculation(current_plan, info)
+
+
+def offer_ahead_recalculation(current_plan, info):
+    """Offer recalculation options when ahead of schedule."""
+    print("\n" + "=" * 50)
+    print("ADJUST PLAN (AHEAD OF SCHEDULE)")
+    print("=" * 50)
+    print("\nHow would you like to adjust your plan?")
+    print("\n1. Reduce daily goals (keep end date)")
+    print("2. Finish early (keep daily goals)")
+    print("0. Keep plan as is")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-2): "))
+
+            if choice == 0:
+                return
+
+            elif choice == 1:
+                # Reduce daily goals
+                remaining_words = current_plan.get_remaining_words()
+                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+                # Calculate remaining writing days
+                current_date = today + datetime.timedelta(days=1)  # Start from tomorrow
+                total_days = int(current_plan.time) + current_plan.spare_days
+                plan_end = current_plan.start_date + datetime.timedelta(days=total_days - 1)
+                remaining_days = 0
+
+                while current_date <= plan_end:
+                    if not current_plan.is_spare_day(current_date):
+                        remaining_days += 1
+                    current_date += datetime.timedelta(days=1)
+
+                if remaining_days == 0:
+                    print("\n✓ Plan complete! No remaining days.")
+                    return
+
+                new_daily = remaining_words / remaining_days
+
+                print(f"\nProposed adjustment:")
+                print(f"  Current daily goal: {current_plan.daily:,.0f} words/day")
+                print(f"  New daily goal: {new_daily:,.0f} words/day")
+                print(f"  Remaining days: {remaining_days}")
+
+                if get_yes_no("Apply this adjustment?", default='y'):
+                    current_plan.daily = new_daily
+                    current_plan.time = remaining_days + info['days_elapsed']
+                    current_plan.invalidate_daily_goals_cache()
+                    print("\n✓ Plan adjusted!")
+
+                return
+
+            elif choice == 2:
+                # Finish early
+                remaining_words = current_plan.get_remaining_words()
+                new_days_needed = remaining_words / current_plan.daily
+
+                print(f"\nProposed adjustment:")
+                print(f"  Current plan: {current_plan.time:.0f} days")
+                print(f"  New plan: {info['days_elapsed'] + new_days_needed:.0f} days")
+                print(f"  Finishing early by: {current_plan.time - (info['days_elapsed'] + new_days_needed):.0f} days")
+
+                if get_yes_no("Apply this adjustment?", default='y'):
+                    current_plan.time = info['days_elapsed'] + new_days_needed
+                    current_plan.invalidate_daily_goals_cache()
+                    print("\n✓ Plan adjusted!")
+
+                return
+
+            else:
+                print("Please enter 0, 1, or 2.")
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def offer_behind_recalculation(current_plan, info):
+    """Offer recalculation options when behind schedule."""
+    print("\n" + "=" * 50)
+    print("ADJUST PLAN (BEHIND SCHEDULE)")
+    print("=" * 50)
+    print("\nHow would you like to adjust your plan?")
+    print("\n1. Increase daily goals (keep end date)")
+    print("2. Extend deadline (keep daily goals)")
+    print("0. Keep plan as is")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-2): "))
+
+            if choice == 0:
+                return
+
+            elif choice == 1:
+                # Increase daily goals
+                remaining_words = current_plan.get_remaining_words()
+                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+                # Calculate remaining writing days
+                current_date = today + datetime.timedelta(days=1)  # Start from tomorrow
+                total_days = int(current_plan.time) + current_plan.spare_days
+                plan_end = current_plan.start_date + datetime.timedelta(days=total_days - 1)
+                remaining_days = 0
+
+                while current_date <= plan_end:
+                    if not current_plan.is_spare_day(current_date):
+                        remaining_days += 1
+                    current_date += datetime.timedelta(days=1)
+
+                if remaining_days == 0:
+                    print("\n✗ No remaining days to adjust. Plan complete or past deadline.")
+                    return
+
+                new_daily = remaining_words / remaining_days
+
+                print(f"\nProposed adjustment:")
+                print(f"  Current daily goal: {current_plan.daily:,.0f} words/day")
+                print(f"  New daily goal: {new_daily:,.0f} words/day")
+                print(f"  Increase: {new_daily - current_plan.daily:,.0f} words/day")
+                print(f"  Remaining days: {remaining_days}")
+
+                if get_yes_no("Apply this adjustment?", default='y'):
+                    current_plan.daily = new_daily
+                    current_plan.time = remaining_days + info['days_elapsed']
+                    current_plan.invalidate_daily_goals_cache()
+                    print("\n✓ Plan adjusted!")
+
+                return
+
+            elif choice == 2:
+                # Extend deadline
+                remaining_words = current_plan.get_remaining_words()
+                additional_days_needed = remaining_words / current_plan.daily
+
+                print(f"\nProposed adjustment:")
+                print(f"  Current plan: {current_plan.time:.0f} days")
+                print(f"  New plan: {info['days_elapsed'] + additional_days_needed:.0f} days")
+                print(f"  Extension: {additional_days_needed:.0f} days")
+
+                if get_yes_no("Apply this adjustment?", default='y'):
+                    current_plan.time = info['days_elapsed'] + additional_days_needed
+                    current_plan.invalidate_daily_goals_cache()
+                    print("\n✓ Plan adjusted!")
+
+                return
+
+            else:
+                print("Please enter 0, 1, or 2.")
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def view_progress_summary(current_plan):
+    """Display a comprehensive progress summary."""
+    if not current_plan.start_date:
+        print("\n✗ No start date set")
+        input("\nPress Enter to continue...")
+        return
+
+    print("\n" + "=" * 50)
+    print("PROGRESS SUMMARY")
+    print("=" * 50)
+
+    # Overall progress
+    total_written = current_plan.get_total_written()
+    remaining = current_plan.get_remaining_words()
+    completion = current_plan.get_completion_percentage()
+
+    print(f"\nOverall Progress:")
+    print(f"  Total goal: {current_plan.total:,.0f} words")
+    print(f"  Written: {total_written:,} words ({completion:.1f}%)")
+    print(f"  Remaining: {remaining:,} words")
+
+    # Days with progress
+    days_recorded = current_plan.get_days_with_progress()
+    print(f"\n  Days recorded: {days_recorded}")
+
+    # Current streak
+    streak = current_plan.get_current_streak()
+    if streak > 0:
+        print(f"  Current streak: {streak} day{'s' if streak != 1 else ''} 🔥")
+
+    # On track status
+    on_track, info = current_plan.is_on_track()
+
+    print(f"\nSchedule Status:")
+    if info.get('message'):
+        print(f"  {info['message']}")
+    else:
+        if info['status'] == 'ahead':
+            print(f"  ✓ AHEAD by {info['difference']:,.0f} words ({info['percent_diff']:.1f}%)")
+        elif info['status'] == 'on_track':
+            print(f"  ✓ ON TRACK")
+        else:
+            print(f"  ⚠ BEHIND by {abs(info['difference']):,.0f} words ({abs(info['percent_diff']):.1f}%)")
+
+        print(f"  Expected: {info['expected_words']:,.0f} words")
+        print(f"  Actual: {info['actual_words']:,.0f} words")
+        print(f"  Days elapsed: {info['days_elapsed']}")
+
+    input("\nPress Enter to continue...")
+
+
 def handle_plan_actions(current_plan):
     """Handle the plan actions menu loop."""
     while True:
@@ -862,17 +1274,25 @@ def handle_plan_actions(current_plan):
             break
 
         elif action == 1:
+            # Update progress
+            update_progress(current_plan)
+
+        elif action == 2:
+            # View progress summary
+            view_progress_summary(current_plan)
+
+        elif action == 3:
             # Modify plan
             modified = modify_plan(current_plan)
             if modified:
                 print("\n✓ Plan modified successfully!")
             # Loop continues to show updated results
 
-        elif action == 2:
+        elif action == 4:
             # View calendar
             show_calendar_options(current_plan)
 
-        elif action == 3:
+        elif action == 5:
             # Save plan
             save_plan_prompt(current_plan)
 
