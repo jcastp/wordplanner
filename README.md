@@ -68,7 +68,33 @@ Distribute your writing goals with different patterns to match your energy and s
   - View progress summary
   - Modify plan values
   - View calendar visualizations
+  - Export plan
   - Save changes
+
+#### Export Functionality
+Share and use your plans in other applications:
+- **CSV Export** - Spreadsheet format for data analysis
+  - Day-by-day breakdown with dates and goals
+  - Progress tracking columns (actual vs goal)
+  - Cumulative word counts
+  - Status indicators (Exceeded, Met, Partial, Missed, Future)
+  - Spare days clearly marked
+  - Import into Excel, Google Sheets, etc.
+- **iCal/ICS Export** - Calendar format for scheduling apps
+  - Daily events with word goals
+  - Spare days as transparent events
+  - Compatible with Google Calendar, Apple Calendar, Outlook
+  - Reminders and notifications (app-dependent)
+  - Full calendar integration
+- **Markdown Export** - Readable text format
+  - Complete plan overview
+  - Progress summary with stats
+  - Daily schedule grouped by week
+  - Milestones table (25%, 50%, 75%, 100%)
+  - Perfect for sharing or documentation
+- **Export All** - Generate all three formats at once
+- **Automatic naming** - Files named with plan name and timestamp
+- **Organized storage** - All exports saved to ~/.planeapalabras/exports/
 
 #### Spare Days Management
 Mark specific dates as 0-word days for holidays, breaks, or urgent matters:
@@ -343,6 +369,67 @@ Goal: Track daily writing progress and adjust plan if behind schedule
    Plan updated with new values and spare days
    ```
 
+### Example 6: Exporting Your Plan
+
+Goal: Share your writing plan with others or import it into calendar/spreadsheet apps
+
+1. Export to Calendar App
+   ```
+   Choose: "Plan Actions" → "Export plan"
+   Select: "iCal/ICS (for calendar apps)"
+   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.ics
+
+   Import the .ics file into:
+   - Google Calendar (Settings → Import & Export)
+   - Apple Calendar (File → Import)
+   - Outlook (File → Open & Export → Import/Export)
+
+   You'll see daily events with your word goals!
+   ```
+
+2. Export to Spreadsheet
+   ```
+   Choose: "Plan Actions" → "Export plan"
+   Select: "CSV (for spreadsheets)"
+   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.csv
+
+   Open in Excel or Google Sheets to see:
+   - Date, Day of Week, Day Number
+   - Daily Goals and Actual Words
+   - Cumulative Totals
+   - Status (Exceeded, Met, Partial, Missed, Future)
+   - Spare days marked
+
+   Perfect for tracking and analysis!
+   ```
+
+3. Export to Markdown for Documentation
+   ```
+   Choose: "Plan Actions" → "Export plan"
+   Select: "Markdown (readable text)"
+   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.md
+
+   Use for:
+   - Sharing with writing partners
+   - Posting on writing forums
+   - Documentation/records
+   - GitHub README files
+
+   Includes overview, progress, daily schedule, and milestones!
+   ```
+
+4. Export All Formats at Once
+   ```
+   Choose: "Plan Actions" → "Export plan"
+   Select: "All formats"
+   Result: ✓ Exported 3 files:
+           - MyPlan_20251028_120000.csv
+           - MyPlan_20251028_120000.ics
+           - MyPlan_20251028_120000.md
+
+   All files ready for different purposes!
+   ```
+
 ## File Structure
 
 ```
@@ -351,6 +438,7 @@ planeapalabras/
 ├── plan.py                    # Core Plan class with calculations
 ├── calendar_view.py           # Calendar visualization with Rich
 ├── plan_storage.py            # Save/load functionality
+├── plan_export.py             # Export functionality (CSV, iCal, Markdown)
 ├── README.md                  # This file - user documentation
 ├── CLAUDE.md                  # Developer documentation for AI
 ├── future-improvements.md     # Roadmap and planned features
@@ -371,9 +459,36 @@ Each plan is stored as a JSON file with format:
 PlanName_YYYYMMDD_HHMMSS.json
 ```
 
+Exported files are saved to:
+```
+~/.planeapalabras/exports/
+```
+
+Exports are named with the plan name and timestamp in the appropriate format:
+- CSV: `PlanName_YYYYMMDD_HHMMSS.csv`
+- iCal: `PlanName_YYYYMMDD_HHMMSS.ics`
+- Markdown: `PlanName_YYYYMMDD_HHMMSS.md`
+
 ## What's New
 
-### Version 1.3 (Latest)
+### Version 1.4 (Latest)
+- **Export Functionality** - Share plans in multiple formats:
+  - CSV export for spreadsheets (Excel, Google Sheets)
+  - iCal/ICS export for calendar apps (Google Calendar, Apple Calendar, Outlook)
+  - Markdown export for readable documentation
+  - Export all formats at once
+  - Automatic file naming with timestamps
+  - Organized exports directory (~/.planeapalabras/exports/)
+- **Progress in Exports** - CSV and Markdown exports include:
+  - Actual word counts vs goals
+  - Status indicators (Exceeded, Met, Partial, Missed, Future)
+  - Cumulative progress tracking
+- **Spare Days in Exports** - All formats properly handle spare days:
+  - CSV marks spare days with "Spare" type
+  - iCal creates transparent events for spare days
+  - Markdown shows spare days in daily schedule
+
+### Version 1.3
 - **Progress Tracking** - Track actual words written each day:
   - Quick entry for today's words
   - Enter progress for any past date (edit/update anytime)
@@ -490,8 +605,14 @@ A: Yes! Use "Update progress" from the Plan Actions menu. You can enter words fo
 Q: What happens if I fall behind schedule?
 A: The app will detect when you're behind and offer to adjust your plan. You can either increase daily goals to catch up while keeping the same deadline, or extend your deadline while keeping the same daily goals. You choose!
 
-Q: Can I export my plan to Google Calendar?
-A: Not yet, but iCal export is planned.
+Q: Can I export my plan to Google Calendar or other calendar apps?
+A: Yes! Use the "Export plan" option and choose iCal/ICS format. The exported .ics file can be imported into Google Calendar, Apple Calendar, Outlook, and most other calendar applications. You'll get daily events with your word goals and spare days marked.
+
+Q: Can I export my plan to Excel or Google Sheets?
+A: Yes! Use the "Export plan" option and choose CSV format. The exported CSV file can be opened in Excel, Google Sheets, or any spreadsheet application. It includes day-by-day data with your goals, actual progress, cumulative totals, and status indicators.
+
+Q: What export formats are available?
+A: Three formats: CSV (for spreadsheets), iCal/ICS (for calendar apps), and Markdown (for readable documentation). You can export to a single format or all three at once. All exports are saved to ~/.planeapalabras/exports/
 
 Q: Where are my plans stored?
 A: In ~/.planeapalabras/plans/ as JSON files.

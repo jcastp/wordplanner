@@ -8,6 +8,7 @@ import readline
 import plan
 import calendar_view
 import plan_storage
+import plan_export
 
 
 def get_yes_no(prompt, default='y'):
@@ -342,17 +343,18 @@ def plan_actions_menu():
     print("2. View progress summary")
     print("3. Modify plan")
     print("4. View calendar")
-    print("5. Save plan")
+    print("5. Export plan")
+    print("6. Save plan")
     print("0. Go back to main menu")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-5): "))
-            if choice in [0, 1, 2, 3, 4, 5]:
+            choice = int(input("\nEnter your choice (0-6): "))
+            if choice in [0, 1, 2, 3, 4, 5, 6]:
                 return choice
             else:
-                print("Please enter a number between 0 and 5.")
+                print("Please enter a number between 0 and 6.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -1254,6 +1256,81 @@ def view_progress_summary(current_plan):
     input("\nPress Enter to continue...")
 
 
+def export_plan_menu(current_plan):
+    """Display export menu and handle export operations."""
+    if not current_plan.start_date:
+        print("\n✗ Plan must have a start date to export.")
+        print("  Please view a calendar first to set a start date.")
+        input("\nPress Enter to continue...")
+        return
+
+    print("\n" + "=" * 50)
+    print("EXPORT PLAN")
+    print("=" * 50)
+    print("\nChoose export format:")
+    print("\n1. CSV (Spreadsheet)")
+    print("   - Day-by-day breakdown with goals and progress")
+    print("   - Compatible with Excel, Google Sheets, etc.")
+    print("\n2. iCal/ICS (Calendar)")
+    print("   - Import into Google Calendar, Apple Calendar, etc.")
+    print("   - Daily writing reminders")
+    print("\n3. Markdown (Text)")
+    print("   - Readable text format")
+    print("   - Good for sharing or documentation")
+    print("\n4. All formats")
+    print("0. Cancel")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-4): "))
+
+            if choice == 0:
+                return
+
+            elif choice in [1, 2, 3, 4]:
+                # Determine which formats to export
+                formats_to_export = []
+                if choice == 1:
+                    formats_to_export = ['csv']
+                elif choice == 2:
+                    formats_to_export = ['ical']
+                elif choice == 3:
+                    formats_to_export = ['markdown']
+                elif choice == 4:
+                    formats_to_export = ['csv', 'ical', 'markdown']
+
+                # Export each format
+                exported_files = []
+                for fmt in formats_to_export:
+                    try:
+                        if fmt == 'csv':
+                            filepath = plan_export.export_to_csv(current_plan)
+                            print(f"\n✓ CSV exported: {filepath}")
+                        elif fmt == 'ical':
+                            filepath = plan_export.export_to_ical(current_plan)
+                            print(f"\n✓ iCal exported: {filepath}")
+                        elif fmt == 'markdown':
+                            filepath = plan_export.export_to_markdown(current_plan)
+                            print(f"\n✓ Markdown exported: {filepath}")
+
+                        exported_files.append(filepath)
+                    except Exception as e:
+                        print(f"\n✗ Error exporting {fmt}: {e}")
+
+                if exported_files:
+                    print(f"\n✓ Exported {len(exported_files)} file(s)")
+                    print(f"  Location: {plan_export.get_exports_directory()}")
+
+                input("\nPress Enter to continue...")
+                return
+
+            else:
+                print("Please enter a number between 0 and 4.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
 def handle_plan_actions(current_plan):
     """Handle the plan actions menu loop."""
     while True:
@@ -1284,6 +1361,10 @@ def handle_plan_actions(current_plan):
             show_calendar_options(current_plan)
 
         elif action == 5:
+            # Export plan
+            export_plan_menu(current_plan)
+
+        elif action == 6:
             # Save plan
             save_plan_prompt(current_plan)
 
