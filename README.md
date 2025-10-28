@@ -506,7 +506,7 @@ Goal: Write 20,000 words in 30 days with different weekend goals
 
 1. Create Plan with Weekend Configuration
    ```
-   Choose: "Create a new plan"
+   Choose: "Create a new plan from scratch"
    Select: "Calculate daily words needed"
    Total words: 20000
    Days available: 30
@@ -600,7 +600,7 @@ Goal: Start a new writing project quickly using pre-configured templates
 
 1. NaNoWriMo Challenge
    ```
-   Choose: "Create from template"
+   Choose: "Create plan from template"
 
    Display shows template categories:
    Popular:
@@ -632,7 +632,7 @@ Goal: Start a new writing project quickly using pre-configured templates
 
 2. Customize a Template
    ```
-   Choose: "Create from template"
+   Choose: "Create plan from template"
    Select: "3" (Novel Draft)
 
    "Use this template as-is?" → No
@@ -1007,7 +1007,7 @@ Q: Can I customize the word goal for a specific day?
 A: Yes! Use "Modify plan" then "Edit individual day goals" to set custom word counts for any specific date. This is perfect for busy days (set lower goal), extra writing time (set higher goal), or special events. Custom goals override pattern-based goals and weekend settings. You can view all customized days, remove individual customizations, or clear all at once.
 
 Q: Is there a quick way to start a new plan without entering all the details?
-A: Yes! Use "Create from template" from the main menu. Choose from 10 pre-configured templates including NaNoWriMo (50,000 words in 30 days), Short Story (5,000 words in 7 days), Novel Draft (80,000 words in 60 days), Academic Paper, and more. Each template includes suggested patterns and weekend modes. You can use templates as-is or customize them before creating your plan.
+A: Yes! Use "Create plan from template" from the main menu. Choose from 10 pre-configured templates including NaNoWriMo (50,000 words in 30 days), Short Story (5,000 words in 7 days), Novel Draft (80,000 words in 60 days), Academic Paper, and more. Each template includes suggested patterns and weekend modes. You can use templates as-is or customize them before creating your plan.
 
 Q: Can I export my plan to Google Calendar or other calendar apps?
 A: Yes! Use the "Export plan" option and choose iCal/ICS format. The exported .ics file can be imported into Google Calendar, Apple Calendar, Outlook, and most other calendar applications. You'll get daily events with your word goals and spare days marked.

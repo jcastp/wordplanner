@@ -92,8 +92,8 @@ def initial_menu():
     print("WORD COUNT PLANNER")
     print("=" * 50)
     print("\nWhat would you like to do?")
-    print("\n1. Create a new plan")
-    print("2. Create from template")
+    print("\n1. Create a new plan from scratch")
+    print("2. Create plan from template")
     print("3. Load an existing plan")
     print("0. Exit")
     print("=" * 50)
@@ -1869,11 +1869,11 @@ def main():
             break
 
         elif choice == 1:
-            # Create a new plan
+            # Create a new plan from scratch
             create_new_plan()
 
         elif choice == 2:
-            # Create from template
+            # Create plan from template
             create_plan_from_template()
 
         elif choice == 3:
