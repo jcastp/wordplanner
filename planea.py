@@ -237,6 +237,20 @@ def display_results(newplan):
     print(f"Total words: {newplan.total:,.0f} words")
     print(f"Writing days: {newplan.time:.0f} days")
     print(f"Daily goal: {newplan.daily:,.0f} words per day")
+
+    # Show weekend configuration
+    if newplan.weekend_mode != "same":
+        if newplan.weekend_mode == "different":
+            day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            weekend_names = [day_names[d] for d in newplan.weekend_days]
+            print(f"Weekend goal: {newplan.weekend_daily:,.0f} words/day ({', '.join(weekend_names)})")
+        elif newplan.weekend_mode == "spare":
+            print(f"Weekends: All marked as spare days")
+
+    # Show custom day goals if any
+    if newplan.custom_daily_goals:
+        print(f"Custom day goals: {len(newplan.custom_daily_goals)} day(s) customized")
+
     if newplan.spare_days > 0:
         print(f"Spare days: {newplan.spare_days:.0f} days (0 words)")
         total_calendar_days = newplan.time + newplan.spare_days
@@ -416,11 +430,15 @@ def manage_spare_days(current_plan):
         print("1. Add spare day(s)")
         print("2. Remove spare day(s)")
         print("3. Clear all spare days")
+        print("\nQuick Actions:")
+        print("4. Mark all Saturdays as spare")
+        print("5. Mark all Sundays as spare")
+        print("6. Mark all weekends as spare")
         print("0. Done")
         print("=" * 50)
 
         try:
-            choice = int(input("\nEnter your choice (0-3): "))
+            choice = int(input("\nEnter your choice (0-6): "))
 
             if choice == 0:
                 return len(current_plan.spare_days_dates) > 0  # Return True if modified
@@ -582,6 +600,189 @@ def manage_spare_days(current_plan):
                     plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
                     print("\n✓ All spare days cleared")
 
+            elif choice == 4:
+                # Mark all Saturdays as spare
+                added_count = 0
+                current = current_plan.start_date
+                one_year_later = current_plan.start_date + timedelta(days=365)
+
+                while current <= one_year_later:
+                    if current.weekday() == 5:  # Saturday
+                        # Check if not already a spare day
+                        is_duplicate = False
+                        for existing in current_plan.spare_days_dates:
+                            if current.date() == existing.date():
+                                is_duplicate = True
+                                break
+                        if not is_duplicate:
+                            current_plan.spare_days_dates.append(current)
+                            added_count += 1
+                    current += timedelta(days=1)
+
+                total_calendar_days = int(current_plan.time) + current_plan.spare_days
+                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                print(f"\n✓ Marked {added_count} Saturdays as spare days")
+
+            elif choice == 5:
+                # Mark all Sundays as spare
+                added_count = 0
+                current = current_plan.start_date
+                one_year_later = current_plan.start_date + timedelta(days=365)
+
+                while current <= one_year_later:
+                    if current.weekday() == 6:  # Sunday
+                        # Check if not already a spare day
+                        is_duplicate = False
+                        for existing in current_plan.spare_days_dates:
+                            if current.date() == existing.date():
+                                is_duplicate = True
+                                break
+                        if not is_duplicate:
+                            current_plan.spare_days_dates.append(current)
+                            added_count += 1
+                    current += timedelta(days=1)
+
+                total_calendar_days = int(current_plan.time) + current_plan.spare_days
+                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                print(f"\n✓ Marked {added_count} Sundays as spare days")
+
+            elif choice == 6:
+                # Mark all weekends as spare
+                added_count = 0
+                current = current_plan.start_date
+                one_year_later = current_plan.start_date + timedelta(days=365)
+
+                while current <= one_year_later:
+                    if current.weekday() in [5, 6]:  # Saturday or Sunday
+                        # Check if not already a spare day
+                        is_duplicate = False
+                        for existing in current_plan.spare_days_dates:
+                            if current.date() == existing.date():
+                                is_duplicate = True
+                                break
+                        if not is_duplicate:
+                            current_plan.spare_days_dates.append(current)
+                            added_count += 1
+                    current += timedelta(days=1)
+
+                total_calendar_days = int(current_plan.time) + current_plan.spare_days
+                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                print(f"\n✓ Marked {added_count} weekend days as spare")
+
+            else:
+                print("Please enter a number between 0 and 6.")
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def edit_individual_day_goal(current_plan):
+    """Edit the word goal for a specific day."""
+    from datetime import datetime as dt, timedelta
+
+    if not current_plan.start_date:
+        print("\n✗ You must set a start date before editing individual day goals.")
+        return False
+
+    print("\n" + "=" * 50)
+    print("EDIT INDIVIDUAL DAY GOAL")
+    print("=" * 50)
+    print("\nThis allows you to set a custom word goal for a specific date.")
+    print("This overrides pattern-based goals and weekend settings for that day.")
+
+    total_calendar_days = int(current_plan.time) + current_plan.spare_days
+    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+    print(f"\nPlan period: {current_plan.start_date.strftime('%Y-%m-%d')} to {plan_end_date.strftime('%Y-%m-%d')}")
+
+    if current_plan.custom_daily_goals:
+        print(f"\nCurrent custom goals ({len(current_plan.custom_daily_goals)}):")
+        for date_key, word_count in sorted(current_plan.custom_daily_goals.items()):
+            date_obj = dt.strptime(date_key, '%Y-%m-%d')
+            print(f"  {date_obj.strftime('%Y-%m-%d (%A)')}: {word_count:,.0f} words")
+
+    print("\nOptions:")
+    print("1. Set custom goal for a specific day")
+    print("2. Remove custom goal (revert to pattern/default)")
+    print("3. Clear all custom day goals")
+    print("0. Done")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-3): "))
+
+            if choice == 0:
+                return len(current_plan.custom_daily_goals) > 0
+
+            elif choice == 1:
+                # Set custom goal
+                print("\nEnter date to customize:")
+                date_input = input("Date (YYYY-MM-DD): ").strip()
+
+                if not date_input:
+                    continue
+
+                try:
+                    target_date = dt.strptime(date_input, "%Y-%m-%d")
+
+                    # Show current goal for this day
+                    current_goal = current_plan.get_daily_goal(date=target_date)
+                    print(f"\nCurrent goal for {target_date.strftime('%A, %Y-%m-%d')}: {current_goal:,.0f} words")
+
+                    if current_plan.is_spare_day(target_date):
+                        print("  (This is currently a spare day)")
+
+                    # Get new goal
+                    print("\nEnter new word goal for this day:")
+                    print("  (Enter 0 to make it a rest day, or any positive number)")
+                    new_goal = get_positive_number("New goal: ")
+
+                    current_plan.set_custom_daily_goal(target_date, new_goal)
+                    print(f"\n✓ Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
+
+                except ValueError as e:
+                    print(f"\n✗ Invalid date format: {e}")
+                    print("  Please use YYYY-MM-DD format")
+
+            elif choice == 2:
+                # Remove custom goal
+                if not current_plan.custom_daily_goals:
+                    print("\n✗ No custom day goals to remove")
+                    continue
+
+                print("\nEnter date to remove custom goal:")
+                date_input = input("Date (YYYY-MM-DD): ").strip()
+
+                if not date_input:
+                    continue
+
+                try:
+                    target_date = dt.strptime(date_input, "%Y-%m-%d")
+                    date_key = target_date.strftime('%Y-%m-%d')
+
+                    if date_key in current_plan.custom_daily_goals:
+                        current_plan.remove_custom_daily_goal(target_date)
+                        # Show what the goal will revert to
+                        reverted_goal = current_plan.get_daily_goal(date=target_date)
+                        print(f"\n✓ Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
+                        print(f"  Goal reverted to: {reverted_goal:,.0f} words")
+                    else:
+                        print(f"\n✗ No custom goal found for {target_date.strftime('%Y-%m-%d')}")
+
+                except ValueError as e:
+                    print(f"\n✗ Invalid date format: {e}")
+
+            elif choice == 3:
+                # Clear all custom goals
+                if not current_plan.custom_daily_goals:
+                    print("\n✗ No custom day goals to clear")
+                    continue
+
+                if get_yes_no(f"Clear all {len(current_plan.custom_daily_goals)} custom day goals?", default='n'):
+                    current_plan.custom_daily_goals.clear()
+                    current_plan.invalidate_daily_goals_cache()
+                    print("\n✓ All custom day goals cleared")
+
             else:
                 print("Please enter a number between 0 and 3.")
 
@@ -615,12 +816,14 @@ def modify_plan(current_plan):
     print("5. Writing pattern")
     print("6. Start date")
     print("7. Modify two values (third will be calculated)")
+    print("8. Weekend settings")
+    print("9. Edit individual day goals")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-7): "))
+            choice = int(input("\nEnter your choice (0-9): "))
             if choice == 0:
                 return False  # No changes made
 
@@ -759,8 +962,18 @@ def modify_plan(current_plan):
                     except ValueError:
                         print("Invalid input. Please enter a number.")
 
+            elif choice == 8:
+                # Configure weekend settings
+                configure_weekend_settings(current_plan)
+                return True
+
+            elif choice == 9:
+                # Edit individual day goals
+                modified = edit_individual_day_goal(current_plan)
+                return modified
+
             else:
-                print("Please enter a number between 0 and 7.")
+                print("Please enter a number between 0 and 9.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -1375,6 +1588,68 @@ def handle_plan_actions(current_plan):
             save_plan_prompt(current_plan)
 
 
+def configure_weekend_settings(current_plan):
+    """Configure weekend-specific settings for the plan."""
+    print("\n" + "=" * 50)
+    print("WEEKEND CONFIGURATION")
+    print("=" * 50)
+    print("\nHow would you like to handle weekends?")
+    print("\n1. Same as weekdays - Write the same amount every day")
+    print("2. Different goal - Set a specific word count for weekends")
+    print("3. Weekends as spare days - No writing on weekends")
+    print("0. Skip weekend configuration")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-3): "))
+            if choice in [0, 1, 2, 3]:
+                break
+            else:
+                print("Please enter a number between 0 and 3.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    if choice == 0:
+        # Keep default: same as weekdays
+        return
+
+    elif choice == 1:
+        current_plan.weekend_mode = "same"
+        print("\n✓ Weekends will have the same writing goal as weekdays")
+
+    elif choice == 2:
+        current_plan.weekend_mode = "different"
+        print("\nSet weekend writing goal:")
+        print("(This could be higher for extra writing time, or lower for rest)")
+        weekend_goal = get_positive_number("Weekend daily goal: ")
+        current_plan.weekend_daily = weekend_goal
+        print(f"\n✓ Weekends will have a goal of {weekend_goal:,.0f} words/day")
+
+    elif choice == 3:
+        current_plan.weekend_mode = "spare"
+        print("\n✓ All weekends will be marked as spare days (0 words)")
+
+    # Ask about which days are weekends
+    if choice in [2, 3]:
+        if get_yes_no("\nCustomize which days are considered 'weekend'?", default='n'):
+            print("\nSelect weekend days (Saturday and Sunday are default):")
+            print("0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday")
+            days_input = input("Enter day numbers separated by commas (e.g., 5,6): ").strip()
+            try:
+                weekend_days = [int(d.strip()) for d in days_input.split(',')]
+                weekend_days = [d for d in weekend_days if 0 <= d <= 6]
+                if weekend_days:
+                    current_plan.weekend_days = weekend_days
+                    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                    weekend_names = [day_names[d] for d in weekend_days]
+                    print(f"\n✓ Weekend days set to: {', '.join(weekend_names)}")
+                else:
+                    print("\n⚠ Invalid days, using default (Sat, Sun)")
+            except ValueError:
+                print("\n⚠ Invalid input, using default weekend days (Sat, Sun)")
+
+
 def create_new_plan():
     """Handle the creation of a new plan."""
     calc_choice = choose_calculation_method()
@@ -1429,6 +1704,10 @@ def create_new_plan():
         start_date = get_date_input("Start date: ")
         newplan.start_date = start_date
         print(f"\n✓ Plan starts on: {start_date.strftime('%Y-%m-%d')}")
+
+        # Configure weekend settings
+        if get_yes_no("\nWould you like to configure weekend-specific settings?", default='n'):
+            configure_weekend_settings(newplan)
 
         handle_plan_actions(newplan)
 

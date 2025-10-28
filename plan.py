@@ -7,7 +7,7 @@ import json
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None):
         """Initialize the values."""
         self.daily = daily
         self.total = total
@@ -22,6 +22,10 @@ class Plan():
         self.pattern_config = pattern_config or {}  # Pattern-specific configuration
         self._daily_goals_cache = None  # Cache for calculated daily goals
         self.progress = progress or {}  # Dictionary mapping date strings (YYYY-MM-DD) to actual word counts
+        self.weekend_mode = weekend_mode  # "same", "different", "spare"
+        self.weekend_daily = weekend_daily  # Daily goal for weekends (if mode is "different")
+        self.weekend_days = weekend_days or [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
+        self.custom_daily_goals = custom_daily_goals or {}  # Date string -> custom word count
 
     @property
     def spare_days(self):
@@ -40,6 +44,10 @@ class Plan():
             if check_date == spare_date_normalized:
                 return True
         return False
+
+    def is_weekend(self, date):
+        """Check if a given date is a weekend day."""
+        return date.weekday() in self.weekend_days
 
     def calculate_daily(self):
         """calculate the daily amount of words needed, based on time
@@ -241,11 +249,23 @@ class Plan():
             Daily word goal for that day, or 0 if it's a spare day
         """
         if date is not None:
-            # Check if it's a spare day
+            # Check if it's a spare day first
             if self.is_spare_day(date):
                 return 0
 
-            # Calculate day index from start_date
+            # Check for custom daily goal for this specific date
+            date_key = date.strftime('%Y-%m-%d')
+            if date_key in self.custom_daily_goals:
+                return self.custom_daily_goals[date_key]
+
+            # Check weekend mode
+            if self.is_weekend(date):
+                if self.weekend_mode == "spare":
+                    return 0
+                elif self.weekend_mode == "different":
+                    return self.weekend_daily
+
+            # Calculate day index from start_date for pattern-based goals
             if self.start_date:
                 delta = date - self.start_date
                 day_index = delta.days
@@ -264,6 +284,30 @@ class Plan():
         else:
             # Beyond plan duration
             return self.daily
+
+    def set_custom_daily_goal(self, date, word_count):
+        """
+        Set a custom word goal for a specific date.
+
+        Args:
+            date: datetime object
+            word_count: custom word count for this day
+        """
+        date_key = date.strftime('%Y-%m-%d')
+        self.custom_daily_goals[date_key] = int(word_count)
+        self.invalidate_daily_goals_cache()
+
+    def remove_custom_daily_goal(self, date):
+        """
+        Remove a custom word goal for a specific date.
+
+        Args:
+            date: datetime object
+        """
+        date_key = date.strftime('%Y-%m-%d')
+        if date_key in self.custom_daily_goals:
+            del self.custom_daily_goals[date_key]
+            self.invalidate_daily_goals_cache()
 
     def record_progress(self, date, word_count):
         """
@@ -448,6 +492,10 @@ class Plan():
             'pattern': self.pattern,
             'pattern_config': self.pattern_config,
             'progress': self.progress,
+            'weekend_mode': self.weekend_mode,
+            'weekend_daily': self.weekend_daily,
+            'weekend_days': self.weekend_days,
+            'custom_daily_goals': self.custom_daily_goals,
         }
 
     @classmethod
@@ -484,6 +532,10 @@ class Plan():
             pattern=data.get('pattern', 'flat'),
             pattern_config=data.get('pattern_config', {}),
             progress=data.get('progress', {}),
+            weekend_mode=data.get('weekend_mode', 'same'),
+            weekend_daily=data.get('weekend_daily', 0),
+            weekend_days=data.get('weekend_days', [5, 6]),
+            custom_daily_goals=data.get('custom_daily_goals', {}),
         )
 
     def to_json(self):

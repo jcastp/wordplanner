@@ -74,6 +74,31 @@ Distribute your writing goals with different patterns to match your energy and s
   - View individual graphs or all at once
   - Interactive analytics menu
 
+#### Weekend-Specific Planning
+- **Weekend Modes** - Configure how weekends are handled
+  - Same as weekdays: Write the same daily goal every day
+  - Different goal: Set specific word count for weekends (higher for extra time, or lower for rest)
+  - Weekends as spare days: No writing on weekends (0 words)
+- **Customizable Weekend Days** - Define which days are weekends
+  - Default: Saturday and Sunday
+  - Custom: Any combination of days (e.g., Friday-Saturday for different work schedules)
+- **Weekend Quick Actions** - Fast spare day management
+  - Mark all Saturdays as spare
+  - Mark all Sundays as spare
+  - Mark all weekends as spare
+  - Integrated into spare days menu
+
+#### Individual Day Customization
+- **Custom Daily Goals** - Override goals for specific dates
+  - Set custom word count for any individual day
+  - Perfect for special events, busy days, or extra writing time
+  - Overrides pattern-based goals and weekend settings
+  - View all customized days at a glance
+- **Flexible Management** - Easy to adjust
+  - Add custom goals for specific dates
+  - Remove custom goals (revert to pattern/weekend settings)
+  - Clear all custom goals at once
+
 #### Flexible Plan Management
 - Save & Load Plans - Save multiple writing projects with custom names
 - Modify Plans - Change any value and automatically recalculate
@@ -82,6 +107,8 @@ Distribute your writing goals with different patterns to match your energy and s
   - Modify multiple values at once
   - Change writing pattern
   - Change start date
+  - Configure weekend settings
+  - Edit individual day goals
 - Plan Actions Menu - Streamlined workflow for managing plans
   - Update progress
   - View progress summary
@@ -450,7 +477,101 @@ Goal: Share your writing plan with others or import it into calendar/spreadsheet
    All files ready for different purposes!
    ```
 
-### Example 7: Analyzing Your Writing Progress with Graphs
+### Example 7: Weekend Planning for Work-Life Balance
+
+Goal: Write 20,000 words in 30 days with different weekend goals
+
+1. Create Plan with Weekend Configuration
+   ```
+   Choose: "Create a new plan"
+   Select: "Calculate daily words needed"
+   Total words: 20000
+   Days available: 30
+   Result: 667 words/day average
+
+   "Would you like to configure weekend-specific settings?" → Yes
+
+   Choose weekend mode:
+   1. Same as weekdays
+   2. Different goal
+   3. Weekends as spare days
+
+   Select: "2. Different goal"
+   Weekend daily goal: 1000
+   Result: Weekends have 1,000 words/day, weekdays have lower goals
+   ```
+
+2. Or Mark Weekends as Spare (Weekdays Only Writing)
+   ```
+   During plan creation:
+   "Would you like to configure weekend-specific settings?" → Yes
+   Select: "3. Weekends as spare days"
+   Result: All Saturdays and Sundays automatically marked as spare
+          Writing days redistributed across weekdays only
+   ```
+
+3. Quick Action: Add All Weekends as Spare (Existing Plan)
+   ```
+   Choose: "Modify plan" → "Spare days"
+   Select: "6. Mark all weekends as spare"
+   Result: All future weekend days marked as spare
+          Plan duration automatically extends
+   ```
+
+4. Customize Specific Weekend Days
+   ```
+   "Customize which days are considered 'weekend'?" → Yes
+   Enter day numbers: 4,5,6
+   Result: Friday, Saturday, Sunday set as weekend days
+           Perfect for non-traditional work schedules
+   ```
+
+### Example 8: Customizing Individual Day Goals
+
+Goal: Adjust specific days for events, deadlines, or special circumstances
+
+1. Set Higher Goal for a Free Day
+   ```
+   Choose: "Modify plan" → "Edit individual day goals"
+   Select: "1. Set custom goal for a specific day"
+   Date: 2025-11-15
+   Current goal: 1,000 words
+   New goal: 2500
+   Result: November 15 now has 2,500-word goal
+           Other days unchanged
+   ```
+
+2. Set Lower Goal for a Busy Day
+   ```
+   Choose: "Modify plan" → "Edit individual day goals"
+   Select: "1. Set custom goal for a specific day"
+   Date: 2025-11-20
+   Current goal: 1,000 words
+   New goal: 300
+   Result: November 20 reduced to 300 words
+           Perfect for days with other commitments
+   ```
+
+3. View All Custom Goals
+   ```
+   Choose: "Modify plan" → "Edit individual day goals"
+
+   Display shows:
+   Current custom goals (3):
+     2025-11-10 (Friday): 1,500 words
+     2025-11-15 (Wednesday): 2,500 words
+     2025-11-20 (Monday): 300 words
+   ```
+
+4. Remove Custom Goal (Revert to Default)
+   ```
+   Select: "2. Remove custom goal"
+   Date: 2025-11-15
+   Result: Removed custom goal
+           Goal reverted to: 1,000 words (pattern-based)
+   ```
+
+### Example 9: Analyzing Your Writing Progress with Graphs
 
 Goal: Visualize your progress and analyze your writing patterns
 
@@ -578,7 +699,35 @@ Exports are named with the plan name and timestamp in the appropriate format:
 
 ## What's New
 
-### Version 1.5 (Latest)
+### Version 1.6 (Latest)
+- **Weekend-Specific Planning** - Flexible weekend configuration:
+  - Three weekend modes: same as weekdays, different goal, or spare days
+  - Set custom word counts for weekends (higher or lower than weekdays)
+  - Automatically mark all weekends as spare days
+  - Customizable weekend days definition (not just Sat-Sun)
+  - Integrated into plan creation workflow
+- **Weekend Quick Actions** - Fast spare day management:
+  - Mark all Saturdays as spare
+  - Mark all Sundays as spare
+  - Mark all weekends as spare
+  - Added to spare days menu for quick access
+- **Individual Day Customization** - Per-day goal overrides:
+  - Set custom word goals for any specific date
+  - Override pattern-based and weekend settings for individual days
+  - Perfect for busy days, extra writing time, or special events
+  - View all customized days at a glance
+  - Remove custom goals to revert to default
+  - Clear all custom goals at once
+- **Enhanced Plan Display** - Better visibility:
+  - Weekend settings shown in plan summary
+  - Custom day goals count displayed
+  - Weekend goal information in results
+- **Updated Modify Menu** - New configuration options:
+  - Option 8: Configure weekend settings
+  - Option 9: Edit individual day goals
+  - Easy access to all customization features
+
+### Version 1.5
 - **Progress Graphs & Analytics** - Visual progress tracking and comprehensive statistics:
   - Cumulative line graph showing expected vs actual word count over time
   - Daily bar chart comparing words written vs planned goals
@@ -670,15 +819,16 @@ Exports are named with the plan name and timestamp in the appropriate format:
 See future-improvements.md for the comprehensive roadmap with 30+ planned features.
 
 ### Next Up (High Priority)
-- Weekend Planning - Different word goals for weekends vs weekdays
-- Quick Actions - "Mark all weekends as spare", holiday templates, etc.
 - Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.)
+- Holiday Templates - Quick marking of common holidays
+- Writing Session Timer - Integrated pomodoro-style timer
+- Multiple Plans Management - Switch between different projects
 
 ### Coming Soon (Medium Priority)
 - Notifications and reminders
-- Writing session timer integration
-- Multiple plans management
 - Advanced calendar features
+- Comprehensive testing suite
+- Better error handling
 
 ### Future Possibilities
 - Web interface
@@ -732,6 +882,15 @@ A: The app will detect when you're behind and offer to adjust your plan. You can
 
 Q: Can I see graphs of my writing progress?
 A: Yes! Use "View progress graphs & analytics" from the Plan Actions menu. You'll get four types of graphs: cumulative progress (expected vs actual), daily bar chart, writing velocity over time, and milestone progress. Plus comprehensive statistics including average words per day, best/worst days, streaks, and estimated completion date.
+
+Q: Can I set different writing goals for weekends?
+A: Yes! During plan creation, you can configure weekend-specific settings with three modes: (1) Same as weekdays - write the same amount every day, (2) Different goal - set a specific word count for weekends (higher for extra time or lower for rest), or (3) Weekends as spare days - no writing on weekends. You can also customize which days count as "weekend" for non-traditional schedules.
+
+Q: How do I mark all weekends as spare days quickly?
+A: Use the weekend quick actions in the spare days menu. Choose "Modify plan" then "Spare days" and select option 4, 5, or 6 to mark all Saturdays, all Sundays, or all weekends as spare days automatically. You can also configure weekends as spare during plan creation for a cleaner workflow.
+
+Q: Can I customize the word goal for a specific day?
+A: Yes! Use "Modify plan" then "Edit individual day goals" to set custom word counts for any specific date. This is perfect for busy days (set lower goal), extra writing time (set higher goal), or special events. Custom goals override pattern-based goals and weekend settings. You can view all customized days, remove individual customizations, or clear all at once.
 
 Q: Can I export my plan to Google Calendar or other calendar apps?
 A: Yes! Use the "Export plan" option and choose iCal/ICS format. The exported .ics file can be imported into Google Calendar, Apple Calendar, Outlook, and most other calendar applications. You'll get daily events with your word goals and spare days marked.
