@@ -42,9 +42,16 @@ def display_calendar_view(plan_obj, start_date):
 
     # Display plan summary
     console.print()
+
+    # Format daily goal display based on pattern
+    if plan_obj.pattern == "flat":
+        daily_goal_text = f"{plan_obj.daily:,.0f} words/day"
+    else:
+        daily_goal_text = f"{plan_obj.daily:,.0f} words/day (average, {plan_obj.pattern} pattern)"
+
     summary_text = (
         f"[bold cyan]Total Words:[/bold cyan] {plan_obj.total:,.0f}\n"
-        f"[bold green]Daily Goal:[/bold green] {plan_obj.daily:,.0f} words/day\n"
+        f"[bold green]Daily Goal:[/bold green] {daily_goal_text}\n"
         f"[bold yellow]Writing Days:[/bold yellow] {plan_obj.time:.0f} days\n"
     )
     if plan_obj.spare_days > 0:
@@ -121,8 +128,9 @@ def display_calendar_view(plan_obj, start_date):
                             # Spare day
                             cell_text.append("SPARE", style="orange1 italic")
                         else:
-                            # Writing day
-                            cell_text.append(f"{plan_obj.daily:,.0f}w", style="green")
+                            # Writing day - use pattern-based goal
+                            daily_goal = plan_obj.get_daily_goal(date=day_date)
+                            cell_text.append(f"{daily_goal:,.0f}w", style="green")
 
                         row.append(cell_text)
 
@@ -220,9 +228,11 @@ def display_weekly_summary(plan_obj, start_date):
         days_in_week = min(7, days_remaining)
         week_end = current_date + timedelta(days=days_in_week - 1)
 
-        # Count writing days and spare days in this week
+        # Count writing days and spare days in this week, and sum daily goals
         writing_days_in_week = 0
         spare_days_in_week = 0
+        weekly_words = 0
+        daily_goals_in_week = []
 
         check_date = current_date
         for i in range(days_in_week):
@@ -230,22 +240,40 @@ def display_weekly_summary(plan_obj, start_date):
                 spare_days_in_week += 1
             else:
                 writing_days_in_week += 1
+                daily_goal = plan_obj.get_daily_goal(date=check_date)
+                daily_goals_in_week.append(daily_goal)
+                weekly_words += daily_goal
             check_date += timedelta(days=1)
 
-        # Calculate words for this week
-        weekly_words = int(plan_obj.daily * writing_days_in_week)
-        cumulative_words += weekly_words
+        cumulative_words += int(weekly_words)
+
+        # Calculate average daily goal for this week (for display)
+        avg_daily_goal = sum(daily_goals_in_week) / len(daily_goals_in_week) if daily_goals_in_week else 0
 
         # Format date range
         date_range = f"{current_date.strftime('%b %d')} - {week_end.strftime('%b %d, %Y')}"
+
+        # If pattern is flat, show single value; otherwise show average or range
+        if plan_obj.pattern == "flat":
+            daily_goal_str = f"{plan_obj.daily:,.0f}"
+        else:
+            if daily_goals_in_week:
+                min_goal = min(daily_goals_in_week)
+                max_goal = max(daily_goals_in_week)
+                if abs(max_goal - min_goal) < 1:  # Nearly the same
+                    daily_goal_str = f"{avg_daily_goal:,.0f}"
+                else:
+                    daily_goal_str = f"{min_goal:,.0f}-{max_goal:,.0f}"
+            else:
+                daily_goal_str = "-"
 
         table.add_row(
             f"{week_num}",
             date_range,
             f"{writing_days_in_week}",
             f"{spare_days_in_week}" if spare_days_in_week > 0 else "-",
-            f"{plan_obj.daily:,.0f}",
-            f"{weekly_words:,}",
+            daily_goal_str,
+            f"{int(weekly_words):,}",
             f"{cumulative_words:,}"
         )
 

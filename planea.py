@@ -105,6 +105,102 @@ def initial_menu():
             print("Invalid input. Please enter a number.")
 
 
+def choose_writing_pattern():
+    """Display pattern selection menu and return pattern choice."""
+    print("\n" + "=" * 50)
+    print("WRITING PATTERN")
+    print("=" * 50)
+    print("\nHow would you like to distribute your daily word goals?")
+    print("\n1. Flat/Steady - Same daily goal every day (default)")
+    print("2. Valley - Start high, ease in middle, finish high")
+    print("3. Mountain - Start easy, peak in middle, ease at end")
+    print("4. Rising - Gradually increase goals over time")
+    print("5. Declining - Gradually decrease goals over time")
+    print("6. Random - Varied daily goals within a range")
+    print("\n0. Skip (use flat pattern)")
+    print("=" * 50)
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (0-6): "))
+            if choice in [0, 1, 2, 3, 4, 5, 6]:
+                pattern_map = {
+                    0: "flat",
+                    1: "flat",
+                    2: "valley",
+                    3: "mountain",
+                    4: "rising",
+                    5: "declining",
+                    6: "random"
+                }
+                pattern = pattern_map[choice]
+
+                # Get pattern configuration if needed
+                pattern_config = {}
+                if pattern in ["valley", "mountain"]:
+                    print("\nPattern intensity (how extreme the variation):")
+                    print("1. Mild (varies between 0.8x and 1.2x average)")
+                    print("2. Moderate (varies between 0.7x and 1.5x average) [default]")
+                    print("3. Extreme (varies between 0.5x and 2.0x average)")
+
+                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
+                    if intensity_choice == "1":
+                        pattern_config = {'peak_multiplier': 1.2, 'valley_multiplier': 0.8}
+                    elif intensity_choice == "3":
+                        pattern_config = {'peak_multiplier': 2.0, 'valley_multiplier': 0.5}
+                    else:
+                        pattern_config = {'peak_multiplier': 1.5, 'valley_multiplier': 0.7}
+
+                elif pattern in ["rising", "declining"]:
+                    print("\nPattern intensity:")
+                    print("1. Mild (varies between 0.8x and 1.2x average)")
+                    print("2. Moderate (varies between 0.5x and 1.5x average) [default]")
+                    print("3. Extreme (varies between 0.3x and 2.0x average)")
+
+                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
+                    if intensity_choice == "1":
+                        if pattern == "rising":
+                            pattern_config = {'start_multiplier': 0.8, 'end_multiplier': 1.2}
+                        else:
+                            pattern_config = {'start_multiplier': 1.2, 'end_multiplier': 0.8}
+                    elif intensity_choice == "3":
+                        if pattern == "rising":
+                            pattern_config = {'start_multiplier': 0.3, 'end_multiplier': 2.0}
+                        else:
+                            pattern_config = {'start_multiplier': 2.0, 'end_multiplier': 0.3}
+                    else:
+                        if pattern == "rising":
+                            pattern_config = {'start_multiplier': 0.5, 'end_multiplier': 1.5}
+                        else:
+                            pattern_config = {'start_multiplier': 1.5, 'end_multiplier': 0.5}
+
+                elif pattern == "random":
+                    print("\nRandom variation range:")
+                    print("1. Mild (varies between 0.8x and 1.2x average)")
+                    print("2. Moderate (varies between 0.5x and 1.5x average) [default]")
+                    print("3. Extreme (varies between 0.3x and 2.0x average)")
+
+                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
+                    if intensity_choice == "1":
+                        pattern_config = {'min_multiplier': 0.8, 'max_multiplier': 1.2}
+                    elif intensity_choice == "3":
+                        pattern_config = {'min_multiplier': 0.3, 'max_multiplier': 2.0}
+                    else:
+                        pattern_config = {'min_multiplier': 0.5, 'max_multiplier': 1.5}
+
+                    # Optional seed for reproducibility
+                    use_seed = get_yes_no("Use a fixed seed for reproducible randomness?", default='n')
+                    if use_seed:
+                        import random
+                        pattern_config['seed'] = random.randint(1, 1000000)
+
+                return pattern, pattern_config
+            else:
+                print("Please enter a number between 0 and 6.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
 def choose_calculation_method():
     """Display calculation method menu and return user choice."""
     print("\n" + "=" * 50)
@@ -478,18 +574,20 @@ def modify_plan(current_plan):
     if current_plan.spare_days > 0:
         total_calendar_days = current_plan.time + current_plan.spare_days
         print(f"  Total calendar duration: {total_calendar_days:.0f} days")
+    print(f"  Writing pattern: {current_plan.pattern}")
     print("\nWhat would you like to modify?")
     print("\n1. Total words")
     print("2. Daily words")
     print("3. Writing days")
     print("4. Spare days")
-    print("5. Modify two values (third will be calculated)")
+    print("5. Writing pattern")
+    print("6. Modify two values (third will be calculated)")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-5): "))
+            choice = int(input("\nEnter your choice (0-6): "))
             if choice == 0:
                 return False  # No changes made
 
@@ -569,6 +667,16 @@ def modify_plan(current_plan):
                     return True
 
             elif choice == 5:
+                # Change writing pattern
+                print(f"\nCurrent pattern: {current_plan.pattern}")
+                pattern, pattern_config = choose_writing_pattern()
+                current_plan.pattern = pattern
+                current_plan.pattern_config = pattern_config
+                current_plan.invalidate_daily_goals_cache()
+                print(f"\n✓ Pattern changed to: {pattern}")
+                return True
+
+            elif choice == 6:
                 # Modify two values, calculate the third
                 print("\nWhich value should be calculated?")
                 print("1. Calculate total words (from daily × time)")
@@ -605,7 +713,7 @@ def modify_plan(current_plan):
                         print("Invalid input. Please enter a number.")
 
             else:
-                print("Please enter a number between 0 and 5.")
+                print("Please enter a number between 0 and 6.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -806,6 +914,13 @@ def create_new_plan():
         newplan.calculate_daily()
 
     if newplan:
+        # Ask if user wants to use a writing pattern
+        if get_yes_no("\nWould you like to use a variable writing pattern?", default='n'):
+            pattern, pattern_config = choose_writing_pattern()
+            newplan.pattern = pattern
+            newplan.pattern_config = pattern_config
+            print(f"\n✓ Using {pattern} pattern")
+
         handle_plan_actions(newplan)
 
 
