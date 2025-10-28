@@ -38,6 +38,23 @@ Distribute your writing goals with different patterns to match your energy and s
 - Pattern preview - See your plan visualized before committing
 - Change anytime - Modify pattern after plan creation
 
+#### Progress Tracking & Recalculation
+- **Track Your Progress** - Record actual words written each day
+  - Quick entry for today
+  - Enter/edit progress for any past date
+  - View all progress entries
+  - Progress dashboard with stats
+  - Streak tracking with 🔥 indicator
+- **Automatic Plan Adjustments** - Stay on track with smart recalculation
+  - When ahead: reduce daily goals OR finish early (you choose)
+  - When behind: increase daily goals OR extend deadline (you choose)
+  - Prompted automatically after updating progress
+  - Calculate remaining words and days
+- **Progress Persistence** - All progress saved automatically
+  - Automatic save prompts when progress updated
+  - Progress stored in plan file
+  - Loads with plan on app restart
+
 #### Flexible Plan Management
 - Save & Load Plans - Save multiple writing projects with custom names
 - Modify Plans - Change any value and automatically recalculate
@@ -45,7 +62,10 @@ Distribute your writing goals with different patterns to match your energy and s
   - Choose which variable to recalculate
   - Modify multiple values at once
   - Change writing pattern
+  - Change start date
 - Plan Actions Menu - Streamlined workflow for managing plans
+  - Update progress
+  - View progress summary
   - Modify plan values
   - View calendar visualizations
   - Save changes
@@ -65,6 +85,11 @@ Mark specific dates as 0-word days for holidays, breaks, or urgent matters:
 Beautiful terminal-based calendar views powered by Rich:
 - Monthly calendar - Day-by-day breakdown with:
   - Daily word goals clearly displayed (pattern-aware)
+  - **Progress indicators** with color coding:
+    - ✓ Green - Goal met or exceeded
+    - ~ Yellow - Partial progress
+    - ✗ Red - Missed day
+    - Blue - Future days
   - Spare days marked in orange
   - Weekend highlighting
   - Week numbers
@@ -75,8 +100,8 @@ Beautiful terminal-based calendar views powered by Rich:
   - Weekly word totals
   - Cumulative progress
 - Milestone tracking - Key progress points at 25%, 50%, 75%, 100%
-- Customizable start date - Begin your plan on any date
-- Pattern indication - Shows which writing pattern is active
+- Progress summary in calendar header - Shows completion % and on-track status
+- Start date set during plan creation - No prompts when viewing calendar
 
 #### Smart Input & Validation
 - User-friendly defaults - Yes/no prompts with sensible defaults
@@ -226,7 +251,69 @@ Goal: Write 30,000 words in 30 days with a Mountain pattern (warm-up/cool-down)
    Calendar automatically updates to show new daily goals
    ```
 
-### Example 4: Loading and Modifying an Existing Plan
+### Example 4: Tracking Progress and Adjusting Your Plan
+
+Goal: Track daily writing progress and adjust plan if behind schedule
+
+1. Update Today's Progress
+   ```
+   Choose: "Update progress" → "Quick entry (today's words)"
+   Enter: 1,200 words
+   Result: ✓ Progress recorded: 1,200 words
+           🎉 You met your daily goal!
+
+   Status: ✓ ON TRACK
+   ```
+
+2. Enter Missed Day from Yesterday
+   ```
+   Choose: "Update progress" → "Enter for a specific date"
+   Date: 2025-10-27
+   Enter: 600 words
+   Result: ✓ Progress recorded: 600 words
+           (400 words short of goal)
+
+   Status: ⚠ BEHIND by 400 words
+   ```
+
+3. Adjust Plan (Behind Schedule)
+   ```
+   Prompt: "Would you like to adjust your plan? [Y/n]"
+   Choose: "Increase daily goals (keep end date)"
+
+   Proposed adjustment:
+     Current daily goal: 1,000 words/day
+     New daily goal: 1,057 words/day
+     Remaining days: 7
+
+   Apply? Yes
+   Result: ✓ Plan adjusted!
+   ```
+
+4. View Progress Summary
+   ```
+   Choose: "View progress summary"
+
+   Overall Progress:
+     Total goal: 10,000 words
+     Written: 3,400 words (34.0%)
+     Remaining: 6,600 words
+     Days recorded: 5
+     Current streak: 3 days 🔥
+
+   Schedule Status:
+     ✓ ON TRACK after adjustment
+   ```
+
+5. Save Progress
+   ```
+   Exit progress menu
+   Prompt: "Progress was updated. Save the plan? [Y/n]"
+   Press: Y
+   Result: ✓ Plan saved successfully
+   ```
+
+### Example 5: Loading and Modifying an Existing Plan
 
 1. Load Plan
    ```
@@ -286,7 +373,31 @@ PlanName_YYYYMMDD_HHMMSS.json
 
 ## What's New
 
-### Version 1.2 (Latest)
+### Version 1.3 (Latest)
+- **Progress Tracking** - Track actual words written each day:
+  - Quick entry for today's words
+  - Enter progress for any past date (edit/update anytime)
+  - View all progress entries with status indicators
+  - Progress dashboard with completion %, streak tracking
+  - Automatic save prompts when progress is updated
+  - Progress persists across app restarts
+- **Plan Recalculation** - Adjust plans based on actual progress:
+  - When ahead: reduce daily goals OR finish early
+  - When behind: increase daily goals OR extend deadline
+  - User chooses adjustment strategy each time
+  - Smart prompts after updating progress
+- **Calendar Progress Indicators** - Visual progress in calendar views:
+  - Green checkmark (✓) - Goal met
+  - Bold green with count - Goal exceeded
+  - Yellow (~) with count - Partial progress
+  - Red (✗) - Missed day
+  - Blue - Future days
+- **Start Date Management** - Set start date during plan creation
+  - Calendar views use saved date automatically
+  - Modify start date via "Modify plan" menu only
+  - No more date prompts when viewing calendars
+
+### Version 1.2
 - **Writing Patterns** - Variable daily goals with 6 pattern types:
   - Flat (steady), Valley, Mountain, Rising, Declining, Random
   - Configurable intensity levels (mild, moderate, extreme)
@@ -318,10 +429,9 @@ See future-improvements.md for the comprehensive roadmap with 30+ planned featur
 
 ### Next Up (High Priority)
 - Weekend Planning - Different word goals for weekends vs weekdays
-- Progress Tracking - Record actual words written each day
-- Plan Recalculation - Adjust plans based on actual progress
 - Progress Graphs - Visual comparison of expected vs actual words
 - Quick Actions - "Mark all weekends as spare", holiday templates, etc.
+- Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.)
 
 ### Coming Soon (Medium Priority)
 - Plan templates (NaNoWriMo, Short Story, Academic Paper, etc.)
@@ -375,7 +485,10 @@ Q: Can I have different word goals on different days?
 A: Yes! Use Writing Patterns to create variable daily goals. Choose from flat, valley, mountain, rising, declining, or random patterns when creating or modifying a plan.
 
 Q: Can I track my actual progress?
-A: Not yet, but "Progress Tracking" is high priority (see roadmap).
+A: Yes! Use "Update progress" from the Plan Actions menu. You can enter words for today (quick entry) or any past date. Progress is saved automatically and shown in calendar views with color-coded indicators.
+
+Q: What happens if I fall behind schedule?
+A: The app will detect when you're behind and offer to adjust your plan. You can either increase daily goals to catch up while keeping the same deadline, or extend your deadline while keeping the same daily goals. You choose!
 
 Q: Can I export my plan to Google Calendar?
 A: Not yet, but iCal export is planned.
