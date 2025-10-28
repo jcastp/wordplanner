@@ -26,12 +26,25 @@ Calculate any unknown variable from the other two:
 2. Calculate total words - Know your daily capacity and deadline? Get your achievable goal
 3. Calculate daily words needed - Know your goal and deadline? Get your daily target
 
+#### Writing Patterns (Variable Daily Goals)
+Distribute your writing goals with different patterns to match your energy and schedule:
+- **Flat/Steady** - Same daily goal every day (default)
+- **Valley** - Start high, ease in middle, finish high (momentum approach)
+- **Mountain** - Start easy, peak in middle, ease at end (warm-up/cool-down)
+- **Rising** - Gradually increase goals over time (building momentum)
+- **Declining** - Gradually decrease goals over time (front-loaded effort)
+- **Random** - Varied daily goals within a range (flexible approach)
+- Configurable intensity - Choose mild, moderate, or extreme variation
+- Pattern preview - See your plan visualized before committing
+- Change anytime - Modify pattern after plan creation
+
 #### Flexible Plan Management
 - Save & Load Plans - Save multiple writing projects with custom names
 - Modify Plans - Change any value and automatically recalculate
   - Adjust total words, daily goals, or time
   - Choose which variable to recalculate
   - Modify multiple values at once
+  - Change writing pattern
 - Plan Actions Menu - Streamlined workflow for managing plans
   - Modify plan values
   - View calendar visualizations
@@ -51,17 +64,19 @@ Mark specific dates as 0-word days for holidays, breaks, or urgent matters:
 #### Calendar Visualization
 Beautiful terminal-based calendar views powered by Rich:
 - Monthly calendar - Day-by-day breakdown with:
-  - Daily word goals clearly displayed
+  - Daily word goals clearly displayed (pattern-aware)
   - Spare days marked in orange
   - Weekend highlighting
   - Week numbers
 - Weekly summary - Week-by-week breakdown showing:
   - Date ranges for each week
   - Writing days vs spare days per week
+  - Daily goal ranges for variable patterns
   - Weekly word totals
   - Cumulative progress
 - Milestone tracking - Key progress points at 25%, 50%, 75%, 100%
 - Customizable start date - Begin your plan on any date
+- Pattern indication - Shows which writing pattern is active
 
 #### Smart Input & Validation
 - User-friendly defaults - Yes/no prompts with sensible defaults
@@ -176,7 +191,42 @@ Goal: Write a 5,000-word short story, writing only on weekdays
    Result: Now need only 9 writing days (faster completion)
    ```
 
-### Example 3: Loading and Modifying an Existing Plan
+### Example 3: Using Writing Patterns
+
+Goal: Write 30,000 words in 30 days with a Mountain pattern (warm-up/cool-down)
+
+1. Create Plan with Pattern
+   ```
+   Choose: "Calculate daily words needed"
+   Total words: 30000
+   Days available: 30
+   Result: 1,000 words/day average
+
+   "Would you like to use a variable writing pattern?" → Yes
+   Select: "Mountain - Start easy, peak in middle, ease at end"
+   Intensity: Moderate (default)
+   Result: Daily goals range from ~580 to ~1,860 words
+   ```
+
+2. View Pattern in Calendar
+   ```
+   Choose: "View calendar" → "Both views"
+   See: Each day shows its specific goal
+        Week 1: 580-870 words/day (easy start)
+        Week 2: 1,100-1,490 words/day (ramping up)
+        Weeks 3-4: 1,600-1,860 words/day (peak performance)
+        Week 5: 870-580 words/day (cool down)
+   ```
+
+3. Change Pattern Later
+   ```
+   Choose: "Modify plan" → "Writing pattern"
+   Switch to: "Rising" pattern
+   Result: Goals now increase from 600 to 1,400 words/day
+   Calendar automatically updates to show new daily goals
+   ```
+
+### Example 4: Loading and Modifying an Existing Plan
 
 1. Load Plan
    ```
@@ -236,7 +286,17 @@ PlanName_YYYYMMDD_HHMMSS.json
 
 ## What's New
 
-### Version 1.1 (Latest)
+### Version 1.2 (Latest)
+- **Writing Patterns** - Variable daily goals with 6 pattern types:
+  - Flat (steady), Valley, Mountain, Rising, Declining, Random
+  - Configurable intensity levels (mild, moderate, extreme)
+  - Pattern-aware calendar views showing individual daily goals
+  - Change patterns anytime via modify plan menu
+- Pattern preservation - Save/load maintains pattern settings
+- Weekly summary improvements - Shows goal ranges for variable patterns
+- Enhanced plan display - Pattern information in summaries
+
+### Version 1.1
 - Date-based spare days - Mark specific calendar dates (e.g., 2025-12-25) instead of day numbers
 - Multiple input formats - Single dates, comma-separated lists, or date ranges
 - Interactive spare days manager - Add, remove, or clear spare days anytime
@@ -257,7 +317,6 @@ PlanName_YYYYMMDD_HHMMSS.json
 See future-improvements.md for the comprehensive roadmap with 30+ planned features.
 
 ### Next Up (High Priority)
-- Writing Patterns - Variable daily goals (valley, mountain, rising, declining, random)
 - Weekend Planning - Different word goals for weekends vs weekdays
 - Progress Tracking - Record actual words written each day
 - Plan Recalculation - Adjust plans based on actual progress
@@ -313,7 +372,7 @@ Solution: The app recalculates based on the two values you provide. Check which 
 ## FAQ
 
 Q: Can I have different word goals on different days?
-A: Not yet, but "Writing Patterns" is planned (see roadmap).
+A: Yes! Use Writing Patterns to create variable daily goals. Choose from flat, valley, mountain, rising, declining, or random patterns when creating or modifying a plan.
 
 Q: Can I track my actual progress?
 A: Not yet, but "Progress Tracking" is high priority (see roadmap).
