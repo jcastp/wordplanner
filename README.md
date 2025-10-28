@@ -44,7 +44,7 @@ Distribute your writing goals with different patterns to match your energy and s
   - Enter/edit progress for any past date
   - View all progress entries
   - Progress dashboard with stats
-  - Streak tracking with 🔥 indicator
+  - Streak tracking indicator
 - **Automatic Plan Adjustments** - Stay on track with smart recalculation
   - When ahead: reduce daily goals OR finish early (you choose)
   - When behind: increase daily goals OR extend deadline (you choose)
@@ -54,6 +54,25 @@ Distribute your writing goals with different patterns to match your energy and s
   - Automatic save prompts when progress updated
   - Progress stored in plan file
   - Loads with plan on app restart
+
+#### Progress Graphs & Analytics
+- **Visual Progress Tracking** - See your writing journey through graphs
+  - Cumulative line graph: Expected vs actual word count over time
+  - Daily bar chart: Compare daily words written vs planned goals
+  - Velocity graph: Track writing speed with 3-day moving average
+  - Milestone progress chart: Visual progress toward 25%, 50%, 75%, 100%
+- **Comprehensive Statistics** - Detailed analytics about your writing
+  - Average words per day (actual vs planned)
+  - Best and worst writing days with counts
+  - Current streak and longest streak tracking
+  - Schedule status: ahead, on track, or behind
+  - Estimated completion date based on velocity
+  - Days ahead or behind schedule
+- **Terminal-Based Visualization** - Beautiful graphs in your terminal
+  - Powered by plotext for clean, readable charts
+  - No external tools needed
+  - View individual graphs or all at once
+  - Interactive analytics menu
 
 #### Flexible Plan Management
 - Save & Load Plans - Save multiple writing projects with custom names
@@ -66,6 +85,7 @@ Distribute your writing goals with different patterns to match your energy and s
 - Plan Actions Menu - Streamlined workflow for managing plans
   - Update progress
   - View progress summary
+  - View progress graphs & analytics
   - Modify plan values
   - View calendar visualizations
   - Export plan
@@ -155,7 +175,7 @@ uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-uv pip install rich
+uv pip install rich plotext
 # or install in editable mode
 uv pip install -e .
 ```
@@ -430,6 +450,92 @@ Goal: Share your writing plan with others or import it into calendar/spreadsheet
    All files ready for different purposes!
    ```
 
+### Example 7: Analyzing Your Writing Progress with Graphs
+
+Goal: Visualize your progress and analyze your writing patterns
+
+1. View Statistics Summary
+   ```
+   Choose: "Plan Actions" → "View progress graphs & analytics"
+   Select: "View statistics summary"
+
+   Display shows:
+     Total Words Written: 8,450
+     Total Goal: 10,000
+     Remaining: 1,550
+     Completion: 84.5%
+
+     Days with Progress: 12
+     Average per Day: 704 words
+     Planned Daily Goal: 1,000 words
+     Best Day: Mon Oct 21: 1,250 words
+     Worst Day: Wed Oct 23: 350 words
+
+     Current Streak: 5 days
+     Longest Streak: 7 days
+
+     Schedule Status: BEHIND by 1.2 days
+     Estimated Completion: 2025-11-02 (5 days)
+   ```
+
+2. View Cumulative Progress Graph
+   ```
+   Select: "Cumulative progress (Expected vs Actual)"
+
+   Display shows line graph with:
+   - Blue line: Expected cumulative word count
+   - Orange line: Actual cumulative word count
+   - X-axis: Dates
+   - Y-axis: Total words
+
+   Insight: You can see exactly where you fell behind and when you caught up
+   ```
+
+3. View Daily Progress Bar Chart
+   ```
+   Select: "Daily progress bar chart"
+
+   Display shows bar chart with:
+   - Side-by-side bars for each day (last 30 days)
+   - Planned words vs Actual words
+   - Easy to spot high and low performance days
+
+   Insight: Identify patterns like strong weekdays vs weak weekends
+   ```
+
+4. View Writing Velocity
+   ```
+   Select: "Writing velocity over time"
+
+   Display shows line graph with:
+   - Velocity line: 3-day moving average of words per day
+   - Target line: Your planned daily goal
+   - Shows if your pace is improving or declining
+
+   Insight: See if you're speeding up or slowing down over time
+   ```
+
+5. View Milestone Progress
+   ```
+   Select: "Milestone progress chart"
+
+   Display shows horizontal bars for:
+   - 25% milestone: Completed
+   - 50% milestone: Completed
+   - 75% milestone: Completed
+   - 100% milestone: In progress (84.5%)
+
+   Insight: Visual celebration of your progress milestones
+   ```
+
+6. View All Graphs at Once
+   ```
+   Select: "View all graphs"
+
+   Result: Statistics table followed by all four graphs displayed sequentially
+   Perfect for a comprehensive progress review session
+   ```
+
 ## File Structure
 
 ```
@@ -439,6 +545,7 @@ planeapalabras/
 ├── calendar_view.py           # Calendar visualization with Rich
 ├── plan_storage.py            # Save/load functionality
 ├── plan_export.py             # Export functionality (CSV, iCal, Markdown)
+├── progress_analytics.py      # Progress graphs and analytics
 ├── README.md                  # This file - user documentation
 ├── CLAUDE.md                  # Developer documentation for AI
 ├── future-improvements.md     # Roadmap and planned features
@@ -471,7 +578,27 @@ Exports are named with the plan name and timestamp in the appropriate format:
 
 ## What's New
 
-### Version 1.4 (Latest)
+### Version 1.5 (Latest)
+- **Progress Graphs & Analytics** - Visual progress tracking and comprehensive statistics:
+  - Cumulative line graph showing expected vs actual word count over time
+  - Daily bar chart comparing words written vs planned goals
+  - Velocity graph tracking writing speed with 3-day moving average
+  - Milestone progress chart for 25%, 50%, 75%, 100% completion
+  - Terminal-based graphs using plotext library
+- **Comprehensive Writing Statistics** - Detailed analytics dashboard:
+  - Average words per day (actual vs planned)
+  - Best and worst writing days identification
+  - Current streak and longest streak tracking
+  - Schedule status: ahead, on track, or behind
+  - Estimated completion date based on current velocity
+  - Days ahead or behind schedule calculation
+- **Interactive Analytics Menu** - Easy access to all graphs and stats:
+  - View individual graphs or all at once
+  - Statistics summary table
+  - Integrated into Plan Actions menu
+  - No external tools required
+
+### Version 1.4
 - **Export Functionality** - Share plans in multiple formats:
   - CSV export for spreadsheets (Excel, Google Sheets)
   - iCal/ICS export for calendar apps (Google Calendar, Apple Calendar, Outlook)
@@ -544,16 +671,14 @@ See future-improvements.md for the comprehensive roadmap with 30+ planned featur
 
 ### Next Up (High Priority)
 - Weekend Planning - Different word goals for weekends vs weekdays
-- Progress Graphs - Visual comparison of expected vs actual words
 - Quick Actions - "Mark all weekends as spare", holiday templates, etc.
 - Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.)
 
 ### Coming Soon (Medium Priority)
-- Plan templates (NaNoWriMo, Short Story, Academic Paper, etc.)
-- Export functionality (CSV, PDF, iCal for calendar apps)
 - Notifications and reminders
-- Writing analytics and statistics
 - Writing session timer integration
+- Multiple plans management
+- Advanced calendar features
 
 ### Future Possibilities
 - Web interface
@@ -604,6 +729,9 @@ A: Yes! Use "Update progress" from the Plan Actions menu. You can enter words fo
 
 Q: What happens if I fall behind schedule?
 A: The app will detect when you're behind and offer to adjust your plan. You can either increase daily goals to catch up while keeping the same deadline, or extend your deadline while keeping the same daily goals. You choose!
+
+Q: Can I see graphs of my writing progress?
+A: Yes! Use "View progress graphs & analytics" from the Plan Actions menu. You'll get four types of graphs: cumulative progress (expected vs actual), daily bar chart, writing velocity over time, and milestone progress. Plus comprehensive statistics including average words per day, best/worst days, streaks, and estimated completion date.
 
 Q: Can I export my plan to Google Calendar or other calendar apps?
 A: Yes! Use the "Export plan" option and choose iCal/ICS format. The exported .ics file can be imported into Google Calendar, Apple Calendar, Outlook, and most other calendar applications. You'll get daily events with your word goals and spare days marked.

@@ -9,6 +9,7 @@ import plan
 import calendar_view
 import plan_storage
 import plan_export
+import progress_analytics
 
 
 def get_yes_no(prompt, default='y'):
@@ -341,20 +342,21 @@ def plan_actions_menu():
     print("\nWhat would you like to do with this plan?")
     print("\n1. Update progress")
     print("2. View progress summary")
-    print("3. Modify plan")
-    print("4. View calendar")
-    print("5. Export plan")
-    print("6. Save plan")
+    print("3. View progress graphs & analytics")
+    print("4. Modify plan")
+    print("5. View calendar")
+    print("6. Export plan")
+    print("7. Save plan")
     print("0. Go back to main menu")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-6): "))
-            if choice in [0, 1, 2, 3, 4, 5, 6]:
+            choice = int(input("\nEnter your choice (0-7): "))
+            if choice in [0, 1, 2, 3, 4, 5, 6, 7]:
                 return choice
             else:
-                print("Please enter a number between 0 and 6.")
+                print("Please enter a number between 0 and 7.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -1350,21 +1352,25 @@ def handle_plan_actions(current_plan):
             view_progress_summary(current_plan)
 
         elif action == 3:
+            # View progress graphs & analytics
+            progress_analytics.show_analytics_menu(current_plan)
+
+        elif action == 4:
             # Modify plan
             modified = modify_plan(current_plan)
             if modified:
                 print("\n✓ Plan modified successfully!")
             # Loop continues to show updated results
 
-        elif action == 4:
+        elif action == 5:
             # View calendar
             show_calendar_options(current_plan)
 
-        elif action == 5:
+        elif action == 6:
             # Export plan
             export_plan_menu(current_plan)
 
-        elif action == 6:
+        elif action == 7:
             # Save plan
             save_plan_prompt(current_plan)
 
