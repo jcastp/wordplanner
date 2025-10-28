@@ -828,15 +828,23 @@ def show_calendar_options(newplan):
                         print(f"⚠ Warning: This date is {days_ago} day(s) in the past.")
 
                     print("-" * 50)
-                    print("\n1. Use saved date")
+                    print("\n1. Use saved date [default]")
                     print("2. Enter a new date")
                     print("0. Cancel")
                     print("-" * 50)
 
                     date_choice_made = False
                     while not date_choice_made:
+                        date_input = input("\nEnter your choice (0-2, or Enter for default): ").strip()
+
+                        # Empty input means use default (saved date)
+                        if date_input == "":
+                            start_date = newplan.start_date
+                            date_choice_made = True
+                            continue
+
                         try:
-                            date_choice = int(input("\nEnter your choice (0-2): "))
+                            date_choice = int(date_input)
                             if date_choice == 0:
                                 return
                             elif date_choice == 1:
@@ -883,6 +891,8 @@ def update_progress(current_plan):
         input("\nPress Enter to continue...")
         return
 
+    progress_updated = False
+
     while True:
         print("\n" + "=" * 50)
         print("UPDATE PROGRESS")
@@ -898,6 +908,10 @@ def update_progress(current_plan):
             choice = int(input("\nEnter your choice (0-3): "))
 
             if choice == 0:
+                # Prompt to save if progress was updated
+                if progress_updated:
+                    if get_yes_no("\nProgress was updated. Save the plan?", default='y'):
+                        save_plan_prompt(current_plan)
                 return
 
             elif choice == 1:
@@ -930,6 +944,7 @@ def update_progress(current_plan):
                         continue
 
                     current_plan.record_progress(today, word_count)
+                    progress_updated = True
                     print(f"\n✓ Progress recorded: {word_count:,} words")
 
                     # Check if goal was met
@@ -987,6 +1002,7 @@ def update_progress(current_plan):
                         continue
 
                     current_plan.record_progress(entry_date, word_count)
+                    progress_updated = True
                     print(f"\n✓ Progress recorded: {word_count:,} words")
 
                     # Check overall status and offer recalculation
@@ -1340,6 +1356,17 @@ def create_new_plan():
             newplan.pattern = pattern
             newplan.pattern_config = pattern_config
             print(f"\n✓ Using {pattern} pattern")
+
+        # Ask for start date
+        print("\n" + "=" * 50)
+        print("PLAN START DATE")
+        print("=" * 50)
+        print("\nWhen would you like to start writing?")
+        print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
+        print("Or press Enter for today's date")
+        start_date = get_date_input("Start date: ")
+        newplan.start_date = start_date
+        print(f"\n✓ Plan starts on: {start_date.strftime('%Y-%m-%d')}")
 
         handle_plan_actions(newplan)
 
