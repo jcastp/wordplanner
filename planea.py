@@ -149,28 +149,68 @@ def display_results(newplan):
 def save_plan_prompt(newplan):
     """Ask user if they want to save the plan."""
     if get_yes_no("\nWould you like to save this plan?", default='y'):
-        # If plan already has a name, ask if they want to keep it or change it
-        if newplan.name:
-            print(f"\nCurrent plan name: {newplan.name}")
-            if get_yes_no("Keep this name?", default='y'):
-                plan_name = newplan.name
-            else:
-                plan_name = input("Enter a new name for this plan: ").strip()
+        # Check if this plan was loaded from a file
+        if newplan.source_file:
+            print(f"\nThis plan was loaded from: {newplan.source_file.name}")
+            print("\nHow would you like to save?")
+            print("1. Overwrite the original file")
+            print("2. Save as a new file (with timestamp)")
+            print("0. Cancel")
+
+            while True:
+                try:
+                    choice = int(input("\nEnter your choice (0-2): "))
+                    if choice == 0:
+                        return False
+                    elif choice in [1, 2]:
+                        overwrite = (choice == 1)
+
+                        # If saving as new, optionally allow name change
+                        if not overwrite:
+                            if newplan.name:
+                                print(f"\nCurrent plan name: {newplan.name}")
+                                if not get_yes_no("Keep this name?", default='y'):
+                                    plan_name = input("Enter a new name for this plan: ").strip()
+                                    if plan_name:
+                                        newplan.name = plan_name
+
+                        try:
+                            filepath = plan_storage.save_plan(newplan, overwrite_source=overwrite)
+                            if overwrite:
+                                print(f"\n✓ Plan updated successfully in: {filepath}")
+                            else:
+                                print(f"\n✓ Plan saved as new file: {filepath}")
+                            return True
+                        except Exception as e:
+                            print(f"\n✗ Error saving plan: {e}")
+                            return False
+                    else:
+                        print("Please enter 0, 1, or 2.")
+                except ValueError:
+                    print("Invalid input. Please enter a number.")
         else:
-            plan_name = input("Enter a name for this plan: ").strip()
+            # New plan - ask for name
+            if newplan.name:
+                print(f"\nCurrent plan name: {newplan.name}")
+                if get_yes_no("Keep this name?", default='y'):
+                    plan_name = newplan.name
+                else:
+                    plan_name = input("Enter a new name for this plan: ").strip()
+            else:
+                plan_name = input("Enter a name for this plan: ").strip()
 
-        if not plan_name:
-            print("No name provided, plan not saved.")
-            return False
+            if not plan_name:
+                print("No name provided, plan not saved.")
+                return False
 
-        try:
-            newplan.name = plan_name
-            filepath = plan_storage.save_plan(newplan)
-            print(f"\n✓ Plan saved successfully to: {filepath}")
-            return True
-        except Exception as e:
-            print(f"\n✗ Error saving plan: {e}")
-            return False
+            try:
+                newplan.name = plan_name
+                filepath = plan_storage.save_plan(newplan, overwrite_source=False)
+                print(f"\n✓ Plan saved successfully to: {filepath}")
+                return True
+            except Exception as e:
+                print(f"\n✗ Error saving plan: {e}")
+                return False
     return False
 
 

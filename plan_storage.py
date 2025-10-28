@@ -36,13 +36,14 @@ def get_plan_filename(plan_name: str) -> str:
     return f"{safe_name}_{timestamp}.json"
 
 
-def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None) -> Path:
+def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite_source: bool = True) -> Path:
     """
     Save a plan to disk.
 
     Args:
         plan_obj: The Plan object to save
         custom_path: Optional custom path to save to (defaults to plans directory)
+        overwrite_source: If True and plan has a source_file, overwrite it. If False, create new file.
 
     Returns:
         Path where the plan was saved
@@ -51,11 +52,16 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None) -> Path:
 
     if custom_path:
         filepath = custom_path
+    elif overwrite_source and plan_obj.source_file:
+        # Overwrite the original file this plan was loaded from
+        filepath = plan_obj.source_file
     else:
-        # Use plan name or generate a default name
+        # Create a new file with timestamp
         plan_name = plan_obj.name or f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         filename = get_plan_filename(plan_name)
         filepath = DEFAULT_PLANS_DIR / filename
+        # Update source_file since we're creating a new file
+        plan_obj.source_file = filepath
 
     # Save to file
     with open(filepath, 'w') as f:
@@ -77,7 +83,10 @@ def load_plan(filepath: Path) -> plan.Plan:
     with open(filepath, 'r') as f:
         json_str = f.read()
 
-    return plan.Plan.from_json(json_str)
+    loaded_plan = plan.Plan.from_json(json_str)
+    # Track the source file so we can overwrite it later
+    loaded_plan.source_file = filepath
+    return loaded_plan
 
 
 def list_saved_plans() -> List[dict]:

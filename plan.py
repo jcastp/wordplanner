@@ -7,7 +7,7 @@ import json
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None):
         """Initialize the values."""
         self.daily = daily
         self.total = total
@@ -17,6 +17,7 @@ class Plan():
         self.start_date = start_date  # When the writing plan starts
         self.created_date = created_date or datetime.datetime.now()  # When this plan was created
         self.spare_days_dates = spare_days_dates or []  # List of actual dates (datetime objects) with 0 words
+        self.source_file = source_file  # Path to the file this plan was loaded from (None for new plans)
 
     @property
     def spare_days(self):
