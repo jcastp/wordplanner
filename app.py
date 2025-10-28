@@ -421,16 +421,28 @@ class DateInputScreen(Screen):
         self.plan_obj = plan_obj
         self.view_type = view_type
 
+    def on_mount(self) -> None:
+        """Pre-fill the date input if plan has a saved start_date."""
+        if self.plan_obj.start_date:
+            date_input = self.query_one("#input_date", Input)
+            date_input.value = self.plan_obj.start_date.strftime("%Y-%m-%d")
+
     def compose(self) -> ComposeResult:
         """Create the date input UI."""
         yield Header()
 
+        # Determine label text based on whether plan has a saved start_date
+        if self.plan_obj.start_date:
+            date_label = f"Saved start date: {self.plan_obj.start_date.strftime('%Y-%m-%d')} (edit if needed)"
+        else:
+            date_label = "When would you like to start writing?"
+
         yield Container(
             Static("[bold cyan]Start Date[/bold cyan]", id="date_title"),
             Static(""),
-            Label("When would you like to start writing?"),
+            Label(date_label),
             Label("Enter date in format YYYY-MM-DD (e.g., 2025-11-01)"),
-            Label("Or leave empty to start today"),
+            Label("Or leave empty to use today's date"),
             Static(""),
             Input(placeholder="YYYY-MM-DD or press Enter for today", id="input_date"),
             Static(""),
@@ -457,6 +469,9 @@ class DateInputScreen(Screen):
                 except ValueError:
                     self.notify("Invalid date format. Using today's date.", severity="warning")
                     start_date = datetime.now()
+
+            # Save the start_date to the plan object
+            self.plan_obj.start_date = start_date
 
             # Show calendar view(s)
             self.app.push_screen(CalendarScreen(self.plan_obj, start_date, self.view_type))
