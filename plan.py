@@ -52,11 +52,17 @@ class Plan():
     def calculate_daily(self):
         """calculate the daily amount of words needed, based on time
         and total words desired."""
+        if self.time == 0:
+            self.daily = 0
+            return
         self.daily = self.total / self.time
         self.invalidate_daily_goals_cache()
 
     def calculate_time(self):
         """Calculate the time needed to complete your work."""
+        if self.daily == 0:
+            self.time = 0
+            return
         self.time = self.total / self.daily
         self.invalidate_daily_goals_cache()
 

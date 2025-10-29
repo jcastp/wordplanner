@@ -6,15 +6,56 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 import plan
+import config
 
 
-# Default directory for storing plans
-DEFAULT_PLANS_DIR = Path.home() / ".planeapalabras" / "plans"
+def plan_to_dict(plan_obj: plan.Plan) -> dict:
+    """
+    Convert a Plan object to a dictionary.
+
+    Args:
+        plan_obj: The Plan object to convert
+
+    Returns:
+        Dictionary representation of the plan
+    """
+    return plan_obj.to_dict()
+
+
+def dict_to_plan(data: dict) -> plan.Plan:
+    """
+    Convert a dictionary to a Plan object.
+
+    Args:
+        data: Dictionary containing plan data
+
+    Returns:
+        Plan object created from the dictionary
+    """
+    return plan.Plan.from_dict(data)
+
+
+def get_plans_directory() -> Path:
+    """
+    Get the plans directory path.
+
+    Returns:
+        Path to the plans directory
+    """
+    save_dir = Path(config.SAVE_DIRECTORY)
+
+    # If SAVE_DIRECTORY is absolute (for testing), use it directly
+    if save_dir.is_absolute():
+        return save_dir / config.PLANS_SUBDIRECTORY
+    else:
+        # Otherwise, use it relative to home directory (normal usage)
+        return Path.home() / config.SAVE_DIRECTORY / config.PLANS_SUBDIRECTORY
 
 
 def ensure_plans_directory():
     """Ensure the plans directory exists."""
-    DEFAULT_PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    plans_dir = get_plans_directory()
+    plans_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_plan_filename(plan_name: str) -> str:
@@ -31,8 +72,8 @@ def get_plan_filename(plan_name: str) -> str:
     safe_name = "".join(c for c in plan_name if c.isalnum() or c in (' ', '-', '_')).strip()
     # Replace spaces with underscores
     safe_name = safe_name.replace(' ', '_')
-    # Add timestamp to make it unique
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Add timestamp with microseconds to make it unique
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return f"{safe_name}_{timestamp}.json"
 
 
@@ -59,7 +100,7 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
         # Create a new file with timestamp
         plan_name = plan_obj.name or f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         filename = get_plan_filename(plan_name)
-        filepath = DEFAULT_PLANS_DIR / filename
+        filepath = get_plans_directory() / filename
         # Update source_file since we're creating a new file
         plan_obj.source_file = filepath
 
@@ -99,7 +140,7 @@ def list_saved_plans() -> List[dict]:
     ensure_plans_directory()
 
     plans = []
-    for filepath in DEFAULT_PLANS_DIR.glob("*.json"):
+    for filepath in get_plans_directory().glob("*.json"):
         try:
             # Load plan to get metadata
             plan_obj = load_plan(filepath)
