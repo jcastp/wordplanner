@@ -309,6 +309,39 @@ class Plan():
             del self.custom_daily_goals[date_key]
             self.invalidate_daily_goals_cache()
 
+    def recalculate_total_from_daily_goals(self):
+        """
+        Recalculate the total word count based on current daily goals.
+
+        This method iterates through all calendar days in the plan and sums up
+        the daily goals (considering patterns, weekends, custom goals, and spare days).
+        It then updates self.total to match the calculated sum.
+
+        Returns:
+            float: The new total word count
+        """
+        if not self.start_date:
+            # Can't recalculate without a start date
+            return self.total
+
+        # Calculate total calendar days (writing days + spare days)
+        total_calendar_days = int(self.time) + self.spare_days
+
+        # Sum up all daily goals
+        total_words = 0
+        current_date = self.start_date
+
+        for day_num in range(total_calendar_days):
+            daily_goal = self.get_daily_goal(date=current_date)
+            total_words += daily_goal
+            current_date += datetime.timedelta(days=1)
+
+        # Update the plan's total
+        self.total = total_words
+        self.invalidate_daily_goals_cache()
+
+        return self.total
+
     def record_progress(self, date, word_count):
         """
         Record actual words written on a specific date.

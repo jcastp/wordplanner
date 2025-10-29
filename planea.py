@@ -490,6 +490,105 @@ def manage_spare_days(current_plan):
             print("Invalid input. Please enter a number.")
 
 
+def ask_recalculation_preference():
+    """
+    Ask user what they want to keep constant after changing daily goals.
+
+    Returns:
+        str: 'total' to keep total words constant, 'days' to keep days constant
+    """
+    print("\nHow would you like to adjust the plan?")
+    print("1. Keep total word count constant (adjust other days' goals)")
+    print("2. Keep days constant (adjust total word count)")
+
+    while True:
+        try:
+            choice = int(input("\nEnter your choice (1-2): "))
+            if choice == 1:
+                return 'total'
+            elif choice == 2:
+                return 'days'
+            else:
+                print("Please enter 1 or 2.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
+    """
+    Recalculate plan based on user's choice of what to keep constant.
+
+    Args:
+        current_plan: The Plan object to recalculate
+        old_total: The total before changes
+        choice_mode: 'total' or 'days'
+    """
+    from datetime import timedelta
+    if choice_mode == 'days':
+        # Keep days constant, adjust total
+        new_total = current_plan.recalculate_total_from_daily_goals()
+        if abs(new_total - old_total) > 0.01:
+            print(f"\nPlan total adjusted: {old_total:,.0f} -> {new_total:,.0f} words")
+
+    elif choice_mode == 'total':
+        # Keep total constant, adjust daily goals for non-customized days
+        # Calculate the new total based on current settings
+        calculated_total = current_plan.recalculate_total_from_daily_goals()
+
+        # Calculate how many words need to be redistributed
+        words_to_redistribute = old_total - calculated_total
+
+        if abs(words_to_redistribute) < 0.01:
+            print("\nNo adjustment needed - total remains the same")
+            return
+
+        # Count adjustable days (non-custom, non-spare, non-weekend-with-custom-goal)
+        adjustable_days = 0
+        total_calendar_days = int(current_plan.time) + current_plan.spare_days
+        current_date = current_plan.start_date
+
+        for day_num in range(total_calendar_days):
+            date_key = current_date.strftime('%Y-%m-%d')
+
+            # Skip spare days
+            if current_plan.is_spare_day(current_date):
+                current_date += timedelta(days=1)
+                continue
+
+            # Skip days with custom goals
+            if date_key in current_plan.custom_daily_goals:
+                current_date += timedelta(days=1)
+                continue
+
+            # Skip weekends if they have a specific different goal
+            if current_plan.is_weekend(current_date) and current_plan.weekend_mode == "different":
+                current_date += timedelta(days=1)
+                continue
+
+            adjustable_days += 1
+            current_date += timedelta(days=1)
+
+        if adjustable_days == 0:
+            print("\nWarning: No adjustable days remaining!")
+            print("All days have custom goals, weekend settings, or are spare days.")
+            print(f"Total will be: {calculated_total:,.0f} words")
+            current_plan.total = calculated_total
+            return
+
+        # Calculate adjustment per adjustable day
+        adjustment_per_day = words_to_redistribute / adjustable_days
+        new_daily = current_plan.daily + adjustment_per_day
+
+        print(f"\nAdjusting {adjustable_days} days to maintain total of {old_total:,.0f} words")
+        print(f"  Base daily goal: {current_plan.daily:,.0f} -> {new_daily:,.0f} words/day")
+        print(f"  Change: {adjustment_per_day:+.0f} words/day")
+
+        # Update the base daily goal
+        current_plan.daily = new_daily
+        current_plan.total = old_total
+        current_plan.invalidate_daily_goals_cache()
+
+
 def edit_individual_day_goal(current_plan):
     """Edit the word goal for a specific day."""
     from datetime import datetime as dt, timedelta
@@ -551,8 +650,14 @@ def edit_individual_day_goal(current_plan):
                     print("  (Enter 0 to make it a rest day, or any positive number)")
                     new_goal = get_positive_number("New goal: ")
 
+                    old_total = current_plan.total
                     current_plan.set_custom_daily_goal(target_date, new_goal)
+
                     display_success(f"Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
+
+                    # Ask user how to adjust the plan
+                    choice = ask_recalculation_preference()
+                    recalculate_plan_with_choice(current_plan, old_total, choice)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -575,11 +680,18 @@ def edit_individual_day_goal(current_plan):
                     date_key = target_date.strftime('%Y-%m-%d')
 
                     if date_key in current_plan.custom_daily_goals:
+                        old_total = current_plan.total
                         current_plan.remove_custom_daily_goal(target_date)
-                        # Show what the goal will revert to
-                        reverted_goal = current_plan.get_daily_goal(date=target_date)
+
                         display_success(f"Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
+
+                        # Show what the goal will revert to (before recalculation)
+                        reverted_goal = current_plan.get_daily_goal(date=target_date)
                         print(f"  Goal reverted to: {reverted_goal:,.0f} words")
+
+                        # Ask user how to adjust the plan
+                        choice = ask_recalculation_preference()
+                        recalculate_plan_with_choice(current_plan, old_total, choice)
                     else:
                         display_error(f"No custom goal found for {target_date.strftime('%Y-%m-%d')}")
 
@@ -593,9 +705,15 @@ def edit_individual_day_goal(current_plan):
                     continue
 
                 if get_yes_no(f"Clear all {len(current_plan.custom_daily_goals)} custom day goals?", default='n'):
+                    old_total = current_plan.total
                     current_plan.custom_daily_goals.clear()
                     current_plan.invalidate_daily_goals_cache()
+
                     display_success("All custom day goals cleared")
+
+                    # Ask user how to adjust the plan
+                    choice = ask_recalculation_preference()
+                    recalculate_plan_with_choice(current_plan, old_total, choice)
 
             else:
                 print("Please enter a number between 0 and 3.")
@@ -1428,7 +1546,9 @@ def configure_weekend_settings(current_plan):
         # Keep default: same as weekdays
         return
 
-    elif choice == 1:
+    old_total = current_plan.total
+
+    if choice == 1:
         current_plan.weekend_mode = "same"
         display_success("Weekends will have the same writing goal as weekdays")
 
@@ -1462,6 +1582,12 @@ def configure_weekend_settings(current_plan):
                     display_warning("Invalid days, using default (Sat, Sun)")
             except ValueError:
                 display_warning("Invalid input, using default weekend days (Sat, Sun)")
+
+    # Recalculate plan based on new weekend settings
+    if choice in [1, 2, 3]:
+        # Ask user how to adjust the plan
+        recalc_choice = ask_recalculation_preference()
+        recalculate_plan_with_choice(current_plan, old_total, recalc_choice)
 
 
 def create_plan_from_template():
