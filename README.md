@@ -760,6 +760,69 @@ Goal: Visualize your progress and analyze your writing patterns
    Perfect for a comprehensive progress review session
    ```
 
+## Development
+
+### Running Tests
+
+The project includes a comprehensive test suite with 101 tests covering core functionality.
+
+#### Prerequisites
+
+Install testing dependencies:
+
+```bash
+# Using uv (recommended)
+uv pip install pytest pytest-cov
+
+# Or using pip
+pip install pytest pytest-cov
+```
+
+#### Running Tests
+
+```bash
+# Run all tests
+python3 -m pytest tests/ -v
+
+# Run tests with coverage report
+python3 -m pytest tests/ --cov=. --cov-report=html
+
+# Run specific test file
+python3 -m pytest tests/test_plan.py -v
+
+# Run only failed tests from last run
+python3 -m pytest tests/ --lf
+
+# Run tests matching a pattern (e.g., all pattern-related tests)
+python3 -m pytest tests/ -k "pattern" -v
+```
+
+#### Test Coverage
+
+Current test coverage:
+- **Total Tests:** 101
+- **Pass Rate:** 100%
+- **Coverage:** 13% (core modules have 70-100% coverage)
+
+Coverage by module:
+- config.py: 100%
+- plan_storage.py: 84%
+- plan.py: 71%
+- ui_utils.py: 59%
+
+For detailed test results and recommendations, see [TEST_RESULTS.md](TEST_RESULTS.md).
+
+#### Test Organization
+
+```
+tests/
+├── conftest.py           # Pytest fixtures and test configuration
+├── test_plan.py          # Plan class tests (65 tests)
+├── test_storage.py       # Save/load tests (12 tests)
+├── test_edge_cases.py    # Edge case tests (30 tests)
+└── test_ui_utils.py      # UI utilities tests (22 tests)
+```
+
 ## File Structure
 
 ```
@@ -774,7 +837,14 @@ planeapalabras/
 ├── ui_utils.py                # UI utilities (validation, menus, messages)
 ├── pattern_utils.py           # Pattern configuration utilities
 ├── config.py                  # Application configuration constants
+├── tests/                     # Test suite (101 tests)
+│   ├── conftest.py            # Pytest fixtures
+│   ├── test_plan.py           # Plan class tests (65 tests)
+│   ├── test_storage.py        # Storage tests (12 tests)
+│   ├── test_edge_cases.py     # Edge case tests (30 tests)
+│   └── test_ui_utils.py       # UI utilities tests (22 tests)
 ├── README.md                  # This file - user documentation
+├── TEST_RESULTS.md            # Test suite results and coverage analysis
 ├── CLAUDE.md                  # Developer documentation for AI
 ├── future-improvements.md     # Roadmap and planned features
 ├── TESTING_PLAN.md            # Testing strategy
