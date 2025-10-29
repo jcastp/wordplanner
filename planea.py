@@ -11,86 +11,21 @@ import plan_storage
 import plan_export
 import progress_analytics
 import plan_templates
+import config
+from ui_utils import (
+    get_yes_no, get_positive_number, get_date_input, get_menu_choice,
+    display_header, display_section, display_success, display_error
+)
+from pattern_utils import choose_writing_pattern, get_pattern_description
 
 
-def get_yes_no(prompt, default='y'):
-    """
-    Get a yes/no answer from user with a default value.
-
-    Args:
-        prompt: The question to ask
-        default: 'y' or 'n' for the default answer (selected with Enter)
-
-    Returns:
-        True for yes, False for no
-    """
-    if default.lower() == 'y':
-        options = "[Y/n]"
-    else:
-        options = "[y/N]"
-
-    while True:
-        response = input(f"{prompt} {options}: ").strip().lower()
-
-        if response == "":
-            # Use default
-            return default.lower() == 'y'
-        elif response in ['y', 'yes']:
-            return True
-        elif response in ['n', 'no']:
-            return False
-        else:
-            print("Please enter 'y' for yes or 'n' for no (or press Enter for default).")
-
-
-def get_positive_number(prompt):
-    """Get a positive number from user input with validation."""
-    while True:
-        try:
-            value = float(input(prompt))
-            if value <= 0:
-                print("Please enter a positive number.")
-                continue
-            return value
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-
-def get_date_input(prompt_text="Start date: "):
-    """Get and validate a date input from the user."""
-    while True:
-        date_input = input(prompt_text).strip()
-
-        if date_input == "":
-            selected_date = datetime.now()
-        else:
-            try:
-                selected_date = datetime.strptime(date_input, "%Y-%m-%d")
-            except ValueError:
-                print("Invalid date format. Please use YYYY-MM-DD (e.g., 2025-10-28)")
-                continue
-
-        # Check if date is in the past
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        selected_date_normalized = selected_date.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        if selected_date_normalized < today:
-            days_ago = (today - selected_date_normalized).days
-            print(f"\n⚠ Warning: This date is {days_ago} day(s) in the past.")
-            if get_yes_no("Do you want to use this date anyway?", default='n'):
-                return selected_date
-            else:
-                print("Please enter a new date.")
-                continue
-
-        return selected_date
+# Validation and input functions are now imported from ui_utils module
+# (get_yes_no, get_positive_number, get_date_input)
 
 
 def initial_menu():
     """Display the initial menu: create new plan or load existing."""
-    print("\n" + "=" * 50)
-    print("WORD COUNT PLANNER")
-    print("=" * 50)
+    display_header("WORD COUNT PLANNER")
     print("\nWhat would you like to do?")
     print("\n1. Create a new plan from scratch")
     print("2. Create plan from template")
@@ -98,118 +33,15 @@ def initial_menu():
     print("0. Exit")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
-                return choice
-            else:
-                print("Please enter a number between 0 and 3.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    return get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
 
 
-def choose_writing_pattern():
-    """Display pattern selection menu and return pattern choice."""
-    print("\n" + "=" * 50)
-    print("WRITING PATTERN")
-    print("=" * 50)
-    print("\nHow would you like to distribute your daily word goals?")
-    print("\n1. Flat/Steady - Same daily goal every day (default)")
-    print("2. Valley - Start high, ease in middle, finish high")
-    print("3. Mountain - Start easy, peak in middle, ease at end")
-    print("4. Rising - Gradually increase goals over time")
-    print("5. Declining - Gradually decrease goals over time")
-    print("6. Random - Varied daily goals within a range")
-    print("\n0. Skip (use flat pattern)")
-    print("=" * 50)
-
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-6): "))
-            if choice in [0, 1, 2, 3, 4, 5, 6]:
-                pattern_map = {
-                    0: "flat",
-                    1: "flat",
-                    2: "valley",
-                    3: "mountain",
-                    4: "rising",
-                    5: "declining",
-                    6: "random"
-                }
-                pattern = pattern_map[choice]
-
-                # Get pattern configuration if needed
-                pattern_config = {}
-                if pattern in ["valley", "mountain"]:
-                    print("\nPattern intensity (how extreme the variation):")
-                    print("1. Mild (varies between 0.8x and 1.2x average)")
-                    print("2. Moderate (varies between 0.7x and 1.5x average) [default]")
-                    print("3. Extreme (varies between 0.5x and 2.0x average)")
-
-                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
-                    if intensity_choice == "1":
-                        pattern_config = {'peak_multiplier': 1.2, 'valley_multiplier': 0.8}
-                    elif intensity_choice == "3":
-                        pattern_config = {'peak_multiplier': 2.0, 'valley_multiplier': 0.5}
-                    else:
-                        pattern_config = {'peak_multiplier': 1.5, 'valley_multiplier': 0.7}
-
-                elif pattern in ["rising", "declining"]:
-                    print("\nPattern intensity:")
-                    print("1. Mild (varies between 0.8x and 1.2x average)")
-                    print("2. Moderate (varies between 0.5x and 1.5x average) [default]")
-                    print("3. Extreme (varies between 0.3x and 2.0x average)")
-
-                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
-                    if intensity_choice == "1":
-                        if pattern == "rising":
-                            pattern_config = {'start_multiplier': 0.8, 'end_multiplier': 1.2}
-                        else:
-                            pattern_config = {'start_multiplier': 1.2, 'end_multiplier': 0.8}
-                    elif intensity_choice == "3":
-                        if pattern == "rising":
-                            pattern_config = {'start_multiplier': 0.3, 'end_multiplier': 2.0}
-                        else:
-                            pattern_config = {'start_multiplier': 2.0, 'end_multiplier': 0.3}
-                    else:
-                        if pattern == "rising":
-                            pattern_config = {'start_multiplier': 0.5, 'end_multiplier': 1.5}
-                        else:
-                            pattern_config = {'start_multiplier': 1.5, 'end_multiplier': 0.5}
-
-                elif pattern == "random":
-                    print("\nRandom variation range:")
-                    print("1. Mild (varies between 0.8x and 1.2x average)")
-                    print("2. Moderate (varies between 0.5x and 1.5x average) [default]")
-                    print("3. Extreme (varies between 0.3x and 2.0x average)")
-
-                    intensity_choice = input("\nEnter your choice (1-3, or Enter for default): ").strip()
-                    if intensity_choice == "1":
-                        pattern_config = {'min_multiplier': 0.8, 'max_multiplier': 1.2}
-                    elif intensity_choice == "3":
-                        pattern_config = {'min_multiplier': 0.3, 'max_multiplier': 2.0}
-                    else:
-                        pattern_config = {'min_multiplier': 0.5, 'max_multiplier': 1.5}
-
-                    # Optional seed for reproducibility
-                    use_seed = get_yes_no("Use a fixed seed for reproducible randomness?", default='n')
-                    if use_seed:
-                        import random
-                        pattern_config['seed'] = random.randint(1, 1000000)
-
-                return pattern, pattern_config
-            else:
-                print("Please enter a number between 0 and 6.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+# choose_writing_pattern is now imported from pattern_utils module
 
 
 def choose_calculation_method():
     """Display calculation method menu and return user choice."""
-    print("\n" + "=" * 50)
-    print("CALCULATION METHOD")
-    print("=" * 50)
+    display_header("CALCULATION METHOD")
     print("\nWhat do you know about your writing project?")
     print("\n1. I know my goal (total words) and daily capacity")
     print("   → Calculate how many days I'll need")
@@ -220,22 +52,12 @@ def choose_calculation_method():
     print("\n0. Go back")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
-                return choice
-            else:
-                print("Please enter a number between 0 and 3.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    return get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
 
 
 def display_results(newplan):
     """Display the plan results in a formatted way."""
-    print("\n" + "-" * 50)
-    print("YOUR WRITING PLAN")
-    print("-" * 50)
+    display_section("YOUR WRITING PLAN")
     print(f"Total words: {newplan.total:,.0f} words")
     print(f"Writing days: {newplan.time:.0f} days")
     print(f"Daily goal: {newplan.daily:,.0f} words per day")
@@ -313,12 +135,12 @@ def save_plan_prompt(newplan):
                         try:
                             filepath = plan_storage.save_plan(newplan, overwrite_source=overwrite)
                             if overwrite:
-                                print(f"\n✓ Plan updated successfully in: {filepath}")
+                                display_success(f"Plan updated successfully in: {filepath}")
                             else:
-                                print(f"\n✓ Plan saved as new file: {filepath}")
+                                display_success(f"Plan saved as new file: {filepath}")
                             return True
                         except Exception as e:
-                            print(f"\n✗ Error saving plan: {e}")
+                            display_error(f"Error saving plan: {e}")
                             return False
                     else:
                         print("Please enter 0, 1, or 2.")
@@ -342,19 +164,17 @@ def save_plan_prompt(newplan):
             try:
                 newplan.name = plan_name
                 filepath = plan_storage.save_plan(newplan, overwrite_source=False)
-                print(f"\n✓ Plan saved successfully to: {filepath}")
+                display_success(f"Plan saved successfully to: {filepath}")
                 return True
             except Exception as e:
-                print(f"\n✗ Error saving plan: {e}")
+                display_error(f"Error saving plan: {e}")
                 return False
     return False
 
 
 def plan_actions_menu():
     """Display plan actions menu after creating or loading a plan."""
-    print("\n" + "=" * 50)
-    print("PLAN ACTIONS")
-    print("=" * 50)
+    display_header("PLAN ACTIONS")
     print("\nWhat would you like to do with this plan?")
     print("\n1. Update progress")
     print("2. View progress summary")
@@ -366,15 +186,7 @@ def plan_actions_menu():
     print("0. Go back to main menu")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-7): "))
-            if choice in [0, 1, 2, 3, 4, 5, 6, 7]:
-                return choice
-            else:
-                print("Please enter a number between 0 and 7.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    return get_menu_choice("\nEnter your choice (0-7): ", 0, 7)
 
 
 def manage_spare_days(current_plan):
@@ -383,7 +195,7 @@ def manage_spare_days(current_plan):
 
     # Check if start_date is set
     if not current_plan.start_date:
-        print("\n✗ You must set a start date before managing spare days.")
+        display_error("You must set a start date before managing spare days.")
         print("  Please view a calendar first to set a start date.")
         return False
 
@@ -481,7 +293,7 @@ def manage_spare_days(current_plan):
                                 new_spare_dates.append(current)
                                 current += timedelta(days=1)
                         else:
-                            print("\n✗ Invalid range format. Use: YYYY-MM-DD to YYYY-MM-DD")
+                            display_error("Invalid range format. Use: YYYY-MM-DD to YYYY-MM-DD")
                             continue
                     else:
                         # Comma-separated dates
@@ -500,7 +312,7 @@ def manage_spare_days(current_plan):
                             invalid_dates.append(d.strftime('%Y-%m-%d'))
 
                     if invalid_dates:
-                        print(f"\n✗ Some dates are outside the valid range:")
+                        display_error(f"Some dates are outside the valid range:")
                         for d in invalid_dates[:5]:  # Show first 5
                             print(f"  {d}")
                         if len(invalid_dates) > 5:
@@ -524,18 +336,18 @@ def manage_spare_days(current_plan):
                     total_calendar_days = int(current_plan.time) + current_plan.spare_days
                     plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
-                    print(f"\n✓ Added {added_count} spare day(s)")
+                    display_success(f"Added {added_count} spare day(s)")
                     if added_count < len(new_spare_dates):
                         print(f"  ({len(new_spare_dates) - added_count} were already marked as spare)")
 
                 except ValueError as e:
-                    print(f"\n✗ Invalid date format: {e}")
+                    display_error(f"Invalid date format: {e}")
                     print("  Please use YYYY-MM-DD format (e.g., 2025-12-25)")
 
             elif choice == 2:
                 # Remove spare days by date
                 if current_plan.spare_days == 0:
-                    print("\n✗ No spare days to remove")
+                    display_error("No spare days to remove")
                     continue
 
                 print("\nEnter dates to remove from spare days:")
@@ -583,24 +395,24 @@ def manage_spare_days(current_plan):
                     total_calendar_days = int(current_plan.time) + current_plan.spare_days
                     plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
-                    print(f"\n✓ Removed {removed_count} spare day(s)")
+                    display_success(f"Removed {removed_count} spare day(s)")
                     if removed_count < len(dates_to_remove):
                         print(f"  ({len(dates_to_remove) - removed_count} were not spare days)")
 
                 except ValueError as e:
-                    print(f"\n✗ Invalid date format: {e}")
+                    display_error(f"Invalid date format: {e}")
 
             elif choice == 3:
                 # Clear all spare days
                 if current_plan.spare_days == 0:
-                    print("\n✗ No spare days to clear")
+                    display_error("No spare days to clear")
                     continue
 
                 if get_yes_no(f"Clear all {current_plan.spare_days} spare days?", default='n'):
                     current_plan.spare_days_dates.clear()
                     total_calendar_days = int(current_plan.time)
                     plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
-                    print("\n✓ All spare days cleared")
+                    display_success("All spare days cleared")
 
             elif choice == 4:
                 # Mark all Saturdays as spare
@@ -623,7 +435,7 @@ def manage_spare_days(current_plan):
 
                 total_calendar_days = int(current_plan.time) + current_plan.spare_days
                 plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
-                print(f"\n✓ Marked {added_count} Saturdays as spare days")
+                display_success(f"Marked {added_count} Saturdays as spare days")
 
             elif choice == 5:
                 # Mark all Sundays as spare
@@ -646,7 +458,7 @@ def manage_spare_days(current_plan):
 
                 total_calendar_days = int(current_plan.time) + current_plan.spare_days
                 plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
-                print(f"\n✓ Marked {added_count} Sundays as spare days")
+                display_success(f"Marked {added_count} Sundays as spare days")
 
             elif choice == 6:
                 # Mark all weekends as spare
@@ -669,7 +481,7 @@ def manage_spare_days(current_plan):
 
                 total_calendar_days = int(current_plan.time) + current_plan.spare_days
                 plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
-                print(f"\n✓ Marked {added_count} weekend days as spare")
+                display_success(f"Marked {added_count} weekend days as spare")
 
             else:
                 print("Please enter a number between 0 and 6.")
@@ -683,7 +495,7 @@ def edit_individual_day_goal(current_plan):
     from datetime import datetime as dt, timedelta
 
     if not current_plan.start_date:
-        print("\n✗ You must set a start date before editing individual day goals.")
+        display_error("You must set a start date before editing individual day goals.")
         return False
 
     print("\n" + "=" * 50)
@@ -740,16 +552,16 @@ def edit_individual_day_goal(current_plan):
                     new_goal = get_positive_number("New goal: ")
 
                     current_plan.set_custom_daily_goal(target_date, new_goal)
-                    print(f"\n✓ Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
+                    display_success(f"Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
 
                 except ValueError as e:
-                    print(f"\n✗ Invalid date format: {e}")
+                    display_error(f"Invalid date format: {e}")
                     print("  Please use YYYY-MM-DD format")
 
             elif choice == 2:
                 # Remove custom goal
                 if not current_plan.custom_daily_goals:
-                    print("\n✗ No custom day goals to remove")
+                    display_error("No custom day goals to remove")
                     continue
 
                 print("\nEnter date to remove custom goal:")
@@ -766,24 +578,24 @@ def edit_individual_day_goal(current_plan):
                         current_plan.remove_custom_daily_goal(target_date)
                         # Show what the goal will revert to
                         reverted_goal = current_plan.get_daily_goal(date=target_date)
-                        print(f"\n✓ Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
+                        display_success(f"Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
                         print(f"  Goal reverted to: {reverted_goal:,.0f} words")
                     else:
-                        print(f"\n✗ No custom goal found for {target_date.strftime('%Y-%m-%d')}")
+                        display_error(f"No custom goal found for {target_date.strftime('%Y-%m-%d')}")
 
                 except ValueError as e:
-                    print(f"\n✗ Invalid date format: {e}")
+                    display_error(f"Invalid date format: {e}")
 
             elif choice == 3:
                 # Clear all custom goals
                 if not current_plan.custom_daily_goals:
-                    print("\n✗ No custom day goals to clear")
+                    display_error("No custom day goals to clear")
                     continue
 
                 if get_yes_no(f"Clear all {len(current_plan.custom_daily_goals)} custom day goals?", default='n'):
                     current_plan.custom_daily_goals.clear()
                     current_plan.invalidate_daily_goals_cache()
-                    print("\n✓ All custom day goals cleared")
+                    display_success("All custom day goals cleared")
 
             else:
                 print("Please enter a number between 0 and 3.")
@@ -911,7 +723,7 @@ def modify_plan(current_plan):
                 current_plan.pattern = pattern
                 current_plan.pattern_config = pattern_config
                 current_plan.invalidate_daily_goals_cache()
-                print(f"\n✓ Pattern changed to: {pattern}")
+                display_success(f"Pattern changed to: {pattern}")
                 return True
 
             elif choice == 6:
@@ -925,7 +737,7 @@ def modify_plan(current_plan):
                 print("Or press Enter for today's date")
                 new_start_date = get_date_input("Start date: ")
                 current_plan.start_date = new_start_date
-                print(f"\n✓ Start date changed to: {new_start_date.strftime('%Y-%m-%d')}")
+                display_success(f"Start date changed to: {new_start_date.strftime('%Y-%m-%d')}")
                 return True
 
             elif choice == 7:
@@ -1021,10 +833,10 @@ def load_saved_plan():
 
                 try:
                     loaded_plan = plan_storage.load_plan(filepath)
-                    print(f"\n✓ Loaded plan: {loaded_plan.name}")
+                    display_success(f"Loaded plan: {loaded_plan.name}")
                     return loaded_plan
                 except Exception as e:
-                    print(f"\n✗ Error loading plan: {e}")
+                    display_error(f"Error loading plan: {e}")
                     input("\nPress Enter to continue...")
                     return None
             else:
@@ -1059,7 +871,7 @@ def show_calendar_options(newplan):
                 else:
                     # No saved start date - this shouldn't happen for new plans,
                     # but if it does, use today
-                    print("\n⚠ No start date set. Using today's date.")
+                    display_warning("No start date set. Using today's date.")
                     start_date = datetime.now()
                     newplan.start_date = start_date
 
@@ -1080,7 +892,7 @@ def show_calendar_options(newplan):
 def update_progress(current_plan):
     """Update progress for the writing plan."""
     if not current_plan.start_date:
-        print("\n✗ You must set a start date before tracking progress.")
+        display_error("You must set a start date before tracking progress.")
         print("  Please view a calendar first to set a start date.")
         input("\nPress Enter to continue...")
         return
@@ -1134,12 +946,12 @@ def update_progress(current_plan):
                 try:
                     word_count = int(word_count_input)
                     if word_count < 0:
-                        print("✗ Word count cannot be negative")
+                        display_error("Word count cannot be negative")
                         continue
 
                     current_plan.record_progress(today, word_count)
                     progress_updated = True
-                    print(f"\n✓ Progress recorded: {word_count:,} words")
+                    display_success(f"Progress recorded: {word_count:,} words")
 
                     # Check if goal was met
                     if word_count >= daily_goal:
@@ -1167,14 +979,14 @@ def update_progress(current_plan):
 
                     # Check if date is in plan range
                     if entry_date < current_plan.start_date:
-                        print(f"\n✗ Date is before plan start ({current_plan.start_date.strftime('%Y-%m-%d')})")
+                        display_error(f"Date is before plan start ({current_plan.start_date.strftime('%Y-%m-%d')})")
                         continue
 
                     print(f"\nEntering progress for: {entry_date.strftime('%Y-%m-%d (%A)')}")
 
                     # Check if it's a spare day
                     if current_plan.is_spare_day(entry_date):
-                        print("⚠ Note: This is a spare day (0 words expected)")
+                        print("Note: This is a spare day (0 words expected)")
 
                     # Show existing progress if any
                     existing = current_plan.get_progress_for_date(entry_date)
@@ -1192,23 +1004,23 @@ def update_progress(current_plan):
 
                     word_count = int(word_count_input)
                     if word_count < 0:
-                        print("✗ Word count cannot be negative")
+                        display_error("Word count cannot be negative")
                         continue
 
                     current_plan.record_progress(entry_date, word_count)
                     progress_updated = True
-                    print(f"\n✓ Progress recorded: {word_count:,} words")
+                    display_success(f"Progress recorded: {word_count:,} words")
 
                     # Check overall status and offer recalculation
                     check_and_offer_recalculation(current_plan)
 
                 except ValueError as e:
-                    print(f"✗ Invalid input: {e}")
+                    display_error(f"Invalid input: {e}")
 
             elif choice == 3:
                 # View all progress entries
                 if not current_plan.progress:
-                    print("\n✗ No progress entries recorded yet")
+                    display_error("No progress entries recorded yet")
                     input("\nPress Enter to continue...")
                     continue
 
@@ -1302,7 +1114,7 @@ def offer_ahead_recalculation(current_plan, info):
                     current_date += datetime.timedelta(days=1)
 
                 if remaining_days == 0:
-                    print("\n✓ Plan complete! No remaining days.")
+                    display_success("Plan complete! No remaining days.")
                     return
 
                 new_daily = remaining_words / remaining_days
@@ -1316,7 +1128,7 @@ def offer_ahead_recalculation(current_plan, info):
                     current_plan.daily = new_daily
                     current_plan.time = remaining_days + info['days_elapsed']
                     current_plan.invalidate_daily_goals_cache()
-                    print("\n✓ Plan adjusted!")
+                    display_success("Plan adjusted!")
 
                 return
 
@@ -1333,7 +1145,7 @@ def offer_ahead_recalculation(current_plan, info):
                 if get_yes_no("Apply this adjustment?", default='y'):
                     current_plan.time = info['days_elapsed'] + new_days_needed
                     current_plan.invalidate_daily_goals_cache()
-                    print("\n✓ Plan adjusted!")
+                    display_success("Plan adjusted!")
 
                 return
 
@@ -1379,7 +1191,7 @@ def offer_behind_recalculation(current_plan, info):
                     current_date += datetime.timedelta(days=1)
 
                 if remaining_days == 0:
-                    print("\n✗ No remaining days to adjust. Plan complete or past deadline.")
+                    display_error("No remaining days to adjust. Plan complete or past deadline.")
                     return
 
                 new_daily = remaining_words / remaining_days
@@ -1394,7 +1206,7 @@ def offer_behind_recalculation(current_plan, info):
                     current_plan.daily = new_daily
                     current_plan.time = remaining_days + info['days_elapsed']
                     current_plan.invalidate_daily_goals_cache()
-                    print("\n✓ Plan adjusted!")
+                    display_success("Plan adjusted!")
 
                 return
 
@@ -1411,7 +1223,7 @@ def offer_behind_recalculation(current_plan, info):
                 if get_yes_no("Apply this adjustment?", default='y'):
                     current_plan.time = info['days_elapsed'] + additional_days_needed
                     current_plan.invalidate_daily_goals_cache()
-                    print("\n✓ Plan adjusted!")
+                    display_success("Plan adjusted!")
 
                 return
 
@@ -1425,7 +1237,7 @@ def offer_behind_recalculation(current_plan, info):
 def view_progress_summary(current_plan):
     """Display a comprehensive progress summary."""
     if not current_plan.start_date:
-        print("\n✗ No start date set")
+        display_error("No start date set")
         input("\nPress Enter to continue...")
         return
 
@@ -1476,7 +1288,7 @@ def view_progress_summary(current_plan):
 def export_plan_menu(current_plan):
     """Display export menu and handle export operations."""
     if not current_plan.start_date:
-        print("\n✗ Plan must have a start date to export.")
+        display_error("Plan must have a start date to export.")
         print("  Please view a calendar first to set a start date.")
         input("\nPress Enter to continue...")
         return
@@ -1523,20 +1335,20 @@ def export_plan_menu(current_plan):
                     try:
                         if fmt == 'csv':
                             filepath = plan_export.export_to_csv(current_plan)
-                            print(f"\n✓ CSV exported: {filepath}")
+                            display_success(f"CSV exported: {filepath}")
                         elif fmt == 'ical':
                             filepath = plan_export.export_to_ical(current_plan)
-                            print(f"\n✓ iCal exported: {filepath}")
+                            display_success(f"iCal exported: {filepath}")
                         elif fmt == 'markdown':
                             filepath = plan_export.export_to_markdown(current_plan)
-                            print(f"\n✓ Markdown exported: {filepath}")
+                            display_success(f"Markdown exported: {filepath}")
 
                         exported_files.append(filepath)
                     except Exception as e:
-                        print(f"\n✗ Error exporting {fmt}: {e}")
+                        display_error(f"Error exporting {fmt}: {e}")
 
                 if exported_files:
-                    print(f"\n✓ Exported {len(exported_files)} file(s)")
+                    display_success(f"Exported {len(exported_files)} file(s)")
                     print(f"  Location: {plan_export.get_exports_directory()}")
 
                 input("\nPress Enter to continue...")
@@ -1574,7 +1386,7 @@ def handle_plan_actions(current_plan):
             # Modify plan
             modified = modify_plan(current_plan)
             if modified:
-                print("\n✓ Plan modified successfully!")
+                display_success("Plan modified successfully!")
             # Loop continues to show updated results
 
         elif action == 5:
@@ -1618,7 +1430,7 @@ def configure_weekend_settings(current_plan):
 
     elif choice == 1:
         current_plan.weekend_mode = "same"
-        print("\n✓ Weekends will have the same writing goal as weekdays")
+        display_success("Weekends will have the same writing goal as weekdays")
 
     elif choice == 2:
         current_plan.weekend_mode = "different"
@@ -1626,11 +1438,11 @@ def configure_weekend_settings(current_plan):
         print("(This could be higher for extra writing time, or lower for rest)")
         weekend_goal = get_positive_number("Weekend daily goal: ")
         current_plan.weekend_daily = weekend_goal
-        print(f"\n✓ Weekends will have a goal of {weekend_goal:,.0f} words/day")
+        display_success(f"Weekends will have a goal of {weekend_goal:,.0f} words/day")
 
     elif choice == 3:
         current_plan.weekend_mode = "spare"
-        print("\n✓ All weekends will be marked as spare days (0 words)")
+        display_success("All weekends will be marked as spare days (0 words)")
 
     # Ask about which days are weekends
     if choice in [2, 3]:
@@ -1645,11 +1457,11 @@ def configure_weekend_settings(current_plan):
                     current_plan.weekend_days = weekend_days
                     day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
                     weekend_names = [day_names[d] for d in weekend_days]
-                    print(f"\n✓ Weekend days set to: {', '.join(weekend_names)}")
+                    display_success(f"Weekend days set to: {', '.join(weekend_names)}")
                 else:
-                    print("\n⚠ Invalid days, using default (Sat, Sun)")
+                    display_warning("Invalid days, using default (Sat, Sun)")
             except ValueError:
-                print("\n⚠ Invalid input, using default weekend days (Sat, Sun)")
+                display_warning("Invalid input, using default weekend days (Sat, Sun)")
 
 
 def create_plan_from_template():
@@ -1741,7 +1553,7 @@ def create_plan_from_template():
     newplan = selected_template.create_plan(start_date=start_date)
     newplan.name = selected_template.name
 
-    print(f"\n✓ Created plan from template: {selected_template.name}")
+    display_success(f"Created plan from template: {selected_template.name}")
     print(f"  Start date: {start_date.strftime('%Y-%m-%d')}")
 
     # Apply suggested pattern if available
@@ -1838,7 +1650,7 @@ def create_new_plan():
             pattern, pattern_config = choose_writing_pattern()
             newplan.pattern = pattern
             newplan.pattern_config = pattern_config
-            print(f"\n✓ Using {pattern} pattern")
+            display_success(f"Using {pattern} pattern")
 
         # Ask for start date
         print("\n" + "=" * 50)
@@ -1849,7 +1661,7 @@ def create_new_plan():
         print("Or press Enter for today's date")
         start_date = get_date_input("Start date: ")
         newplan.start_date = start_date
-        print(f"\n✓ Plan starts on: {start_date.strftime('%Y-%m-%d')}")
+        display_success(f"Plan starts on: {start_date.strftime('%Y-%m-%d')}")
 
         # Configure weekend settings
         if get_yes_no("\nWould you like to configure weekend-specific settings?", default='n'):

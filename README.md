@@ -5,7 +5,7 @@ A comprehensive writing planning tool inspired by [pacemaker.press](https://pace
 ## Overview
 
 Writing requires managing three key variables:
-- **Total words** - Your word count goal (e.g., 50,000 words for NaNoWriMo)
+- **Total words** - Your total word count goal (e.g., 50,000 words for NaNoWriMo)
 - **Daily words** - How many words you can write per day (e.g., 1,667 words/day)
 - **Time (days)** - How long you have to write (e.g., 30 days)
 
@@ -771,11 +771,17 @@ planeapalabras/
 ├── plan_export.py             # Export functionality (CSV, iCal, Markdown)
 ├── progress_analytics.py      # Progress graphs and analytics
 ├── plan_templates.py          # Pre-configured plan templates
+├── ui_utils.py                # UI utilities (validation, menus, messages)
+├── pattern_utils.py           # Pattern configuration utilities
+├── config.py                  # Application configuration constants
 ├── README.md                  # This file - user documentation
 ├── CLAUDE.md                  # Developer documentation for AI
 ├── future-improvements.md     # Roadmap and planned features
-├── todo.md                    # Original TODO list (deprecated)
+├── TESTING_PLAN.md            # Testing strategy
+├── bugs.md                    # Known bugs tracking
 ├── pyproject.toml             # Project dependencies
+├── pytest.ini                 # Pytest configuration
+├── .coveragerc                # Code coverage configuration
 └── .python-version            # Python version (3.13+)
 ```
 
