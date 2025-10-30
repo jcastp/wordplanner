@@ -5,6 +5,7 @@ It intends to get a plan for daily work on words per day."""
 
 from datetime import datetime
 import readline
+from pathlib import Path
 import plan
 import calendar_view
 import plan_storage
@@ -12,9 +13,10 @@ import plan_export
 import progress_analytics
 import plan_templates
 import config
+import user_preferences
 from ui_utils import (
     get_yes_no, get_positive_number, get_date_input, get_menu_choice,
-    display_header, display_section, display_success, display_error
+    display_header, display_section, display_success, display_error, display_warning
 )
 from pattern_utils import choose_writing_pattern, get_pattern_description
 
@@ -30,10 +32,11 @@ def initial_menu():
     print("\n1. Create a new plan from scratch")
     print("2. Create plan from template")
     print("3. Load an existing plan")
+    print("4. Settings")
     print("0. Exit")
     print("=" * 50)
 
-    return get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
+    return get_menu_choice("\nEnter your choice (0-4): ", 0, 4)
 
 
 # choose_writing_pattern is now imported from pattern_utils module
@@ -1796,6 +1799,117 @@ def create_new_plan():
         handle_plan_actions(newplan)
 
 
+def configure_save_directory():
+    """Configure the custom save directory for plans and exports."""
+    display_header("CONFIGURE SAVE DIRECTORY")
+
+    # Show current directory
+    current_custom_dir = user_preferences.get_custom_save_directory()
+
+    if current_custom_dir:
+        print(f"\nCurrent save directory: {current_custom_dir}")
+        print(f"Plans are saved in: {current_custom_dir}/plans")
+        print(f"Exports are saved in: {current_custom_dir}/exports")
+    else:
+        default_dir = Path.home() / config.SAVE_DIRECTORY
+        print(f"\nUsing default save directory: {default_dir}")
+        print(f"Plans are saved in: {default_dir}/plans")
+        print(f"Exports are saved in: {default_dir}/exports")
+
+    print("\n" + "=" * 50)
+    print("\nWhat would you like to do?")
+    print("\n1. Set a custom save directory")
+    print("2. Reset to default directory")
+    print("0. Back to main menu")
+    print("=" * 50)
+
+    choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
+
+    if choice == 0:
+        return
+
+    elif choice == 1:
+        # Set custom directory
+        print("\n" + "=" * 50)
+        print("Enter the full path to your custom save directory.")
+        print("Example: /home/username/Documents/writing-plans")
+        print("or: ~/Documents/writing-plans")
+        print("\nPress Enter to cancel.")
+        print("=" * 50)
+
+        custom_path = input("\nCustom directory path: ").strip()
+
+        if not custom_path:
+            display_warning("No directory entered. Keeping current settings.")
+            return
+
+        # Expand user path (handle ~)
+        custom_path = str(Path(custom_path).expanduser())
+
+        # Validate the path
+        path_obj = Path(custom_path)
+
+        # Check if path exists or can be created
+        if not path_obj.exists():
+            if get_yes_no(f"\nDirectory '{custom_path}' does not exist. Create it?", default='y'):
+                try:
+                    path_obj.mkdir(parents=True, exist_ok=True)
+                    display_success(f"Created directory: {custom_path}")
+                except Exception as e:
+                    display_error(f"Could not create directory: {e}")
+                    return
+            else:
+                display_warning("Directory not created. Settings not changed.")
+                return
+
+        # Check if it's a directory
+        if not path_obj.is_dir():
+            display_error(f"'{custom_path}' is not a directory.")
+            return
+
+        # Check if it's writable
+        test_file = path_obj / ".test_write"
+        try:
+            test_file.touch()
+            test_file.unlink()
+        except Exception:
+            display_error(f"Directory '{custom_path}' is not writable.")
+            return
+
+        # Save the custom directory
+        user_preferences.set_custom_save_directory(custom_path)
+        display_success(f"Custom save directory set to: {custom_path}")
+        print(f"\nPlans will be saved in: {custom_path}/plans")
+        print(f"Exports will be saved in: {custom_path}/exports")
+
+    elif choice == 2:
+        # Reset to default
+        if current_custom_dir:
+            if get_yes_no("\nAre you sure you want to reset to the default directory?", default='n'):
+                user_preferences.set_custom_save_directory(None)
+                default_dir = Path.home() / config.SAVE_DIRECTORY
+                display_success(f"Reset to default directory: {default_dir}")
+        else:
+            display_warning("Already using default directory.")
+
+
+def settings_menu():
+    """Display the settings menu."""
+    while True:
+        display_header("SETTINGS")
+        print("\nWhat would you like to configure?")
+        print("\n1. Save directory location")
+        print("0. Back to main menu")
+        print("=" * 50)
+
+        choice = get_menu_choice("\nEnter your choice (0-1): ", 0, 1)
+
+        if choice == 0:
+            break
+        elif choice == 1:
+            configure_save_directory()
+
+
 def main():
     """Main function to run the interactive word planner."""
 
@@ -1819,6 +1933,10 @@ def main():
             loaded_plan = load_saved_plan()
             if loaded_plan:
                 handle_plan_actions(loaded_plan)
+
+        elif choice == 4:
+            # Settings
+            settings_menu()
 
 
 if __name__ == "__main__":

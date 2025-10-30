@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 import plan
 import config
+import user_preferences
 
 
 def plan_to_dict(plan_obj: plan.Plan) -> dict:
@@ -39,9 +40,20 @@ def get_plans_directory() -> Path:
     """
     Get the plans directory path.
 
+    Checks user preferences for a custom save directory first.
+    If not set, uses the default from config.
+
     Returns:
         Path to the plans directory
     """
+    # Check for custom save directory in user preferences
+    custom_dir = user_preferences.get_custom_save_directory()
+
+    if custom_dir:
+        # Use custom directory with plans subdirectory
+        return Path(custom_dir) / config.PLANS_SUBDIRECTORY
+
+    # Otherwise, use default behavior
     save_dir = Path(config.SAVE_DIRECTORY)
 
     # If SAVE_DIRECTORY is absolute (for testing), use it directly

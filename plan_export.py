@@ -4,12 +4,34 @@ import csv
 from datetime import datetime, timedelta
 from pathlib import Path
 import plan
+import config
+import user_preferences
 
 
 def get_exports_directory():
-    """Get or create the exports directory."""
-    home = Path.home()
-    exports_dir = home / ".planeapalabras" / "exports"
+    """
+    Get or create the exports directory.
+
+    Checks user preferences for a custom save directory first.
+    If not set, uses the default from config.
+    """
+    # Check for custom save directory in user preferences
+    custom_dir = user_preferences.get_custom_save_directory()
+
+    if custom_dir:
+        # Use custom directory with exports subdirectory
+        exports_dir = Path(custom_dir) / config.EXPORTS_SUBDIRECTORY
+    else:
+        # Otherwise, use default behavior
+        save_dir = Path(config.SAVE_DIRECTORY)
+
+        # If SAVE_DIRECTORY is absolute (for testing), use it directly
+        if save_dir.is_absolute():
+            exports_dir = save_dir / config.EXPORTS_SUBDIRECTORY
+        else:
+            # Otherwise, use it relative to home directory (normal usage)
+            exports_dir = Path.home() / config.SAVE_DIRECTORY / config.EXPORTS_SUBDIRECTORY
+
     exports_dir.mkdir(parents=True, exist_ok=True)
     return exports_dir
 
