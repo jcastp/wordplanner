@@ -202,9 +202,51 @@ Beautiful terminal-based calendar views powered by Rich:
 #### Smart Input & Validation
 - User-friendly defaults - Yes/no prompts with sensible defaults
 - Date validation - Warns about dates in the past with confirmation
-- Positive number validation - Ensures all values are valid
+- Positive number validation - Ensures all values are valid and rejects negatives
 - Flexible date formats - Multiple ways to input dates
-- Error handling - Clear error messages and recovery options
+- Enhanced error handling with comprehensive validation:
+  - Division by zero protection in all calculations
+  - Negative number rejection with clear error messages
+  - Corrupted JSON file recovery
+  - File I/O error handling (permissions, missing files, empty files)
+  - Invalid data validation with helpful feedback
+  - Graceful degradation when errors occur
+
+#### Multiple Plans Management
+Organize and manage multiple writing projects simultaneously:
+- **Plan Organization** - Keep all your projects organized
+  - Status management: Active, Archived, Completed
+  - 10 predefined categories (novel, blog, academic, screenplay, etc.)
+  - Custom tagging system for flexible organization
+  - Active plan indicator (★) for quick focus
+  - Last modified tracking for all plans
+- **Filtering & Sorting** - Find plans quickly
+  - Filter by status (active/archived/completed)
+  - Filter by category (novel, blog, article, etc.)
+  - Filter by custom tags
+  - Sort by name, creation date, modification date, completion %, or deadline
+  - Search across all plans by name, tags, or category
+- **Plan Comparison** - Analyze multiple plans side-by-side
+  - Compare word goals, daily goals, and timelines
+  - View completion status and progress
+  - Summary statistics for compared plans
+  - Rich terminal tables with color coding
+- **Archive Management** - Keep your workspace clean
+  - Archive completed or paused projects
+  - Unarchive plans when ready to resume
+  - Mark plans as completed for record keeping
+  - Archived plans hidden from main views but easily accessible
+- **Plan Statistics** - Overall insights across all projects
+  - Total word goals and words written
+  - Breakdown by status and category
+  - Tag usage analysis
+  - Average completion tracking
+  - Plans with progress reporting
+- **Active Plan Feature** - Focus on what matters
+  - Set one plan as currently active
+  - Quick access to your main project
+  - Only one active plan at a time for focus
+  - Active indicator (★) shown in all plan listings
 
 ## Installation
 
@@ -674,7 +716,131 @@ Goal: Start a new writing project quickly using pre-configured templates
            No weekend work (weekdays only: 1,429 words/day)
    ```
 
-### Example 10: Analyzing Your Writing Progress with Graphs
+### Example 10: Managing Multiple Writing Projects
+
+Goal: Organize and track multiple writing projects simultaneously
+
+1. View All Plans Overview
+   ```
+   Choose: "Manage multiple plans" → "View all plans overview"
+
+   Display shows:
+   My Writing Plans
+   ================
+   Total Plans: 5
+   Active: 3 | Archived: 1 | Completed: 1
+
+   ★ Currently Active: Novel Draft 2
+
+   Active Plans (3):
+   ★ • Novel Draft 2
+      50,000 words | [novel] | Tags: fiction, urgent
+      Progress: 45% complete, ✓ on track
+
+     • Blog Series
+      10,000 words | [blog] | Tags: tech, tutorial
+      Progress: 80% complete, ✓ ahead
+
+     • Short Story Collection
+      15,000 words | [short-story] | Tags: fiction
+      Progress: 10% complete, ⚠ behind
+   ```
+
+2. Filter by Category
+   ```
+   Choose: "Filter and sort plans" → "Filter by category"
+   Select: "novel"
+
+   Result: Shows only novel projects
+           Perfect for focusing on long-form work
+   ```
+
+3. Set Active Plan
+   ```
+   Choose: "Set active plan"
+   Select: "Blog Series"
+
+   Result: ★ Blog Series marked as active
+           Quick access to your current focus
+   ```
+
+4. Add Tags to a Plan
+   ```
+   Choose: "Manage plan categories and tags" → "Add tags to plan"
+   Select: "Novel Draft 2"
+   Enter tags: deadline, priority-high
+
+   Result: ✓ Tags added
+           Easy to filter by deadline or priority later
+   ```
+
+5. Compare Multiple Plans
+   ```
+   Choose: "Compare plans"
+   Select plans: 1,2,3
+
+   Display shows comparison table:
+   ┌─────────────┬───────────┬───────────┬──────────────┐
+   │ Metric      │ Novel     │ Blog      │ Short Story  │
+   ├─────────────┼───────────┼───────────┼──────────────┤
+   │ Total Words │ 50,000    │ 10,000    │ 15,000       │
+   │ Daily Goal  │ 1,000     │ 500       │ 750          │
+   │ Days        │ 50        │ 20        │ 20           │
+   │ Completion  │ 45%       │ 80%       │ 10%          │
+   │ Status      │ on_track  │ ahead     │ behind       │
+   └─────────────┴───────────┴───────────┴──────────────┘
+
+   Summary: 3 plans, 75,000 total words
+   ```
+
+6. Archive Completed Plan
+   ```
+   Choose: "Archive/Unarchive plans" → "Mark plan as completed"
+   Select: "Blog Series"
+
+   Result: ✓ Blog Series marked as completed!
+           Moved to completed section
+           Active flag automatically cleared
+   ```
+
+7. View Statistics Dashboard
+   ```
+   Choose: "View plan statistics"
+
+   Display shows:
+   Overall Statistics:
+   Total Plans: 5
+     • Active: 2
+     • Archived: 1
+     • Completed: 2
+
+   Writing Goals:
+     • Total word goal: 150,000 words
+     • Total words written: 67,500 words
+     • Plans with progress: 4
+     • Avg completion (active): 27.5%
+
+   Categories in use:
+     • novel: 2 plans
+     • blog: 2 plans
+     • short-story: 1 plan
+
+   Tags in use (8):
+     deadline, fiction, priority-high, tech, tutorial, urgent
+   ```
+
+8. Search for Plans
+   ```
+   Choose: "Search plans"
+   Enter query: "fiction"
+
+   Result: Found 3 plans with 'fiction'
+           • Novel Draft 2 [novel]
+           • Novel Draft 1 (Archived) [novel]
+           • Short Story Collection [short-story]
+   ```
+
+### Example 11: Analyzing Your Writing Progress with Graphs
 
 Goal: Visualize your progress and analyze your writing patterns
 
@@ -764,7 +930,7 @@ Goal: Visualize your progress and analyze your writing patterns
 
 ### Running Tests
 
-The project includes a comprehensive test suite with 101 tests covering core functionality.
+The project includes a comprehensive test suite with 164+ tests covering core functionality, error handling, and multiple plans management.
 
 #### Prerequisites
 
@@ -800,15 +966,31 @@ python3 -m pytest tests/ -k "pattern" -v
 #### Test Coverage
 
 Current test coverage:
-- **Total Tests:** 101
+- **Total Tests:** 164+
 - **Pass Rate:** 100%
-- **Coverage:** 13% (core modules have 70-100% coverage)
+- **Coverage:** Core modules have 70-100% coverage
 
-Coverage by module:
-- config.py: 100%
-- plan_storage.py: 84%
-- plan.py: 71%
-- ui_utils.py: 59%
+Test breakdown by category:
+- **Core Tests:** 101 tests
+  - config.py: 100%
+  - plan_storage.py: 84%
+  - plan.py: 71%
+  - ui_utils.py: 59%
+- **Error Handling Tests:** 28 tests
+  - Division by zero handling
+  - Negative number validation
+  - Corrupted JSON handling
+  - File I/O error scenarios
+  - Invalid data handling
+- **Multiple Plans Tests:** 35+ tests
+  - Plan fields and serialization
+  - Filtering and sorting
+  - Active plan management
+  - Archive operations
+  - Tag and category management
+  - Plan comparison
+  - Search functionality
+  - Statistics dashboard
 
 For detailed test results and recommendations, see [TEST_RESULTS.md](TEST_RESULTS.md).
 
@@ -816,43 +998,57 @@ For detailed test results and recommendations, see [TEST_RESULTS.md](TEST_RESULT
 
 ```
 tests/
-├── conftest.py           # Pytest fixtures and test configuration
-├── test_plan.py          # Plan class tests (65 tests)
-├── test_storage.py       # Save/load tests (12 tests)
-├── test_edge_cases.py    # Edge case tests (30 tests)
-└── test_ui_utils.py      # UI utilities tests (22 tests)
+├── conftest.py                # Pytest fixtures and test configuration
+├── test_plan.py               # Plan class tests (65 tests)
+├── test_storage.py            # Save/load tests (12 tests)
+├── test_edge_cases.py         # Edge case tests (30 tests)
+├── test_ui_utils.py           # UI utilities tests (22 tests)
+├── test_error_handling.py     # Error handling tests (28 tests)
+└── test_multiple_plans.py     # Multiple plans tests (35+ tests)
 ```
+
+Additional test scripts:
+- `test_error_handling.py` - Standalone error handling test suite
+- `test_multiple_plans.py` - Standalone multiple plans test suite
 
 ## File Structure
 
 ```
 planeapalabras/
-├── planea.py                  # Console interface
-├── plan.py                    # Core Plan class with calculations
-├── calendar_view.py           # Calendar visualization with Rich
-├── plan_storage.py            # Save/load functionality
-├── plan_export.py             # Export functionality (CSV, iCal, Markdown)
-├── progress_analytics.py      # Progress graphs and analytics
-├── plan_templates.py          # Pre-configured plan templates
-├── ui_utils.py                # UI utilities (validation, menus, messages)
-├── pattern_utils.py           # Pattern configuration utilities
-├── config.py                  # Application configuration constants
-├── tests/                     # Test suite (101 tests)
-│   ├── conftest.py            # Pytest fixtures
-│   ├── test_plan.py           # Plan class tests (65 tests)
-│   ├── test_storage.py        # Storage tests (12 tests)
-│   ├── test_edge_cases.py     # Edge case tests (30 tests)
-│   └── test_ui_utils.py       # UI utilities tests (22 tests)
-├── README.md                  # This file - user documentation
-├── TEST_RESULTS.md            # Test suite results and coverage analysis
-├── CLAUDE.md                  # Developer documentation for AI
-├── future-improvements.md     # Roadmap and planned features
-├── TESTING_PLAN.md            # Testing strategy
-├── bugs.md                    # Known bugs tracking
-├── pyproject.toml             # Project dependencies
-├── pytest.ini                 # Pytest configuration
-├── .coveragerc                # Code coverage configuration
-└── .python-version            # Python version (3.13+)
+├── planea.py                     # Console interface
+├── plan.py                       # Core Plan class with calculations
+├── calendar_view.py              # Calendar visualization with Rich
+├── plan_storage.py               # Save/load functionality
+├── plan_export.py                # Export functionality (CSV, iCal, Markdown)
+├── progress_analytics.py         # Progress graphs and analytics
+├── plan_templates.py             # Pre-configured plan templates
+├── plan_manager.py               # Multiple plans management functions
+├── plan_manager_ui.py            # Multiple plans management UI
+├── ui_utils.py                   # UI utilities (validation, menus, messages)
+├── pattern_utils.py              # Pattern configuration utilities
+├── user_preferences.py           # User preferences and settings
+├── config.py                     # Application configuration constants
+├── tests/                        # Test suite (101+ tests)
+│   ├── conftest.py               # Pytest fixtures
+│   ├── test_plan.py              # Plan class tests (65 tests)
+│   ├── test_storage.py           # Storage tests (12 tests)
+│   ├── test_edge_cases.py        # Edge case tests (30 tests)
+│   ├── test_ui_utils.py          # UI utilities tests (22 tests)
+│   ├── test_error_handling.py    # Error handling tests (28 tests)
+│   └── test_multiple_plans.py    # Multiple plans tests (35+ tests)
+├── README.md                     # This file - user documentation
+├── TEST_RESULTS.md               # Test suite results and coverage analysis
+├── CLAUDE.md                     # Developer documentation for AI
+├── ERROR_HANDLING_IMPROVEMENTS.md      # Error handling documentation
+├── MULTIPLE_PLANS_MANAGEMENT.md        # Multiple plans feature documentation
+├── IMPLEMENTATION_SUMMARY.md           # Implementation summary
+├── future-improvements.md        # Roadmap and planned features
+├── TESTING_PLAN.md               # Testing strategy
+├── bugs.md                       # Known bugs tracking
+├── pyproject.toml                # Project dependencies
+├── pytest.ini                    # Pytest configuration
+├── .coveragerc                   # Code coverage configuration
+└── .python-version               # Python version (3.13+)
 ```
 
 ## Storage
@@ -879,7 +1075,40 @@ Exports are named with the plan name and timestamp in the appropriate format:
 
 ## What's New
 
-### Version 1.6 (Latest)
+### Version 1.7 (Latest)
+- **Multiple Plans Management** - Organize multiple writing projects:
+  - Plan organization by status (active, archived, completed)
+  - 10 predefined categories (novel, blog, academic, screenplay, etc.)
+  - Custom tagging system for flexible organization
+  - Active plan indicator (★) to focus on current project
+  - Filtering by status, category, or tags
+  - Sorting by name, date, completion %, or deadline
+  - Side-by-side plan comparison with summary statistics
+  - Search functionality across all plans
+  - Archive/unarchive operations with automatic flag management
+  - Plan statistics dashboard with overall insights
+  - Full backward compatibility with old plan files
+  - 23 management functions + 23 UI functions
+  - Comprehensive test suite with 35+ passing tests
+- **Better Error Handling** - Robust validation and error recovery:
+  - Division by zero protection in all calculations
+  - Negative number rejection with helpful error messages
+  - Corrupted JSON file recovery
+  - File I/O error handling (permissions, missing files, empty files)
+  - Invalid data validation with context-aware errors
+  - Empty input handling across all fields
+  - KeyboardInterrupt (Ctrl+C) handling
+  - Graceful degradation when errors occur
+  - 28 error handling tests, all passing
+- **Enhanced Input Validation** - Better user experience:
+  - Explicit negative number checking
+  - Empty input validation
+  - Max value limits where appropriate
+  - Clear, specific error messages
+  - Shows invalid value in error message
+  - Optional `allow_negative` parameter where needed
+
+### Version 1.6
 - **Weekend-Specific Planning** - Flexible weekend configuration:
   - Three weekend modes: same as weekdays, different goal, or spare days
   - Set custom word counts for weekends (higher or lower than weekdays)
@@ -1008,17 +1237,23 @@ Exports are named with the plan name and timestamp in the appropriate format:
 
 See future-improvements.md for the comprehensive roadmap with 30+ planned features.
 
+### Recently Completed ✅
+- ✅ Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.) [v1.6]
+- ✅ Multiple Plans Management - Organize and manage multiple projects [v1.7]
+- ✅ Better Error Handling - Comprehensive validation and recovery [v1.7]
+- ✅ Enhanced Input Validation - Clear error messages and better UX [v1.7]
+
 ### Next Up (High Priority)
-- Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.)
 - Holiday Templates - Quick marking of common holidays
 - Writing Session Timer - Integrated pomodoro-style timer
-- Multiple Plans Management - Switch between different projects
+- Comprehensive testing suite expansion
+- Web interface prototype
 
 ### Coming Soon (Medium Priority)
 - Notifications and reminders
 - Advanced calendar features
-- Comprehensive testing suite
-- Better error handling
+- Plan groups/folders for hierarchical organization
+- Bulk operations (multi-select plans)
 
 ### Future Possibilities
 - Web interface
@@ -1036,6 +1271,21 @@ See future-improvements.md for the comprehensive roadmap with 30+ planned featur
 3. Start with the end in mind - If you have a deadline, calculate daily words needed
 4. Review and adjust - Plans are meant to be modified as circumstances change
 5. Save multiple versions - Create variations of your plan to explore different scenarios
+6. Organize with categories and tags - Use the category system for project types and tags for flexible organization
+7. Set one active plan - Focus on your current priority by marking it as active (★)
+8. Archive completed work - Keep your workspace clean by archiving finished or paused projects
+9. Compare plans regularly - Use plan comparison to track progress across multiple projects
+10. Use the search function - Quickly find plans by name, tag, or category
+
+### Multiple Plans Management Tips
+
+1. **Use categories consistently** - Assign appropriate categories (novel, blog, academic, etc.) to all plans
+2. **Tag strategically** - Use a consistent set of tags like "urgent", "client-work", "deadline", "fiction"
+3. **Set one active plan** - Mark your main focus project as active for quick access
+4. **Archive regularly** - Move completed or paused projects to archived status
+5. **Search before creating** - Use search to check if a similar plan already exists
+6. **Compare for insights** - Use plan comparison to identify patterns and adjust strategies
+7. **Review statistics** - Check the statistics dashboard weekly for overall progress tracking
 
 ### Common Use Cases
 
@@ -1097,8 +1347,26 @@ A: Three formats: CSV (for spreadsheets), iCal/ICS (for calendar apps), and Mark
 Q: Where are my plans stored?
 A: In ~/.planeapalabras/plans/ as JSON files.
 
+Q: Can I manage multiple writing projects at once?
+A: Yes! Use "Manage multiple plans" from the main menu. You can organize plans by status (active, archived, completed), assign categories (novel, blog, academic, etc.), add custom tags, filter and sort plans, compare plans side-by-side, and view statistics across all your projects. The active plan feature (★) helps you focus on your current project.
+
+Q: How do I organize my plans by project type?
+A: Use the category system! Each plan can be assigned one of 10 categories: novel, short-story, novella, blog, article, academic, screenplay, poetry, non-fiction, or other. Filter by category to see only specific types of projects. You can also use custom tags for more flexible organization like "urgent", "client-work", or "hobby".
+
+Q: What happens if I have too many plans?
+A: Archive completed or paused plans to keep your workspace clean. Archived plans are hidden from main views but remain easily accessible. You can also mark plans as completed for record keeping. Use the search function to quickly find any plan by name, tag, or category.
+
+Q: Can I compare multiple plans to see which is ahead of schedule?
+A: Yes! Use "Compare plans" to view multiple plans side-by-side in a rich table format. You'll see word goals, daily goals, completion percentages, on-track status, and summary statistics. Perfect for managing deadlines across multiple projects.
+
+Q: What does the ★ symbol mean next to plan names?
+A: That's the active plan indicator! You can set one plan as your "currently active" project for quick focus. Only one plan can be active at a time. Use "Set active plan" from the Manage multiple plans menu.
+
 Q: Can I share my plan with others?
-A: You can share the JSON file manually. Cloud sync is on the long-term roadmap.
+A: You can share the JSON file manually, or export to CSV/Markdown for easier sharing. Cloud sync is on the long-term roadmap.
+
+Q: What happens if I enter invalid data or negative numbers?
+A: The app now has comprehensive error handling that validates all inputs. Negative numbers are rejected with clear messages, division by zero is prevented, and corrupted files are handled gracefully. If you encounter an error, you'll get a helpful message explaining what went wrong and how to fix it.
 
 Q: Does this work on Windows/Mac?
 A: Yes! It's pure Python and should work on any platform with Python 3.13+.
