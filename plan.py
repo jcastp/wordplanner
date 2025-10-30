@@ -9,6 +9,18 @@ class Plan():
     """simple class to store a plan and its attributes."""
     def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None):
         """Initialize the values."""
+        # Validate numeric inputs are not negative
+        if daily < 0:
+            raise ValueError(f"Daily word count cannot be negative: {daily}")
+        if total < 0:
+            raise ValueError(f"Total word count cannot be negative: {total}")
+        if time < 0:
+            raise ValueError(f"Time (days) cannot be negative: {time}")
+        if words < 0:
+            raise ValueError(f"Words count cannot be negative: {words}")
+        if weekend_daily < 0:
+            raise ValueError(f"Weekend daily word count cannot be negative: {weekend_daily}")
+
         self.daily = daily
         self.total = total
         self.time = time  # Writing days (not including spare days)
@@ -52,22 +64,28 @@ class Plan():
     def calculate_daily(self):
         """calculate the daily amount of words needed, based on time
         and total words desired."""
-        if self.time == 0:
-            self.daily = 0
-            return
+        if self.time <= 0:
+            raise ValueError(f"Cannot calculate daily words: time must be greater than 0 (got {self.time})")
+        if self.total < 0:
+            raise ValueError(f"Cannot calculate daily words: total cannot be negative (got {self.total})")
         self.daily = self.total / self.time
         self.invalidate_daily_goals_cache()
 
     def calculate_time(self):
         """Calculate the time needed to complete your work."""
-        if self.daily == 0:
-            self.time = 0
-            return
+        if self.daily <= 0:
+            raise ValueError(f"Cannot calculate time: daily words must be greater than 0 (got {self.daily})")
+        if self.total < 0:
+            raise ValueError(f"Cannot calculate time: total cannot be negative (got {self.total})")
         self.time = self.total / self.daily
         self.invalidate_daily_goals_cache()
 
     def calculate_words(self):
         """calculate the number or words."""
+        if self.daily < 0:
+            raise ValueError(f"Cannot calculate total words: daily cannot be negative (got {self.daily})")
+        if self.time < 0:
+            raise ValueError(f"Cannot calculate total words: time cannot be negative (got {self.time})")
         self.total = self.daily * self.time
         self.invalidate_daily_goals_cache()
 
@@ -148,6 +166,9 @@ class Plan():
 
         # Adjust to maintain total
         current_total = sum(goals)
+        if current_total == 0:
+            # Avoid division by zero - return flat goals if pattern calculation fails
+            return [self.daily] * num_days
         adjustment = self.total / current_total
         goals = [g * adjustment for g in goals]
 
@@ -174,6 +195,9 @@ class Plan():
 
         # Adjust to maintain total
         current_total = sum(goals)
+        if current_total == 0:
+            # Avoid division by zero - return flat goals if pattern calculation fails
+            return [self.daily] * num_days
         adjustment = self.total / current_total
         goals = [g * adjustment for g in goals]
 
@@ -194,6 +218,9 @@ class Plan():
 
         # Adjust to maintain total
         current_total = sum(goals)
+        if current_total == 0:
+            # Avoid division by zero - return flat goals if pattern calculation fails
+            return [self.daily] * num_days
         adjustment = self.total / current_total
         goals = [g * adjustment for g in goals]
 
@@ -214,6 +241,9 @@ class Plan():
 
         # Adjust to maintain total
         current_total = sum(goals)
+        if current_total == 0:
+            # Avoid division by zero - return flat goals if pattern calculation fails
+            return [self.daily] * num_days
         adjustment = self.total / current_total
         goals = [g * adjustment for g in goals]
 
@@ -238,6 +268,9 @@ class Plan():
 
         # Adjust to maintain total
         current_total = sum(goals)
+        if current_total == 0:
+            # Avoid division by zero - return flat goals if pattern calculation fails
+            return [self.daily] * num_days
         adjustment = self.total / current_total
         goals = [g * adjustment for g in goals]
 
@@ -540,39 +573,66 @@ class Plan():
     @classmethod
     def from_dict(cls, data):
         """Create plan from dictionary."""
+        if not isinstance(data, dict):
+            raise TypeError(f"Expected dictionary, got {type(data).__name__}")
+
         # Convert spare days dates from ISO strings to datetime objects
         spare_days_dates = []
-        start_date = datetime.datetime.fromisoformat(data['start_date']) if data.get('start_date') else None
+        try:
+            start_date = datetime.datetime.fromisoformat(data['start_date']) if data.get('start_date') else None
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid start_date format in plan data: {e}")
 
         for item in data.get('spare_days_dates', []):
-            if isinstance(item, str):
-                # New format: ISO date string
-                spare_days_dates.append(datetime.datetime.fromisoformat(item))
-            elif isinstance(item, int):
-                # Old format: day number - convert to date if we have start_date
-                if start_date:
-                    from datetime import timedelta
-                    converted_date = start_date + timedelta(days=item - 1)
-                    spare_days_dates.append(converted_date)
-                # else: skip old format spare days if no start_date
-            else:
-                # Already a datetime object
-                spare_days_dates.append(item)
+            try:
+                if isinstance(item, str):
+                    # New format: ISO date string
+                    spare_days_dates.append(datetime.datetime.fromisoformat(item))
+                elif isinstance(item, int):
+                    # Old format: day number - convert to date if we have start_date
+                    if start_date:
+                        from datetime import timedelta
+                        converted_date = start_date + timedelta(days=item - 1)
+                        spare_days_dates.append(converted_date)
+                    # else: skip old format spare days if no start_date
+                else:
+                    # Already a datetime object
+                    spare_days_dates.append(item)
+            except (ValueError, TypeError) as e:
+                # Skip invalid spare day dates with a warning
+                print(f"Warning: Skipping invalid spare day date '{item}': {e}")
+
+        # Parse created_date with error handling
+        try:
+            created_date = datetime.datetime.fromisoformat(data['created_date']) if data.get('created_date') else None
+        except (ValueError, TypeError) as e:
+            print(f"Warning: Invalid created_date format, using None: {e}")
+            created_date = None
+
+        # Validate numeric values
+        try:
+            daily = float(data.get('daily', 0))
+            total = float(data.get('total', 0))
+            time = float(data.get('time', 0))
+            words = float(data.get('words', 0))
+            weekend_daily = float(data.get('weekend_daily', 0))
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid numeric value in plan data: {e}")
 
         return cls(
             name=data.get('name'),
-            daily=data.get('daily', 0),
-            total=data.get('total', 0),
-            time=data.get('time', 0),
-            words=data.get('words', 0),
+            daily=daily,
+            total=total,
+            time=time,
+            words=words,
             spare_days_dates=spare_days_dates,
             start_date=start_date,
-            created_date=datetime.datetime.fromisoformat(data['created_date']) if data.get('created_date') else None,
+            created_date=created_date,
             pattern=data.get('pattern', 'flat'),
             pattern_config=data.get('pattern_config', {}),
             progress=data.get('progress', {}),
             weekend_mode=data.get('weekend_mode', 'same'),
-            weekend_daily=data.get('weekend_daily', 0),
+            weekend_daily=weekend_daily,
             weekend_days=data.get('weekend_days', [5, 6]),
             custom_daily_goals=data.get('custom_daily_goals', {}),
         )
@@ -584,5 +644,10 @@ class Plan():
     @classmethod
     def from_json(cls, json_str):
         """Create plan from JSON string."""
-        data = json.loads(json_str)
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Corrupted or invalid JSON data: {e}")
+        except Exception as e:
+            raise ValueError(f"Error parsing JSON: {e}")
         return cls.from_dict(data)

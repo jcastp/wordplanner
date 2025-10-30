@@ -38,25 +38,44 @@ def get_yes_no(prompt, default='y'):
             print("Please enter 'y' for yes or 'n' for no (or press Enter for default).")
 
 
-def get_positive_number(prompt):
+def get_positive_number(prompt, max_value=None):
     """
     Get a positive number from user input with validation.
 
     Args:
         prompt: The prompt to display to the user
+        max_value: Optional maximum allowed value
 
     Returns:
         float: A positive number entered by the user
     """
     while True:
         try:
-            value = float(input(prompt))
-            if value <= 0:
-                print("Please enter a positive number.")
+            user_input = input(prompt).strip()
+            if not user_input:
+                print("Error: Input cannot be empty. Please enter a number.")
                 continue
+
+            value = float(user_input)
+
+            if value < 0:
+                print(f"Error: Cannot use negative numbers. You entered: {value}")
+                continue
+            elif value == 0:
+                print("Error: Value must be greater than zero.")
+                continue
+            elif max_value is not None and value > max_value:
+                print(f"Error: Value cannot exceed {max_value:,.0f}. You entered: {value:,.0f}")
+                continue
+
             return value
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except ValueError as e:
+            print(f"Error: Invalid input '{user_input}'. Please enter a valid number.")
+        except KeyboardInterrupt:
+            print("\nInput cancelled by user.")
+            raise
+        except Exception as e:
+            print(f"Unexpected error: {e}. Please try again.")
 
 
 def get_date_input(prompt_text="Start date: "):
@@ -111,13 +130,23 @@ def get_menu_choice(prompt, min_value, max_value):
     """
     while True:
         try:
-            choice = int(input(prompt))
+            user_input = input(prompt).strip()
+            if not user_input:
+                print("Error: Input cannot be empty. Please enter a number.")
+                continue
+
+            choice = int(user_input)
             if min_value <= choice <= max_value:
                 return choice
             else:
-                print(f"Please enter a number between {min_value} and {max_value}.")
+                print(f"Error: Invalid choice. Please enter a number between {min_value} and {max_value}.")
         except ValueError:
-            print("Invalid input. Please enter a number.")
+            print(f"Error: Invalid input '{user_input}'. Please enter a valid number.")
+        except KeyboardInterrupt:
+            print("\nInput cancelled by user.")
+            raise
+        except Exception as e:
+            print(f"Unexpected error: {e}. Please try again.")
 
 
 def display_header(title, width=50):
@@ -176,7 +205,7 @@ def display_menu(title, options, footer_text="Enter your choice", show_exit=True
     return get_menu_choice(prompt, min_val, max_val)
 
 
-def get_integer_input(prompt, min_value=None, max_value=None):
+def get_integer_input(prompt, min_value=None, max_value=None, allow_negative=False):
     """
     Get an integer input from the user with optional range validation.
 
@@ -184,25 +213,40 @@ def get_integer_input(prompt, min_value=None, max_value=None):
         prompt: The prompt to display
         min_value: Minimum valid value (optional)
         max_value: Maximum valid value (optional)
+        allow_negative: Whether to allow negative numbers (default: False)
 
     Returns:
         int: The validated integer
     """
     while True:
         try:
-            value = int(input(prompt))
+            user_input = input(prompt).strip()
+            if not user_input:
+                print("Error: Input cannot be empty. Please enter an integer.")
+                continue
+
+            value = int(user_input)
+
+            if not allow_negative and value < 0:
+                print(f"Error: Cannot use negative numbers. You entered: {value}")
+                continue
 
             if min_value is not None and value < min_value:
-                print(f"Please enter a value of at least {min_value}.")
+                print(f"Error: Value must be at least {min_value}. You entered: {value}")
                 continue
 
             if max_value is not None and value > max_value:
-                print(f"Please enter a value no greater than {max_value}.")
+                print(f"Error: Value cannot exceed {max_value}. You entered: {value}")
                 continue
 
             return value
         except ValueError:
-            print("Invalid input. Please enter an integer.")
+            print(f"Error: Invalid input '{user_input}'. Please enter a valid integer.")
+        except KeyboardInterrupt:
+            print("\nInput cancelled by user.")
+            raise
+        except Exception as e:
+            print(f"Unexpected error: {e}. Please try again.")
 
 
 def get_string_input(prompt, allow_empty=False):

@@ -66,8 +66,13 @@ def get_plans_directory() -> Path:
 
 def ensure_plans_directory():
     """Ensure the plans directory exists."""
-    plans_dir = get_plans_directory()
-    plans_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        plans_dir = get_plans_directory()
+        plans_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        raise PermissionError(f"Permission denied: Cannot create plans directory at {plans_dir}")
+    except OSError as e:
+        raise OSError(f"Failed to create plans directory: {e}")
 
 
 def get_plan_filename(plan_name: str) -> str:
@@ -117,8 +122,15 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
         plan_obj.source_file = filepath
 
     # Save to file
-    with open(filepath, 'w') as f:
-        f.write(plan_obj.to_json())
+    try:
+        with open(filepath, 'w') as f:
+            f.write(plan_obj.to_json())
+    except PermissionError:
+        raise PermissionError(f"Permission denied: Cannot write to {filepath}")
+    except OSError as e:
+        raise OSError(f"Failed to save plan to {filepath}: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Unexpected error saving plan: {e}")
 
     return filepath
 
@@ -132,11 +144,38 @@ def load_plan(filepath: Path) -> plan.Plan:
 
     Returns:
         Loaded Plan object
-    """
-    with open(filepath, 'r') as f:
-        json_str = f.read()
 
-    loaded_plan = plan.Plan.from_json(json_str)
+    Raises:
+        FileNotFoundError: If the plan file doesn't exist
+        PermissionError: If the file cannot be read
+        ValueError: If the file contains invalid JSON or plan data
+    """
+    # Check if file exists
+    if not filepath.exists():
+        raise FileNotFoundError(f"Plan file not found: {filepath}")
+
+    # Check if path is a directory
+    if filepath.is_dir():
+        raise IsADirectoryError(f"Expected a file, got a directory: {filepath}")
+
+    try:
+        with open(filepath, 'r') as f:
+            json_str = f.read()
+    except PermissionError:
+        raise PermissionError(f"Permission denied: Cannot read {filepath}")
+    except OSError as e:
+        raise OSError(f"Failed to read plan file {filepath}: {e}")
+
+    # Validate file is not empty
+    if not json_str.strip():
+        raise ValueError(f"Plan file is empty: {filepath}")
+
+    try:
+        loaded_plan = plan.Plan.from_json(json_str)
+    except ValueError as e:
+        # Re-raise with more context about which file failed
+        raise ValueError(f"Failed to load plan from {filepath}: {e}")
+
     # Track the source file so we can overwrite it later
     loaded_plan.source_file = filepath
     return loaded_plan
@@ -149,10 +188,22 @@ def list_saved_plans() -> List[dict]:
     Returns:
         List of dictionaries with plan metadata (name, path, created_date)
     """
-    ensure_plans_directory()
+    try:
+        ensure_plans_directory()
+    except (PermissionError, OSError) as e:
+        print(f"Error: Cannot access plans directory: {e}")
+        return []
 
     plans = []
-    for filepath in get_plans_directory().glob("*.json"):
+    plans_dir = get_plans_directory()
+
+    try:
+        json_files = list(plans_dir.glob("*.json"))
+    except (PermissionError, OSError) as e:
+        print(f"Error: Cannot list files in plans directory: {e}")
+        return []
+
+    for filepath in json_files:
         try:
             # Load plan to get metadata
             plan_obj = load_plan(filepath)
@@ -164,9 +215,16 @@ def list_saved_plans() -> List[dict]:
                 'daily': plan_obj.daily,
                 'time': plan_obj.time,
             })
+        except FileNotFoundError:
+            # File was deleted between listing and loading - skip it
+            continue
+        except (PermissionError, ValueError, OSError) as e:
+            # Skip files that can't be loaded but show specific error
+            print(f"Warning: Could not load {filepath.name}: {e}")
+            continue
         except Exception as e:
-            # Skip files that can't be loaded
-            print(f"Warning: Could not load {filepath}: {e}")
+            # Catch-all for unexpected errors
+            print(f"Warning: Unexpected error loading {filepath.name}: {type(e).__name__}: {e}")
             continue
 
     # Sort by created date, newest first
@@ -184,9 +242,22 @@ def delete_plan(filepath: Path) -> bool:
 
     Returns:
         True if successful, False otherwise
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        PermissionError: If permission is denied
+        OSError: For other OS-related errors
     """
+    if not filepath.exists():
+        raise FileNotFoundError(f"Cannot delete: Plan file not found at {filepath}")
+
+    if filepath.is_dir():
+        raise IsADirectoryError(f"Cannot delete: Path is a directory, not a file: {filepath}")
+
     try:
         filepath.unlink()
         return True
-    except Exception:
-        return False
+    except PermissionError:
+        raise PermissionError(f"Permission denied: Cannot delete {filepath}")
+    except OSError as e:
+        raise OSError(f"Failed to delete plan file {filepath}: {e}")
