@@ -398,7 +398,7 @@ Goal: Track daily writing progress and adjust plan if behind schedule
    Choose: "Update progress" → "Quick entry (today's words)"
    Enter: 1,200 words
    Result: ✓ Progress recorded: 1,200 words
-           🎉 You met your daily goal!
+            You met your daily goal!
 
    Status: ✓ ON TRACK
    ```
