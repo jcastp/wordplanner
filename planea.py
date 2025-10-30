@@ -32,11 +32,12 @@ def initial_menu():
     print("\n1. Create a new plan from scratch")
     print("2. Create plan from template")
     print("3. Load an existing plan")
-    print("4. Settings")
+    print("4. Manage multiple plans")
+    print("5. Settings")
     print("0. Exit")
     print("=" * 50)
 
-    return get_menu_choice("\nEnter your choice (0-4): ", 0, 4)
+    return get_menu_choice("\nEnter your choice (0-5): ", 0, 5)
 
 
 # choose_writing_pattern is now imported from pattern_utils module
@@ -1935,6 +1936,11 @@ def main():
                 handle_plan_actions(loaded_plan)
 
         elif choice == 4:
+            # Manage multiple plans
+            import plan_manager_ui
+            plan_manager_ui.manage_plans_menu()
+
+        elif choice == 5:
             # Settings
             settings_menu()
 

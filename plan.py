@@ -7,7 +7,7 @@ import json
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -38,6 +38,13 @@ class Plan():
         self.weekend_daily = weekend_daily  # Daily goal for weekends (if mode is "different")
         self.weekend_days = weekend_days or [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
         self.custom_daily_goals = custom_daily_goals or {}  # Date string -> custom word count
+
+        # Multiple plans management fields
+        self.status = status  # "active", "archived", "completed"
+        self.tags = tags or []  # List of tag strings (e.g., ["urgent", "fiction"])
+        self.category = category  # Category string (e.g., "novel", "blog", "academic")
+        self.is_active = is_active  # Boolean flag for the currently active plan
+        self.last_modified = last_modified or datetime.datetime.now()  # When this plan was last modified
 
     @property
     def spare_days(self):
@@ -568,6 +575,12 @@ class Plan():
             'weekend_daily': self.weekend_daily,
             'weekend_days': self.weekend_days,
             'custom_daily_goals': self.custom_daily_goals,
+            # Multiple plans management fields
+            'status': self.status,
+            'tags': self.tags,
+            'category': self.category,
+            'is_active': self.is_active,
+            'last_modified': self.last_modified.isoformat() if self.last_modified else None,
         }
 
     @classmethod
@@ -609,6 +622,13 @@ class Plan():
             print(f"Warning: Invalid created_date format, using None: {e}")
             created_date = None
 
+        # Parse last_modified with error handling
+        try:
+            last_modified = datetime.datetime.fromisoformat(data['last_modified']) if data.get('last_modified') else None
+        except (ValueError, TypeError) as e:
+            # Silently default to None for old plans without last_modified
+            last_modified = None
+
         # Validate numeric values
         try:
             daily = float(data.get('daily', 0))
@@ -635,6 +655,12 @@ class Plan():
             weekend_daily=weekend_daily,
             weekend_days=data.get('weekend_days', [5, 6]),
             custom_daily_goals=data.get('custom_daily_goals', {}),
+            # Multiple plans management fields (with defaults for old plans)
+            status=data.get('status', 'active'),
+            tags=data.get('tags', []),
+            category=data.get('category'),
+            is_active=data.get('is_active', False),
+            last_modified=last_modified,
         )
 
     def to_json(self):
