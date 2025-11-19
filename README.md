@@ -1,4 +1,4 @@
-# planeapalabras - Word Count Planner
+# wordplanner - Word Count Planner
 
 A comprehensive writing planning tool inspired by [pacemaker.press](https://pacemaker.press) that helps writers calculate, visualize, and manage their writing goals through an interactive console interface.
 
@@ -9,7 +9,7 @@ Writing requires managing three key variables:
 - **Daily words** - How many words you can write per day (e.g., 1,667 words/day)
 - **Time (days)** - How long you have to write (e.g., 30 days)
 
-Given any two variables, **planeapalabras** calculates the third and provides:
+Given any two variables, **wordplanner** calculates the third and provides:
 - Beautiful calendar visualizations with day-by-day breakdown
 - Flexible spare days management (holidays, weekends, breaks)
 - Plan modification and recalculation
@@ -164,7 +164,7 @@ Share and use your plans in other applications:
   - Perfect for sharing or documentation
 - **Export All** - Generate all three formats at once
 - **Automatic naming** - Files named with plan name and timestamp
-- **Organized storage** - All exports saved to ~/.planeapalabras/exports/
+- **Organized storage** - All exports saved to ~/.wordplanner/exports/
 
 #### Spare Days Management
 Mark specific dates as 0-word days for holidays, breaks, or urgent matters:
@@ -260,7 +260,7 @@ Organize and manage multiple writing projects simultaneously:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd planeapalabras
+cd wordplanner
 
 # Create and activate virtual environment
 uv venv
@@ -325,7 +325,7 @@ Goal: Write a 50,000-word novel in November (30 days)
 4. Save Plan
    ```
    Name: "NaNoWriMo 2025"
-   Saved to: ~/.planeapalabras/plans/
+   Saved to: ~/.wordplanner/plans/
    ```
 
 ### Example 2: Short Story with Weekends Off
@@ -489,7 +489,7 @@ Goal: Share your writing plan with others or import it into calendar/spreadsheet
    ```
    Choose: "Plan Actions" → "Export plan"
    Select: "iCal/ICS (for calendar apps)"
-   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.ics
+   Result: ✓ Exported to ~/.wordplanner/exports/MyPlan_20251028_120000.ics
 
    Import the .ics file into:
    - Google Calendar (Settings → Import & Export)
@@ -503,7 +503,7 @@ Goal: Share your writing plan with others or import it into calendar/spreadsheet
    ```
    Choose: "Plan Actions" → "Export plan"
    Select: "CSV (for spreadsheets)"
-   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.csv
+   Result: ✓ Exported to ~/.wordplanner/exports/MyPlan_20251028_120000.csv
 
    Open in Excel or Google Sheets to see:
    - Date, Day of Week, Day Number
@@ -519,7 +519,7 @@ Goal: Share your writing plan with others or import it into calendar/spreadsheet
    ```
    Choose: "Plan Actions" → "Export plan"
    Select: "Markdown (readable text)"
-   Result: ✓ Exported to ~/.planeapalabras/exports/MyPlan_20251028_120000.md
+   Result: ✓ Exported to ~/.wordplanner/exports/MyPlan_20251028_120000.md
 
    Use for:
    - Sharing with writing partners
@@ -1014,7 +1014,7 @@ Additional test scripts:
 ## File Structure
 
 ```
-planeapalabras/
+wordplanner/
 ├── planea.py                     # Console interface
 ├── plan.py                       # Core Plan class with calculations
 ├── calendar_view.py              # Calendar visualization with Rich
@@ -1055,7 +1055,7 @@ planeapalabras/
 
 Plans are automatically saved to:
 ```
-~/.planeapalabras/plans/
+~/.wordplanner/plans/
 ```
 
 Each plan is stored as a JSON file with format:
@@ -1065,7 +1065,7 @@ PlanName_YYYYMMDD_HHMMSS.json
 
 Exported files are saved to:
 ```
-~/.planeapalabras/exports/
+~/.wordplanner/exports/
 ```
 
 Exports are named with the plan name and timestamp in the appropriate format:
@@ -1173,7 +1173,7 @@ Exports are named with the plan name and timestamp in the appropriate format:
   - Markdown export for readable documentation
   - Export all formats at once
   - Automatic file naming with timestamps
-  - Organized exports directory (~/.planeapalabras/exports/)
+  - Organized exports directory (~/.wordplanner/exports/)
 - **Progress in Exports** - CSV and Markdown exports include:
   - Actual word counts vs goals
   - Status indicators (Exceeded, Met, Partial, Missed, Future)
@@ -1342,10 +1342,10 @@ Q: Can I export my plan to Excel or Google Sheets?
 A: Yes! Use the "Export plan" option and choose CSV format. The exported CSV file can be opened in Excel, Google Sheets, or any spreadsheet application. It includes day-by-day data with your goals, actual progress, cumulative totals, and status indicators.
 
 Q: What export formats are available?
-A: Three formats: CSV (for spreadsheets), iCal/ICS (for calendar apps), and Markdown (for readable documentation). You can export to a single format or all three at once. All exports are saved to ~/.planeapalabras/exports/
+A: Three formats: CSV (for spreadsheets), iCal/ICS (for calendar apps), and Markdown (for readable documentation). You can export to a single format or all three at once. All exports are saved to ~/.wordplanner/exports/
 
 Q: Where are my plans stored?
-A: In ~/.planeapalabras/plans/ as JSON files.
+A: In ~/.wordplanner/plans/ as JSON files.
 
 Q: Can I manage multiple writing projects at once?
 A: Yes! Use "Manage multiple plans" from the main menu. You can organize plans by status (active, archived, completed), assign categories (novel, blog, academic, etc.), add custom tags, filter and sort plans, compare plans side-by-side, and view statistics across all your projects. The active plan feature (★) helps you focus on your current project.

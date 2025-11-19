@@ -2,11 +2,11 @@
 Configuration Module
 
 This module stores application-wide configuration constants and settings
-for the planeapalabras application.
+for the wordplanner application.
 """
 
 # Directory configuration
-SAVE_DIRECTORY = ".planeapalabras"
+SAVE_DIRECTORY = ".wordplanner"
 PLANS_SUBDIRECTORY = "plans"
 EXPORTS_SUBDIRECTORY = "exports"
 
