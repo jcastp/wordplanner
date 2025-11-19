@@ -3,7 +3,7 @@
 """This is an intended clone for the pacemaker.press site.
 It intends to get a plan for daily work on words per day."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import readline
 from pathlib import Path
 import plan
@@ -195,7 +195,7 @@ def plan_actions_menu():
 
 def manage_spare_days(current_plan):
     """Interactively manage spare days for the plan."""
-    from datetime import timedelta, datetime as dt
+    dt = datetime  # Alias for strptime usage
 
     # Check if start_date is set
     if not current_plan.start_date:
@@ -228,7 +228,6 @@ def manage_spare_days(current_plan):
                     old_format_count += 1
                     if current_plan.start_date:
                         # Convert old day number to actual date
-                        from datetime import timedelta
                         converted_date = current_plan.start_date + timedelta(days=spare_item - 1)
                         valid_spare_dates.append(converted_date)
                 else:
@@ -527,7 +526,6 @@ def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
         old_total: The total before changes
         choice_mode: 'total' or 'days'
     """
-    from datetime import timedelta
     if choice_mode == 'days':
         # Keep days constant, adjust total
         new_total = current_plan.recalculate_total_from_daily_goals()
@@ -595,7 +593,7 @@ def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
 
 def edit_individual_day_goal(current_plan):
     """Edit the word goal for a specific day."""
-    from datetime import datetime as dt, timedelta
+    dt = datetime  # Alias for strptime usage
 
     if not current_plan.start_date:
         display_error("You must set a start date before editing individual day goals.")
@@ -1225,15 +1223,15 @@ def offer_ahead_recalculation(current_plan, info):
                 today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
                 # Calculate remaining writing days
-                current_date = today + datetime.timedelta(days=1)  # Start from tomorrow
+                current_date = today + timedelta(days=1)  # Start from tomorrow
                 total_days = int(current_plan.time) + current_plan.spare_days
-                plan_end = current_plan.start_date + datetime.timedelta(days=total_days - 1)
+                plan_end = current_plan.start_date + timedelta(days=total_days - 1)
                 remaining_days = 0
 
                 while current_date <= plan_end:
                     if not current_plan.is_spare_day(current_date):
                         remaining_days += 1
-                    current_date += datetime.timedelta(days=1)
+                    current_date += timedelta(days=1)
 
                 if remaining_days == 0:
                     display_success("Plan complete! No remaining days.")
@@ -1302,15 +1300,15 @@ def offer_behind_recalculation(current_plan, info):
                 today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
                 # Calculate remaining writing days
-                current_date = today + datetime.timedelta(days=1)  # Start from tomorrow
+                current_date = today + timedelta(days=1)  # Start from tomorrow
                 total_days = int(current_plan.time) + current_plan.spare_days
-                plan_end = current_plan.start_date + datetime.timedelta(days=total_days - 1)
+                plan_end = current_plan.start_date + timedelta(days=total_days - 1)
                 remaining_days = 0
 
                 while current_date <= plan_end:
                     if not current_plan.is_spare_day(current_date):
                         remaining_days += 1
-                    current_date += datetime.timedelta(days=1)
+                    current_date += timedelta(days=1)
 
                 if remaining_days == 0:
                     display_error("No remaining days to adjust. Plan complete or past deadline.")

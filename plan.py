@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import math
 import json
 
@@ -380,7 +381,7 @@ class Plan():
         for day_num in range(total_calendar_days):
             daily_goal = self.get_daily_goal(date=current_date)
             total_words += daily_goal
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
 
         # Update the plan's total
         self.total = total_words
@@ -448,7 +449,7 @@ class Plan():
 
             # Check if this is a spare day - spare days don't break the streak
             if self.is_spare_day(current_date):
-                current_date -= datetime.timedelta(days=1)
+                current_date -= timedelta(days=1)
                 continue
 
             # Check if progress was recorded for this day
@@ -458,7 +459,7 @@ class Plan():
                 # Streak is broken
                 break
 
-            current_date -= datetime.timedelta(days=1)
+            current_date -= timedelta(days=1)
 
         return streak
 
@@ -494,7 +495,7 @@ class Plan():
                 expected_words += daily_goal
                 days_elapsed += 1
 
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
 
         actual_words = self.get_total_written()
         difference = actual_words - expected_words
@@ -604,7 +605,6 @@ class Plan():
                 elif isinstance(item, int):
                     # Old format: day number - convert to date if we have start_date
                     if start_date:
-                        from datetime import timedelta
                         converted_date = start_date + timedelta(days=item - 1)
                         spare_days_dates.append(converted_date)
                     # else: skip old format spare days if no start_date

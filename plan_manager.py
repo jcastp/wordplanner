@@ -7,7 +7,7 @@ including filtering, sorting, comparison, archiving, and organization.
 
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 import plan
 import plan_storage
 import config
@@ -290,7 +290,6 @@ def sort_plans(plans: List[plan.Plan], sort_by: str = "modified", reverse: bool 
         # Calculate end date for each plan
         def get_end_date(p):
             if p.start_date:
-                from datetime import timedelta
                 total_days = int(p.time) + p.spare_days
                 return p.start_date + timedelta(days=total_days)
             return datetime.max  # Plans without dates go to the end
