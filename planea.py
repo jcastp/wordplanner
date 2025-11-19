@@ -724,6 +724,117 @@ def edit_individual_day_goal(current_plan):
             print("Invalid input. Please enter a number.")
 
 
+def recalculate_plan_from_progress(current_plan):
+    """
+    Recalculate plan based on actual progress, redistributing remaining words
+    across remaining days while keeping the end date fixed.
+    """
+    print("\n" + "=" * 50)
+    print("RECALCULATE FROM PROGRESS")
+    print("=" * 50)
+
+    # Check if plan has a start date
+    if not current_plan.start_date:
+        display_error("This plan doesn't have a start date set.")
+        print("  You need a start date to recalculate from progress.")
+        input("\nPress Enter to continue...")
+        return False
+
+    # Check if there's any progress recorded
+    if not current_plan.progress or len(current_plan.progress) == 0:
+        display_error("No progress has been recorded yet.")
+        print("  Record some progress first, then you can recalculate.")
+        input("\nPress Enter to continue...")
+        return False
+
+    # Show current status
+    words_completed = current_plan.get_total_written()
+    words_remaining = current_plan.total - words_completed
+    completion_pct = current_plan.get_completion_percentage()
+
+    print("\nCurrent Progress:")
+    print(f"  Total goal: {current_plan.total:,.0f} words")
+    print(f"  Words completed: {words_completed:,.0f} words ({completion_pct:.1f}%)")
+    print(f"  Words remaining: {words_remaining:,.0f} words")
+    print(f"  Current daily target: {current_plan.daily:,.0f} words")
+
+    if current_plan.start_date:
+        total_calendar_days = int(current_plan.time) + current_plan.spare_days
+        end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+        print(f"  Plan end date: {end_date.strftime('%Y-%m-%d')} (fixed)")
+
+    print("\nThis will:")
+    print("  • Redistribute remaining words evenly across remaining days")
+    print("  • Keep your end date fixed")
+    print("  • Preserve past daily goals (for historical accuracy)")
+    print("  • Reset writing pattern to 'flat' for future days")
+    print("  • Clear any custom daily goals for future dates")
+    if current_plan.weekend_mode == 'different':
+        print("  • Update weekend daily target to match weekday target")
+
+    # Confirm with user
+    if not get_yes_no("\nDo you want to recalculate the plan?", default='n'):
+        print("Recalculation cancelled.")
+        return False
+
+    # Perform the recalculation
+    result = current_plan.recalculate_from_progress()
+
+    if result is None:
+        display_error("Could not recalculate: Plan has no start date.")
+        input("\nPress Enter to continue...")
+        return False
+
+    if not result['success']:
+        # Handle different failure reasons
+        reason = result.get('reason')
+        if reason == 'goal_already_met':
+            display_success("Congratulations! You've already met your goal!")
+            print(f"  Total words completed: {result['words_completed']:,.0f}")
+        elif reason == 'past_end_date':
+            display_error("Cannot recalculate: Plan end date has already passed.")
+            print(f"  End date was: {result['end_date'].strftime('%Y-%m-%d')}")
+            print(f"  Words remaining: {result['words_remaining']:,.0f}")
+        elif reason == 'no_remaining_days':
+            display_error("Cannot recalculate: No remaining writing days.")
+            print(f"  Words remaining: {result['words_remaining']:,.0f}")
+        else:
+            display_error(f"Recalculation failed: {reason}")
+
+        input("\nPress Enter to continue...")
+        return False
+
+    # Display success message with details
+    display_success("Plan recalculated successfully!")
+    print("\nRecalculation Summary:")
+    print(f"  Words remaining: {result['words_remaining']:,.0f}")
+    print(f"  Remaining writing days: {result['remaining_writing_days']}")
+    print(f"  Old daily target: {result['old_daily']:,.0f} words")
+    print(f"  New daily target: {result['new_daily']:,.0f} words")
+
+    daily_change = result['new_daily'] - result['old_daily']
+    if daily_change > 0:
+        print(f"  Daily target increased by: {daily_change:,.0f} words ({(daily_change/result['old_daily']*100):.1f}%)")
+    elif daily_change < 0:
+        print(f"  Daily target decreased by: {abs(daily_change):,.0f} words ({(abs(daily_change)/result['old_daily']*100):.1f}%)")
+    else:
+        print(f"  Daily target unchanged")
+
+    if result['old_pattern'] != 'flat':
+        print(f"  Pattern changed: {result['old_pattern']} → flat")
+
+    if result.get('past_goals_preserved', 0) > 0:
+        print(f"  Preserved {result['past_goals_preserved']} past daily goal(s) for historical accuracy")
+
+    if result['cleared_custom_goals'] > 0:
+        print(f"  Cleared {result['cleared_custom_goals']} custom daily goal(s) for future dates")
+
+    print(f"  Plan end date: {result['end_date'].strftime('%Y-%m-%d')} (unchanged)")
+
+    input("\nPress Enter to continue...")
+    return True
+
+
 def modify_plan(current_plan):
     """Allow user to modify plan values and recalculate."""
     print("\n" + "=" * 50)
@@ -752,12 +863,13 @@ def modify_plan(current_plan):
     print("7. Modify two values (third will be calculated)")
     print("8. Weekend settings")
     print("9. Edit individual day goals")
+    print("10. Recalculate from progress (redistribute remaining words)")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-9): "))
+            choice = int(input("\nEnter your choice (0-10): "))
             if choice == 0:
                 return False  # No changes made
 
@@ -906,8 +1018,13 @@ def modify_plan(current_plan):
                 modified = edit_individual_day_goal(current_plan)
                 return modified
 
+            elif choice == 10:
+                # Recalculate from progress
+                modified = recalculate_plan_from_progress(current_plan)
+                return modified
+
             else:
-                print("Please enter a number between 0 and 9.")
+                print("Please enter a number between 0 and 10.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -1218,37 +1335,37 @@ def offer_ahead_recalculation(current_plan, info):
                 return
 
             elif choice == 1:
-                # Reduce daily goals
-                remaining_words = current_plan.get_remaining_words()
+                # Reduce daily goals - use recalculate_from_progress
                 today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                tomorrow = today + timedelta(days=1)  # Start from tomorrow so past days aren't affected
 
-                # Calculate remaining writing days
-                current_date = today + timedelta(days=1)  # Start from tomorrow
-                total_days = int(current_plan.time) + current_plan.spare_days
-                plan_end = current_plan.start_date + timedelta(days=total_days - 1)
-                remaining_days = 0
+                # Show what will change
+                result = current_plan.recalculate_from_progress(as_of_date=tomorrow)
 
-                while current_date <= plan_end:
-                    if not current_plan.is_spare_day(current_date):
-                        remaining_days += 1
-                    current_date += timedelta(days=1)
-
-                if remaining_days == 0:
-                    display_success("Plan complete! No remaining days.")
+                if result is None or not result['success']:
+                    if result and result.get('reason') == 'goal_already_met':
+                        display_success("Congratulations! You've already met your goal!")
+                    elif result and result.get('reason') == 'no_remaining_days':
+                        display_success("Plan complete! No remaining days.")
+                    else:
+                        display_error("Could not recalculate plan.")
                     return
 
-                new_daily = remaining_words / remaining_days
-
                 print(f"\nProposed adjustment:")
-                print(f"  Current daily goal: {current_plan.daily:,.0f} words/day")
-                print(f"  New daily goal: {new_daily:,.0f} words/day")
-                print(f"  Remaining days: {remaining_days}")
+                print(f"  Current daily goal: {result['old_daily']:,.0f} words/day")
+                print(f"  New daily goal: {result['new_daily']:,.0f} words/day")
+                print(f"  Remaining words: {result['words_remaining']:,.0f}")
+                print(f"  Remaining days: {result['remaining_writing_days']}")
 
-                if get_yes_no("Apply this adjustment?", default='y'):
-                    current_plan.daily = new_daily
-                    current_plan.time = remaining_days + info['days_elapsed']
-                    current_plan.invalidate_daily_goals_cache()
-                    display_success("Plan adjusted!")
+                daily_change = result['new_daily'] - result['old_daily']
+                if daily_change < 0:
+                    print(f"  Reduction: {abs(daily_change):,.0f} words/day ({abs(daily_change)/result['old_daily']*100:.1f}%)")
+
+                # Note: recalculate_from_progress already applied the changes
+                # So we just need to confirm with the user
+                display_success("Plan adjusted! Daily goals reduced based on progress.")
+                if result.get('cleared_custom_goals', 0) > 0:
+                    print(f"  Cleared {result['cleared_custom_goals']} custom goal(s) for future dates")
 
                 return
 
@@ -1295,38 +1412,36 @@ def offer_behind_recalculation(current_plan, info):
                 return
 
             elif choice == 1:
-                # Increase daily goals
-                remaining_words = current_plan.get_remaining_words()
+                # Increase daily goals - use recalculate_from_progress
                 today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                tomorrow = today + timedelta(days=1)  # Start from tomorrow so past days aren't affected
 
-                # Calculate remaining writing days
-                current_date = today + timedelta(days=1)  # Start from tomorrow
-                total_days = int(current_plan.time) + current_plan.spare_days
-                plan_end = current_plan.start_date + timedelta(days=total_days - 1)
-                remaining_days = 0
+                # Show what will change
+                result = current_plan.recalculate_from_progress(as_of_date=tomorrow)
 
-                while current_date <= plan_end:
-                    if not current_plan.is_spare_day(current_date):
-                        remaining_days += 1
-                    current_date += timedelta(days=1)
-
-                if remaining_days == 0:
-                    display_error("No remaining days to adjust. Plan complete or past deadline.")
+                if result is None or not result['success']:
+                    if result and result.get('reason') == 'no_remaining_days':
+                        display_error("No remaining days to adjust. Plan complete or past deadline.")
+                    elif result and result.get('reason') == 'goal_already_met':
+                        display_success("Congratulations! You've already met your goal!")
+                    else:
+                        display_error("Could not recalculate plan.")
                     return
 
-                new_daily = remaining_words / remaining_days
-
                 print(f"\nProposed adjustment:")
-                print(f"  Current daily goal: {current_plan.daily:,.0f} words/day")
-                print(f"  New daily goal: {new_daily:,.0f} words/day")
-                print(f"  Increase: {new_daily - current_plan.daily:,.0f} words/day")
-                print(f"  Remaining days: {remaining_days}")
+                print(f"  Current daily goal: {result['old_daily']:,.0f} words/day")
+                print(f"  New daily goal: {result['new_daily']:,.0f} words/day")
+                print(f"  Remaining words: {result['words_remaining']:,.0f}")
+                print(f"  Remaining days: {result['remaining_writing_days']}")
 
-                if get_yes_no("Apply this adjustment?", default='y'):
-                    current_plan.daily = new_daily
-                    current_plan.time = remaining_days + info['days_elapsed']
-                    current_plan.invalidate_daily_goals_cache()
-                    display_success("Plan adjusted!")
+                daily_change = result['new_daily'] - result['old_daily']
+                if daily_change > 0:
+                    print(f"  Increase: {daily_change:,.0f} words/day ({daily_change/result['old_daily']*100:.1f}%)")
+
+                # Note: recalculate_from_progress already applied the changes
+                display_success("Plan adjusted! Daily goals increased to meet deadline.")
+                if result.get('cleared_custom_goals', 0) > 0:
+                    print(f"  Cleared {result['cleared_custom_goals']} custom goal(s) for future dates")
 
                 return
 

@@ -558,6 +558,141 @@ class Plan():
         else:
             return 'partial'
 
+    def recalculate_from_progress(self, as_of_date=None):
+        """
+        Recalculate the plan based on actual progress, redistributing remaining words
+        across remaining days while keeping the end date fixed.
+
+        Algorithm:
+        - Words Remaining = Total Words - Words Completed So Far
+        - New Daily Target = Words Remaining / Remaining Writing Days
+
+        This keeps the deadline fixed and evenly distributes remaining work.
+
+        Args:
+            as_of_date: Date to calculate from (defaults to today)
+
+        Returns:
+            dict with recalculation details, or None if recalculation not possible
+        """
+        if not self.start_date:
+            return None
+
+        if as_of_date is None:
+            as_of_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Calculate total words written so far
+        words_completed = self.get_total_written()
+
+        # Calculate remaining words
+        words_remaining = self.total - words_completed
+
+        # If we've already completed the goal, no recalculation needed
+        if words_remaining <= 0:
+            return {
+                'success': False,
+                'reason': 'goal_already_met',
+                'words_completed': words_completed,
+                'words_remaining': 0
+            }
+
+        # Calculate end date (start_date + time + spare_days)
+        total_calendar_days = int(self.time) + self.spare_days
+        end_date = self.start_date + timedelta(days=total_calendar_days - 1)
+
+        # If we're past the end date, can't recalculate
+        if as_of_date > end_date:
+            return {
+                'success': False,
+                'reason': 'past_end_date',
+                'words_completed': words_completed,
+                'words_remaining': words_remaining,
+                'end_date': end_date
+            }
+
+        # Count remaining writing days (excluding spare days and past days)
+        remaining_writing_days = 0
+        current_date = as_of_date
+
+        while current_date <= end_date:
+            # Check if this is a spare day
+            if not self.is_spare_day(current_date):
+                remaining_writing_days += 1
+            current_date += timedelta(days=1)
+
+        # If no remaining writing days, can't recalculate
+        if remaining_writing_days == 0:
+            return {
+                'success': False,
+                'reason': 'no_remaining_days',
+                'words_completed': words_completed,
+                'words_remaining': words_remaining
+            }
+
+        # Calculate new daily target
+        old_daily = self.daily
+        new_daily = words_remaining / remaining_writing_days
+
+        # IMPORTANT: Preserve past daily goals before changing base daily
+        # Set custom goals for all past days (before as_of_date) to maintain historical accuracy
+        current_date = self.start_date
+        past_goals_preserved = 0
+
+        while current_date < as_of_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            # Only set custom goal if one doesn't already exist for this date
+            if date_str not in self.custom_daily_goals:
+                # Get the current daily goal for this date (with pattern, weekend logic, etc.)
+                past_goal = self.get_daily_goal(date=current_date)
+                self.custom_daily_goals[date_str] = past_goal
+                past_goals_preserved += 1
+            current_date += timedelta(days=1)
+
+        # Update the plan
+        self.daily = new_daily
+
+        # Reset pattern to flat (since we're redistributing evenly going forward)
+        old_pattern = self.pattern
+        self.pattern = "flat"
+        self.pattern_config = None
+
+        # Clear custom daily goals for future dates only (they don't make sense after recalculation)
+        # Keep past custom goals (including the ones we just set) for historical record
+        future_custom_goals = {}
+        for date_str, goal in self.custom_daily_goals.items():
+            goal_date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            if goal_date < as_of_date:
+                future_custom_goals[date_str] = goal
+
+        cleared_goals_count = len(self.custom_daily_goals) - len(future_custom_goals)
+        self.custom_daily_goals = future_custom_goals
+
+        # Update weekend daily if weekend mode is 'different'
+        if self.weekend_mode == 'different':
+            # Set weekend daily to the same as regular daily for simplicity
+            # User can adjust manually if they want different weekend goals
+            self.weekend_daily = new_daily
+
+        # Invalidate cache
+        self.invalidate_daily_goals_cache()
+
+        # Update last modified timestamp
+        self.last_modified = datetime.datetime.now()
+
+        return {
+            'success': True,
+            'words_completed': words_completed,
+            'words_remaining': words_remaining,
+            'remaining_writing_days': remaining_writing_days,
+            'old_daily': old_daily,
+            'new_daily': new_daily,
+            'old_pattern': old_pattern,
+            'new_pattern': self.pattern,
+            'cleared_custom_goals': cleared_goals_count,
+            'past_goals_preserved': past_goals_preserved,
+            'end_date': end_date
+        }
+
     def to_dict(self):
         """Convert plan to dictionary for serialization."""
         return {
