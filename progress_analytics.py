@@ -4,6 +4,7 @@ import datetime
 import sys
 from typing import Dict, List, Tuple, Optional
 import plotext as plt
+import config
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -11,6 +12,77 @@ from rich import box
 
 
 console = Console()
+
+
+def _today():
+    return datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def elapsed_writing_days(plan_obj) -> List[datetime.datetime]:
+    """
+    The days the writing pace is measured over (A1).
+
+    Every writing day of the plan up to yesterday (rest days with a goal of 0
+    left out; missed days included), plus every day with words logged:
+    today once you've written, rest days you wrote on, days outside the plan.
+    """
+    today = _today()
+    days = {d for d in plan_obj.plan_days() if d < today and not plan_obj.is_rest_day(d)}
+    days |= {datetime.datetime.strptime(k, '%Y-%m-%d') for k, w in plan_obj.progress.items() if w > 0}
+    return sorted(days)
+
+
+def average_words_per_writing_day(plan_obj) -> float:
+    """Words written in the plan (pre-existing excluded) per elapsed writing day."""
+    days = elapsed_writing_days(plan_obj)
+    return plan_obj.get_plan_written() / len(days) if days else 0
+
+
+def _is_future_rest_day(plan_obj, date) -> bool:
+    """A rest day ahead: goal 0 inside the plan; spare or weekend-off days after it."""
+    end = plan_obj.end_date
+    if end is not None and plan_obj.start_date <= date <= end:
+        return plan_obj.is_rest_day(date)
+    return plan_obj.is_spare_day(date) or (plan_obj.weekend_mode == "spare" and plan_obj.is_weekend(date))
+
+
+def writing_day_position(plan_obj, words) -> float:
+    """
+    How many writing days of the schedule `words` cover (fractional).
+
+    Follows each day's goal, so a pattern or a recalculation doesn't distort
+    it. Starts from the same baseline as is_on_track() (schedule_adjustment).
+    Words beyond the end are counted at the plan's daily goal.
+    """
+    goals = plan_obj.build_schedule()['goals']
+    cumulative = -plan_obj.schedule_adjustment
+    position = 0.0
+    if words <= cumulative:
+        return position
+    for day in plan_obj.plan_days():
+        goal = goals[day.strftime('%Y-%m-%d')]
+        if goal <= 0:
+            continue
+        if cumulative + goal >= words:
+            return position + (words - cumulative) / goal
+        cumulative += goal
+        position += 1
+    return position + (words - cumulative) / max(plan_obj.daily, 1)
+
+
+def calculate_days_ahead_behind(plan_obj) -> float:
+    """
+    Writing days ahead (positive) or behind (negative) the schedule (A1).
+
+    Compares where the words written sit on the schedule with where the
+    expected words (goals through yesterday, decision 4) sit. It used to
+    divide by the current daily goal, which changes after each recalculation.
+    """
+    _, info = plan_obj.is_on_track()
+    if 'status' not in info:
+        return 0
+    return (writing_day_position(plan_obj, info['actual_words'])
+            - writing_day_position(plan_obj, info['expected_words']))
 
 
 def calculate_statistics(plan_obj) -> Dict:
@@ -40,8 +112,8 @@ def calculate_statistics(plan_obj) -> Dict:
     total_written = plan_obj.get_total_written()
     days_recorded = plan_obj.get_days_with_progress()
 
-    # Average words per day (only counting days with progress; pre-existing words excluded)
-    average_per_day = plan_obj.get_plan_written() / days_recorded if days_recorded > 0 else 0
+    # Average per writing day: missed days count, rest days don't (pre-existing words excluded)
+    average_per_day = average_words_per_writing_day(plan_obj)
 
     # Best and worst writing days
     best_day = None
@@ -69,7 +141,7 @@ def calculate_statistics(plan_obj) -> Dict:
 
     # Check if ahead or behind
     is_on_track, track_info = plan_obj.is_on_track()
-    days_ahead_behind = track_info.get('difference', 0) / plan_obj.daily if plan_obj.daily > 0 else 0
+    days_ahead_behind = calculate_days_ahead_behind(plan_obj)
 
     return {
         'total_written': total_written,
@@ -115,16 +187,12 @@ def calculate_longest_streak(plan_obj) -> int:
     while current_date <= end_date:
         date_key = current_date.strftime('%Y-%m-%d')
 
-        # Skip spare days - they don't break the streak
-        if plan_obj.is_spare_day(current_date):
-            current_date += datetime.timedelta(days=1)
-            continue
-
-        # Check if progress was recorded for this day
-        if date_key in plan_obj.progress and plan_obj.progress[date_key] > 0:
+        # Writing counts (even on a rest day); rest days without words
+        # don't break the streak (P19)
+        if plan_obj.progress.get(date_key, 0) > 0:
             current_streak += 1
             max_streak = max(max_streak, current_streak)
-        else:
+        elif not plan_obj.is_rest_day(current_date):
             # Streak broken
             current_streak = 0
 
@@ -135,40 +203,37 @@ def calculate_longest_streak(plan_obj) -> int:
 
 def calculate_completion_eta(plan_obj) -> Optional[datetime.datetime]:
     """
-    Calculate estimated completion date based on current progress velocity.
+    Estimate the finishing date at the current pace (A1).
+
+    Spends the average words per writing day on each writing day from today
+    on (tomorrow if today's words are already logged), skipping rest days:
+    rest days of the plan, then spare days and weekends off after its end.
 
     Args:
         plan_obj: Plan instance with progress data
 
     Returns:
-        Estimated completion date or None if not enough data
+        Estimated completion date (midnight), or None if there's no pace yet
     """
     if not plan_obj.start_date or not plan_obj.progress:
         return None
 
     remaining = plan_obj.get_remaining_words()
-
     if remaining <= 0:
-        return datetime.datetime.now()  # Already completed
+        return _today()  # Already completed
 
-    days_recorded = plan_obj.get_days_with_progress()
-    if days_recorded == 0:
-        return None
-
-    # Calculate average velocity (words per day), excluding pre-existing words
-    average_per_day = plan_obj.get_plan_written() / days_recorded
-
+    average_per_day = average_words_per_writing_day(plan_obj)
     if average_per_day <= 0:
         return None
 
-    # Estimate days needed
-    days_needed = remaining / average_per_day
-
-    # Calculate ETA from today
-    today = datetime.datetime.now()
-    eta = today + datetime.timedelta(days=days_needed)
-
-    return eta
+    day = plan_obj.default_recalculation_date()
+    for _ in range(config.MAX_DAYS):
+        if not _is_future_rest_day(plan_obj, day):
+            remaining -= average_per_day
+            if remaining <= 1e-9:
+                return day
+        day += datetime.timedelta(days=1)
+    return None
 
 
 def display_statistics(plan_obj):
@@ -194,7 +259,7 @@ def display_statistics(plan_obj):
 
     # Daily statistics
     table.add_row("Days with Progress", str(stats['days_recorded']))
-    table.add_row("Average per Day", f"{stats['average_per_day']:,.0f} words")
+    table.add_row("Average per Writing Day", f"{stats['average_per_day']:,.0f} words")
     table.add_row("Planned Daily Goal", f"{plan_obj.daily:,.0f} words")
 
     if stats['best_day']:
@@ -219,16 +284,16 @@ def display_statistics(plan_obj):
     if stats['is_on_track']:
         status_text = "ON TRACK"
         if stats['days_ahead_behind'] > 0:
-            status_text = f"AHEAD by {abs(stats['days_ahead_behind']):.1f} days"
+            status_text = f"AHEAD by {abs(stats['days_ahead_behind']):.1f} writing days"
         table.add_row("Schedule Status", f"[green]{status_text}[/green]")
     else:
-        status_text = f"BEHIND by {abs(stats['days_ahead_behind']):.1f} days"
+        status_text = f"BEHIND by {abs(stats['days_ahead_behind']):.1f} writing days"
         table.add_row("Schedule Status", f"[red]{status_text}[/red]")
 
     # ETA
     if stats['completion_eta']:
         eta_date = stats['completion_eta']
-        days_until = (eta_date - datetime.datetime.now()).days
+        days_until = (eta_date - _today()).days
         table.add_row("Estimated Completion", f"{eta_date.strftime('%Y-%m-%d')} ({days_until} days)")
 
     console.print(table)
@@ -317,15 +382,15 @@ def plot_daily_progress(plan_obj):
         print("Cannot generate graph: No progress data")
         return
 
-    # Get dates with progress
-    progress_dates = sorted([datetime.datetime.strptime(d, '%Y-%m-%d') for d in plan_obj.progress.keys()])
+    # Every elapsed writing day, so missed days show as 0 (A1)
+    elapsed = elapsed_writing_days(plan_obj)
 
-    if not progress_dates:
+    if not elapsed:
         print("No progress data to display")
         return
 
-    # Limit to last 30 days or all progress, whichever is smaller
-    display_dates = progress_dates[-30:]
+    # Limit to the last 30 days
+    display_dates = elapsed[-30:]
 
     day_numbers = []
     dates_str = []
@@ -370,32 +435,31 @@ def plot_velocity(plan_obj):
         print("Cannot generate graph: No progress data")
         return
 
-    # Get dates with progress
-    progress_dates = sorted([datetime.datetime.strptime(d, '%Y-%m-%d') for d in plan_obj.progress.keys()])
+    # Every elapsed writing day, with 0 on days without words, so gaps show (A1)
+    days = elapsed_writing_days(plan_obj)
 
-    if len(progress_dates) < 3:
+    if len(days) < 3:
         print("Need at least 3 days of progress data for velocity graph")
         return
+
+    words = [plan_obj.get_progress_for_date(d) or 0 for d in days]
+    goals = [plan_obj.get_daily_goal(date=d) for d in days]
 
     day_numbers = []
     dates_str = []
     velocities = []
+    target = []
 
-    # Calculate 3-day moving average
+    # 3-day moving average of words and of the planned goals
     window_size = 3
-    for i in range(len(progress_dates) - window_size + 1):
-        window_dates = progress_dates[i:i + window_size]
-        window_words = sum(plan_obj.get_progress_for_date(d) or 0 for d in window_dates)
-        avg_velocity = window_words / window_size
+    for i in range(len(days) - window_size + 1):
+        velocities.append(sum(words[i:i + window_size]) / window_size)
+        target.append(sum(goals[i:i + window_size]) / window_size)
 
         # Use the middle date of the window
-        middle_date = window_dates[window_size // 2]
+        middle_date = days[i + window_size // 2]
         day_numbers.append(i)
         dates_str.append(middle_date.strftime('%m/%d'))
-        velocities.append(avg_velocity)
-
-    # Add target line (average daily goal)
-    target = [plan_obj.daily] * len(velocities)
 
     # Create plot
     plt.clear_figure()

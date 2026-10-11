@@ -8,6 +8,7 @@ import contextlib
 import copy
 import io
 import pytest
+from freezegun import freeze_time
 from datetime import datetime, timedelta
 import plan
 import planea
@@ -225,6 +226,7 @@ class TestRecalculationWithPreExistingWords:
 class TestAnalyticsIgnorePreExistingWords:
     """Pre-existing words are not a writing day (issues-program.org A1)."""
 
+    @freeze_time(START + timedelta(days=2, hours=10))  # two writing days have passed
     def test_average_and_best_day(self, novel_plan):
         novel_plan.record_progress(START, 1000)
         novel_plan.record_progress(START + timedelta(days=1), 1500)
@@ -236,10 +238,11 @@ class TestAnalyticsIgnorePreExistingWords:
         assert stats['average_per_day'] == pytest.approx(1250)
         assert stats['best_day'] == ('2025-11-21', 1500)
 
+    @freeze_time(START + timedelta(days=1, hours=10))  # day 2, nothing logged yet
     def test_completion_eta_uses_logged_velocity(self, novel_plan):
         novel_plan.record_progress(START, 1000)
 
         eta = progress_analytics.calculate_completion_eta(novel_plan)
 
-        # 39,000 remaining at 1,000/day
-        assert (eta - datetime.now()).days in (38, 39)
+        # 39,000 remaining at 1,000 per writing day, starting today
+        assert eta == START + timedelta(days=1 + 38)
