@@ -1306,6 +1306,35 @@ def show_calendar_options(newplan):
             print("Invalid input. Please enter a number.")
 
 
+def confirm_progress_date(current_plan, entry_date):
+    """
+    Check a date before logging progress for it (P20).
+
+    Future dates are refused (most likely a typo, and they would count as
+    written). Dates outside the plan are allowed after a warning: the words
+    count toward the total but not toward any day's goal.
+
+    Returns:
+        True if progress may be logged for entry_date
+    """
+    today = today_midnight()
+    if entry_date > today:
+        display_error("You can't log progress for a future date.")
+        return False
+
+    start, end = current_plan.start_date, current_plan.end_date
+    if entry_date < start:
+        where = f"before the plan starts ({start.strftime('%Y-%m-%d')})"
+    elif end is not None and entry_date > end:
+        where = f"after the plan ends ({end.strftime('%Y-%m-%d')})"
+    else:
+        return True
+
+    display_warning(f"{entry_date.strftime('%Y-%m-%d')} is {where}. The words count toward "
+                    "your total, but not toward any day's goal.")
+    return get_yes_no("Log them anyway?", default='y')
+
+
 def update_progress(current_plan):
     """Update progress for the writing plan."""
     if not current_plan.start_date:
@@ -1341,8 +1370,10 @@ def update_progress(current_plan):
 
             elif choice == 1:
                 # Quick entry for today
-                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today = today_midnight()
                 print(f"\nEntering progress for: {today.strftime('%Y-%m-%d (%A)')}")
+                if not confirm_progress_date(current_plan, today):
+                    continue
 
                 # Check if it's a spare day
                 if current_plan.is_spare_day(today):
@@ -1397,9 +1428,7 @@ def update_progress(current_plan):
                 try:
                     entry_date = datetime.strptime(date_input, "%Y-%m-%d")
 
-                    # Check if date is in plan range
-                    if entry_date < current_plan.start_date:
-                        display_error(f"Date is before plan start ({current_plan.start_date.strftime('%Y-%m-%d')})")
+                    if not confirm_progress_date(current_plan, entry_date):
                         continue
 
                     print(f"\nEntering progress for: {entry_date.strftime('%Y-%m-%d (%A)')}")
