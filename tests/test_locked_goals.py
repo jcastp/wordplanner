@@ -229,7 +229,7 @@ class TestUserInterface:
 
     def test_clear_all_keeps_past_spare_days(self, ten_day_plan, scripted_input):
         ten_day_plan.spare_days_dates.extend([day(2), day(8)])
-        scripted_input(["3", "y", "0"])
+        scripted_input(["3", "y", "1", "0"])  # clear, then "move the end date"
 
         quiet(planea.manage_spare_days, ten_day_plan)
 

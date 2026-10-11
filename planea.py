@@ -225,6 +225,88 @@ def mark_weekdays_as_spare(current_plan, weekdays):
     return added_count
 
 
+def rebalance_after_writing_days_change(current_plan, before, drop_after_end=()):
+    """
+    Ask how the plan absorbs writing days that were added or removed (decision 1).
+
+    Called after spare days or the weekend mode changed. Each option is
+    previewed on a copy of the plan and only the chosen one is applied:
+    - 'move_end': keep the daily goal and the total, move the end date;
+    - 'keep_end': keep the end date and the total, change the daily goal;
+    - 'change_total': keep the end date and the daily goal, change the total.
+
+    Args:
+        current_plan: The plan, already changed
+        before: A copy of the plan taken before the change
+        drop_after_end: Spare days just added that are dropped when the end date
+            is kept and they fall after it (quick actions mark days up to the
+            end date, which only grows if the end date moves)
+
+    Returns:
+        The chosen option, or None if the change didn't affect the plan
+    """
+    old_end = before.end_date
+    if not current_plan.start_date or old_end is None:
+        return None
+    if current_plan.build_schedule()['goals'] == before.build_schedule()['goals']:
+        return None
+
+    old_total = before.total
+    old_daily = before.daily
+
+    def drop_spare_days_after_end(p):
+        p.spare_days_dates = [d for d in p.spare_days_dates
+                              if not (d > old_end and d in drop_after_end)]
+
+    def move_end(p):
+        p.total = old_total
+        p.daily = old_daily
+        p.calculate_time()
+
+    def keep_end(p):
+        drop_spare_days_after_end(p)
+        p.total = old_total
+        p.keep_end_date(old_end)
+
+    def change_total(p):
+        drop_spare_days_after_end(p)
+        p.keep_end_date(old_end)
+        p.total = p.total_for_daily(old_daily)
+        p.sync_daily()
+
+    options = []
+    if old_daily > 0:
+        options.append(('move_end', f"Move the end date (keep {old_daily:,.0f} words/day)", move_end))
+    options.append(('keep_end', f"Keep the end date (change the daily goal)", keep_end))
+    options.append(('change_total', "Keep the end date and the daily goal (change the total)", change_total))
+
+    def outcome(p):
+        end = p.end_date.strftime('%Y-%m-%d') if p.end_date else "-"
+        return f"ends {end}, {p.daily:,.0f} words/day, total {p.total:,.0f} words"
+
+    print("\nThis changes the plan's writing days. How should the plan adjust?")
+    print(f"   Before: {outcome(before)}")
+    for number, (_, label, apply) in enumerate(options, 1):
+        preview = copy.deepcopy(current_plan)
+        apply(preview)
+        print(f"{number}. {label}")
+        print(f"   -> {outcome(preview)}")
+
+    while True:
+        try:
+            choice = int(input(f"\nEnter your choice (1-{len(options)}): "))
+            if 1 <= choice <= len(options):
+                break
+            print(f"Please enter a number between 1 and {len(options)}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    key, _, apply = options[choice - 1]
+    apply(current_plan)
+    display_success(f"Plan {outcome(current_plan)}")
+    return key
+
+
 def manage_spare_days(current_plan):
     """Interactively manage spare days for the plan."""
     dt = datetime  # Alias for strptime usage
@@ -286,6 +368,7 @@ def manage_spare_days(current_plan):
         print("0. Done")
         print("=" * 50)
 
+        before = copy.deepcopy(current_plan)
         try:
             choice = int(input("\nEnter your choice (0-6): "))
 
@@ -376,6 +459,7 @@ def manage_spare_days(current_plan):
                     display_success(f"Added {added_count} spare day(s)")
                     if added_count < len(new_spare_dates):
                         print(f"  ({len(new_spare_dates) - added_count} were already marked as spare)")
+                    rebalance_after_writing_days_change(current_plan, before)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -437,6 +521,7 @@ def manage_spare_days(current_plan):
                     display_success(f"Removed {removed_count} spare day(s)")
                     if removed_count < len(dates_to_remove):
                         print(f"  ({len(dates_to_remove) - removed_count} were not spare days)")
+                    rebalance_after_writing_days_change(current_plan, before)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -452,18 +537,19 @@ def manage_spare_days(current_plan):
                 if get_yes_no(f"Clear all {len(clearable)} spare days from today on?", default='n'):
                     current_plan.spare_days_dates = [d for d in current_plan.spare_days_dates if d < today]
                     display_success("Spare days from today on cleared")
+                    rebalance_after_writing_days_change(current_plan, before)
 
-            elif choice == 4:
-                added_count = mark_weekdays_as_spare(current_plan, [5])
-                display_success(f"Marked {added_count} Saturdays as spare days")
-
-            elif choice == 5:
-                added_count = mark_weekdays_as_spare(current_plan, [6])
-                display_success(f"Marked {added_count} Sundays as spare days")
-
-            elif choice == 6:
-                added_count = mark_weekdays_as_spare(current_plan, current_plan.weekend_days)
-                display_success(f"Marked {added_count} weekend days as spare")
+            elif choice in (4, 5, 6):
+                weekdays, label = {
+                    4: ([5], "Saturdays"),
+                    5: ([6], "Sundays"),
+                    6: (current_plan.weekend_days, "weekend days"),
+                }[choice]
+                mark_weekdays_as_spare(current_plan, weekdays)
+                added = [d for d in current_plan.spare_days_dates if d not in before.spare_days_dates]
+                rebalance_after_writing_days_change(current_plan, before, drop_after_end=added)
+                added_count = sum(1 for d in added if d in current_plan.spare_days_dates)
+                display_success(f"Marked {added_count} {label} as spare days")
 
             else:
                 print("Please enter a number between 0 and 6.")
@@ -1609,7 +1695,7 @@ def configure_weekend_settings(current_plan):
         # Keep default: same as weekdays
         return
 
-    old_total = current_plan.total
+    before = copy.deepcopy(current_plan)
 
     if choice == 1:
         current_plan.weekend_mode = "same"
@@ -1646,11 +1732,8 @@ def configure_weekend_settings(current_plan):
             except ValueError:
                 display_warning("Invalid input, using default weekend days (Sat, Sun)")
 
-    # Recalculate plan based on new weekend settings
-    if choice in [1, 2, 3]:
-        # Ask user how to adjust the plan
-        recalc_choice = ask_recalculation_preference()
-        recalculate_plan_with_choice(current_plan, old_total, recalc_choice)
+    # Decision 1: ask how the plan absorbs the change
+    rebalance_after_writing_days_change(current_plan, before)
 
 
 def ask_for_pre_existing_words_count(total_goal=None):
@@ -1842,6 +1925,7 @@ def create_plan_from_template():
     # Apply suggested weekend mode if available
     if selected_template.suggested_weekend_mode and selected_template.suggested_weekend_mode != 'same':
         if get_yes_no(f"\nConfigure weekend settings as suggested?", default='y'):
+            before = copy.deepcopy(newplan)
             if selected_template.suggested_weekend_mode == 'different':
                 newplan.weekend_mode = 'different'
                 # Suggest 1.5x the daily goal for weekends
@@ -1856,6 +1940,7 @@ def create_plan_from_template():
             elif selected_template.suggested_weekend_mode == 'spare':
                 newplan.weekend_mode = 'spare'
                 print("✓ Weekend mode: spare (no writing on weekends)")
+            rebalance_after_writing_days_change(newplan, before)
 
     # Handle plan actions
     handle_plan_actions(newplan)

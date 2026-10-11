@@ -211,6 +211,28 @@ class Plan():
         if self.time > 0:
             self.sync_daily()
 
+    def writing_days_until(self, end_date):
+        """Writing days (days that aren't spare dates) from the start date to end_date, inclusive."""
+        if not self.start_date or end_date is None:
+            return 0
+        spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}
+        span = (to_midnight(end_date) - self.start_date).days + 1
+        return sum(1 for offset in range(max(0, span))
+                   if (self.start_date + timedelta(days=offset)).date() not in spare)
+
+    def keep_end_date(self, end_date):
+        """
+        Set `time` so the plan ends on end_date (keeps the total).
+
+        Used after spare days are added or removed: the words are spread over
+        the writing days left before end_date. If end_date itself is now a
+        spare day, the plan ends on the last writing day before it. Never
+        shrinks the plan below its locked (past) writing days.
+        """
+        self.time = max(self.min_writing_days(), self.writing_days_until(end_date))
+        if self.time > 0:
+            self.sync_daily()
+
     def calculate_words(self):
         """Calculate the total from the daily goal and time (keeps the daily goal)."""
         if self.daily < 0:
