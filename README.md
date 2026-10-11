@@ -190,6 +190,7 @@ Beautiful terminal-based calendar views powered by Rich:
     - Blue - Future days
   - **Running total** on each day up to today - words written so far against the total, and the completion percentage (e.g. `2,100/80,000` and `2.62%`); pre-existing words count, and wide totals are shortened (`102.0k/150k`)
   - Spare days marked in orange
+  - Today marked with `TODAY` (in reverse video, visible without colors too)
   - Weekend highlighting
   - Week numbers
 - Weekly summary - Week-by-week breakdown (7-day weeks from the start date) showing:
@@ -964,7 +965,7 @@ Goal: Visualize your progress and analyze your writing patterns
 
 ### Running Tests
 
-The project includes a test suite of 917 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
+The project includes a test suite of 921 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
 
 #### Prerequisites
 

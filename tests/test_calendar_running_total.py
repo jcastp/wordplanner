@@ -102,3 +102,41 @@ class TestRunningTotal:
         # Mon-Fri, then nothing for today (not logged) or later days
         assert output.count("/80,000") == 5
         assert "3,350/80,000" in output and "4.19%" in output
+
+
+def render(p, monkeypatch):
+    monkeypatch.setenv("COLUMNS", "120")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        calendar_view.display_calendar_view(p, p.start_date)
+    return out.getvalue()
+
+
+class TestTodayMarker:
+
+    @freeze_time(TODAY)
+    def test_day_number(self):
+        today = calendar_view.day_number(TODAY, style="bold white")
+        other = calendar_view.day_number(day(2), style="bold white")
+
+        assert today.plain == " 7  TODAY"
+        assert any("reverse" in str(span.style) for span in today.spans)
+        assert other.plain == "4" and "bold white" in str(other.spans[0].style)
+
+    @freeze_time(TODAY)
+    def test_marked_once_in_the_calendar(self, monkeypatch):
+        output = render(make_plan(), monkeypatch)
+
+        assert output.count("TODAY") == 1
+        assert "7  TODAY" in output
+
+    @freeze_time(TODAY)
+    def test_marked_before_the_plan_starts(self, monkeypatch):
+        # Today (Nov 7) is outside a plan starting Nov 10, but in the month shown
+        p = plan.Plan(name="Later", total=10000, daily=1000, time=10, start_date=day(8))
+
+        assert "7  TODAY" in render(p, monkeypatch)
+
+    @freeze_time(TODAY + timedelta(days=120))
+    def test_not_shown_when_today_is_off_the_calendar(self, monkeypatch):
+        assert "TODAY" not in render(make_plan(time=10, total=10000), monkeypatch)

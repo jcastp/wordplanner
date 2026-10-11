@@ -12,6 +12,22 @@ import plan
 DAY_CELL_WIDTH = 12
 
 
+def day_number(day_date, style=""):
+    """
+    The first line of a calendar cell: the day of the month, marked when it's today.
+
+    Today is shown in reverse video with the word TODAY, so it stands out
+    with or without colors (NO_COLOR keeps reverse and bold).
+    """
+    text = Text()
+    if day_date == plan.today():
+        text.append(f" {day_date.day} ", style="bold reverse")
+        text.append(" TODAY", style="bold")
+    else:
+        text.append(str(day_date.day), style=style)
+    return text
+
+
 def running_total(plan_obj, day_date, width=DAY_CELL_WIDTH):
     """
     The words written by the end of day_date against the total, for a calendar cell.
@@ -149,8 +165,8 @@ def display_calendar_view(plan_obj, start_date):
                     # Check if this day is in our writing plan (including spare days)
                     if start_date <= day_date <= final_end_date:
                         # Format the cell
-                        cell_text = Text()
-                        cell_text.append(f"{day}\n", style="bold white")
+                        cell_text = day_number(day_date, style="bold white")
+                        cell_text.append("\n")
 
                         # Check if this specific date is a spare day
                         if plan_obj.is_spare_day(day_date):
@@ -205,7 +221,7 @@ def display_calendar_view(plan_obj, start_date):
                             break
                     else:
                         # Day not in plan
-                        row.append(f"{day}")
+                        row.append(day_number(day_date))
 
             table.add_row(*row)
 
