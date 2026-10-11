@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 import plan
 import plan_manager
 import plan_storage
+from formatting import date_hint, format_date, parse_date
 
 
 def build_parser():
@@ -57,9 +58,9 @@ def word_count(text):
 
 def date_argument(text):
     try:
-        return datetime.strptime(text, "%Y-%m-%d")
+        return parse_date(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"invalid date: '{text}' (use YYYY-MM-DD)")
+        raise argparse.ArgumentTypeError(f"invalid date: '{text}' (use {date_hint()})")
 
 
 def fail(message):
@@ -78,7 +79,7 @@ def load_current_plan():
 
 def log_command(current, args):
     entry_date = args.date or plan.today()
-    day = entry_date.strftime('%Y-%m-%d')
+    day = format_date(entry_date)
 
     if entry_date > plan.today():
         return fail(f"{day} is in the future.")

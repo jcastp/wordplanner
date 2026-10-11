@@ -22,6 +22,7 @@ from ui_utils import (
 )
 from pattern_utils import choose_writing_pattern
 import ui_progress
+from formatting import date_hint, format_date, format_date_weekday, parse_date
 
 
 LOCKED_DAYS_MESSAGE = "Days before today are locked: their goals can't change."
@@ -63,7 +64,7 @@ def offer_plan_adjustment(current_plan, before, drop_after_end=(),
         p.apply_adjustment(before, adjustment, drop_after_end)
 
     def outcome(p):
-        end = p.end_date.strftime('%Y-%m-%d') if p.end_date else "-"
+        end = format_date(p.end_date) if p.end_date else "-"
         return f"ends {end}, {p.daily:,.0f} words/day, total {p.total:,.0f} words"
 
     print(f"\n{question}")
@@ -97,7 +98,7 @@ def manage_spare_days(current_plan):
         print("MANAGE SPARE DAYS")
         print("=" * 50)
         print("\nSpare days are days with 0 words (holidays, urgent matters, etc.)")
-        print(f"Plan period: {current_plan.start_date.strftime('%Y-%m-%d')} to {plan_end_date.strftime('%Y-%m-%d')}")
+        print(f"Plan period: {format_date(current_plan.start_date)} to {format_date(plan_end_date)}")
         print(f"Writing days: {current_plan.time:.0f}")
         print(f"Spare days: {current_plan.spare_days}")
 
@@ -129,7 +130,7 @@ def manage_spare_days(current_plan):
             for spare_date in sorted_spare:
                 outside = spare_date < current_plan.start_date or spare_date > plan_end_date
                 note = "  (outside the plan, ignored)" if outside else ""
-                print(f"  {spare_date.strftime('%Y-%m-%d (%A)')}{note}")
+                print(f"  {format_date_weekday(spare_date)}{note}")
 
         print("\nOptions:")
         print("1. Add spare day(s)")
@@ -152,10 +153,10 @@ def manage_spare_days(current_plan):
             elif choice == 1:
                 # Add spare days by date
                 print("\nEnter dates to mark as spare days:")
-                print("  Format: YYYY-MM-DD (e.g., 2025-12-25)")
-                print("  Multiple dates: separated by commas (e.g., 2025-12-25,2025-12-26)")
-                print("  Date range: use 'to' (e.g., 2025-12-24 to 2025-12-26)")
-                print(f"  Valid range: {current_plan.start_date.strftime('%Y-%m-%d')} to ~1 year later")
+                print(f"  Format: {date_hint()}")
+                print("  Multiple dates: separated by commas")
+                print("  Date range: use 'to' (e.g., <first date> to <last date>)")
+                print(f"  Valid range: {format_date(current_plan.start_date)} to ~1 year later")
 
                 dates_input = input("Date(s): ").strip()
 
@@ -172,7 +173,7 @@ def manage_spare_days(current_plan):
                     invalid_dates = []
                     for d in new_spare_dates:
                         if d < min_allowed_date or d > max_allowed_date:
-                            invalid_dates.append(d.strftime('%Y-%m-%d'))
+                            invalid_dates.append(format_date(d))
 
                     if invalid_dates:
                         display_error(f"Some dates are outside the valid range:")
@@ -208,7 +209,7 @@ def manage_spare_days(current_plan):
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
-                    print("  Please use YYYY-MM-DD format (e.g., 2025-12-25)")
+                    print(f"  Please use {date_hint()}")
 
             elif choice == 2:
                 # Remove spare days by date
@@ -217,8 +218,8 @@ def manage_spare_days(current_plan):
                     continue
 
                 print("\nEnter dates to remove from spare days:")
-                print("  Format: YYYY-MM-DD or comma-separated dates")
-                print("  Or use range: YYYY-MM-DD to YYYY-MM-DD")
+                print(f"  Format: {date_hint()}, or comma-separated dates")
+                print("  Or a range: <first date> to <last date>")
 
                 dates_input = input("Date(s): ").strip()
 
@@ -294,11 +295,11 @@ def custom_goal_date_problem(current_plan, target_date):
         return LOCKED_DAYS_MESSAGE
     if problem == 'outside':
         start, end = current_plan.start_date, current_plan.end_date
-        end_text = (end or start).strftime('%Y-%m-%d')
-        return (f"{target_date.strftime('%Y-%m-%d')} is outside the plan "
-                f"({start.strftime('%Y-%m-%d')} to {end_text}).")
+        end_text = format_date(end or start)
+        return (f"{format_date(target_date)} is outside the plan "
+                f"({format_date(start)} to {end_text}).")
     if problem == 'spare':
-        return (f"{target_date.strftime('%Y-%m-%d')} is a spare day. "
+        return (f"{format_date(target_date)} is a spare day. "
                 "Remove it in 'Manage spare days' first.")
     if problem == 'weekend_rest':
         return (f"{target_date.strftime('%A')}s are rest days in this plan. "
@@ -321,13 +322,13 @@ def edit_individual_day_goal(current_plan):
     print("This overrides pattern-based goals and weekend settings for that day.")
 
     plan_end_date = current_plan.end_date or current_plan.start_date
-    print(f"\nPlan period: {current_plan.start_date.strftime('%Y-%m-%d')} to {plan_end_date.strftime('%Y-%m-%d')}")
+    print(f"\nPlan period: {format_date(current_plan.start_date)} to {format_date(plan_end_date)}")
 
     if current_plan.custom_daily_goals:
         print(f"\nCurrent custom goals ({len(current_plan.custom_daily_goals)}):")
         for date_key, word_count in sorted(current_plan.custom_daily_goals.items()):
             date_obj = dt.strptime(date_key, '%Y-%m-%d')
-            print(f"  {date_obj.strftime('%Y-%m-%d (%A)')}: {word_count:,.0f} words")
+            print(f"  {format_date_weekday(date_obj)}: {word_count:,.0f} words")
 
     print("\nOptions:")
     print("1. Set custom goal for a specific day")
@@ -347,13 +348,13 @@ def edit_individual_day_goal(current_plan):
             elif choice == 1:
                 # Set custom goal
                 print("\nEnter date to customize:")
-                date_input = input("Date (YYYY-MM-DD): ").strip()
+                date_input = input(f"Date ({date_hint()}): ").strip()
 
                 if not date_input:
                     continue
 
                 try:
-                    target_date = dt.strptime(date_input, "%Y-%m-%d")
+                    target_date = parse_date(date_input)
 
                     problem = custom_goal_date_problem(current_plan, target_date)
                     if problem:
@@ -362,7 +363,7 @@ def edit_individual_day_goal(current_plan):
 
                     # Show current goal for this day
                     current_goal = current_plan.get_daily_goal(date=target_date)
-                    print(f"\nCurrent goal for {target_date.strftime('%A, %Y-%m-%d')}: {current_goal:,.0f} words")
+                    print(f"\nCurrent goal for {target_date.strftime('%A')}, {format_date(target_date)}: {current_goal:,.0f} words")
 
                     # Get new goal
                     print("\nEnter new word goal for this day:")
@@ -373,12 +374,12 @@ def edit_individual_day_goal(current_plan):
                     before = copy.deepcopy(current_plan)
                     current_plan.set_custom_daily_goal(target_date, new_goal)
 
-                    display_success(f"Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
+                    display_success(f"Set custom goal of {new_goal:,.0f} words for {format_date(target_date)}")
                     offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
-                    print("  Please use YYYY-MM-DD format")
+                    print(f"  Please use {date_hint()}")
 
             elif choice == 2:
                 # Remove custom goal
@@ -387,13 +388,13 @@ def edit_individual_day_goal(current_plan):
                     continue
 
                 print("\nEnter date to remove custom goal:")
-                date_input = input("Date (YYYY-MM-DD): ").strip()
+                date_input = input(f"Date ({date_hint()}): ").strip()
 
                 if not date_input:
                     continue
 
                 try:
-                    target_date = dt.strptime(date_input, "%Y-%m-%d")
+                    target_date = parse_date(date_input)
                     date_key = target_date.strftime('%Y-%m-%d')
 
                     if target_date < plan.today():
@@ -404,10 +405,10 @@ def edit_individual_day_goal(current_plan):
                         before = copy.deepcopy(current_plan)
                         current_plan.remove_custom_daily_goal(target_date)
 
-                        display_success(f"Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
+                        display_success(f"Removed custom goal for {format_date(target_date)}")
                         offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
                     else:
-                        display_error(f"No custom goal found for {target_date.strftime('%Y-%m-%d')}")
+                        display_error(f"No custom goal found for {format_date(target_date)}")
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -446,7 +447,7 @@ def get_writing_days(prompt, current_plan):
 def describe_dated_days(dates_and_labels):
     """Print '  2026-11-07 (Saturday): spare day' lines, at most 10."""
     for date, label in dates_and_labels[:10]:
-        print(f"  {date.strftime('%Y-%m-%d (%A)')}: {label}")
+        print(f"  {format_date_weekday(date)}: {label}")
     if len(dates_and_labels) > 10:
         print(f"  ... and {len(dates_and_labels) - 10} more")
 
@@ -504,12 +505,12 @@ def change_start_date(current_plan, new_start):
 
     if not current_plan.start_date:
         current_plan.start_date = new_start
-        display_success(f"Start date set to: {new_start.strftime('%Y-%m-%d')}")
+        display_success(f"Start date set to: {format_date(new_start)}")
         return True
 
     if current_plan.time <= 0:
         current_plan.start_date = new_start
-        display_success(f"Start date changed to: {new_start.strftime('%Y-%m-%d')}")
+        display_success(f"Start date changed to: {format_date(new_start)}")
         return True
 
     offset = (new_start - current_plan.start_date).days
@@ -530,7 +531,7 @@ def change_start_date(current_plan, new_start):
         return moved
 
     def outcome(p):
-        return (f"{p.start_date.strftime('%Y-%m-%d')} to {p.end_date.strftime('%Y-%m-%d')}, "
+        return (f"{format_date(p.start_date)} to {format_date(p.end_date)}, "
                 f"{p.daily:,.0f} words/day")
 
     keep = preview(False)
@@ -581,8 +582,8 @@ def change_start_date(current_plan, new_start):
         return False
 
     current_plan.move_start_date(new_start, shift_dated_days=shift)
-    display_success(f"Start date changed to: {new_start.strftime('%Y-%m-%d')} "
-                    f"(plan ends {current_plan.end_date.strftime('%Y-%m-%d')})")
+    display_success(f"Start date changed to: {format_date(new_start)} "
+                    f"(plan ends {format_date(current_plan.end_date)})")
     return True
 
 
@@ -614,7 +615,7 @@ def modify_plan(current_plan):
         print(f"  Total calendar duration: {total_calendar_days:.0f} days")
     print(f"  Writing pattern: {current_plan.pattern}")
     if current_plan.start_date:
-        print(f"  Start date: {current_plan.start_date.strftime('%Y-%m-%d')}")
+        print(f"  Start date: {format_date(current_plan.start_date)}")
     else:
         print(f"  Start date: Not set")
     print("\nWhat would you like to modify?")
@@ -706,11 +707,11 @@ def modify_plan(current_plan):
             elif choice == 6:
                 # Change start date
                 if current_plan.start_date:
-                    print(f"\nCurrent start date: {current_plan.start_date.strftime('%Y-%m-%d')}")
+                    print(f"\nCurrent start date: {format_date(current_plan.start_date)}")
                 else:
                     print(f"\nCurrent start date: Not set")
 
-                print("\nEnter new start date (YYYY-MM-DD, e.g., 2025-10-28)")
+                print(f"\nEnter new start date ({date_hint()})")
                 print("Or press Enter for today's date")
                 new_start_date = get_date_input("Start date: ")
                 return change_start_date(current_plan, new_start_date)

@@ -15,6 +15,7 @@ from ui_utils import (
     display_warning,
 )
 import ui_files
+from formatting import date_hint, format_date, format_date_weekday, parse_date
 
 
 def recalculate_plan_from_progress(current_plan):
@@ -53,7 +54,7 @@ def recalculate_plan_from_progress(current_plan):
 
     if current_plan.start_date:
         end_date = current_plan.end_date or current_plan.start_date
-        print(f"  Plan end date: {end_date.strftime('%Y-%m-%d')} (fixed)")
+        print(f"  Plan end date: {format_date(end_date)} (fixed)")
 
     print("\nThis will:")
     print("  • Spread the words actually left over the remaining writing days")
@@ -81,7 +82,7 @@ def print_recalculation_failure(result):
         print(f"  Total words completed: {result['words_completed']:,.0f}")
     elif reason == 'past_end_date':
         display_error("Cannot recalculate: Plan end date has already passed.")
-        print(f"  End date was: {result['end_date'].strftime('%Y-%m-%d')}")
+        print(f"  End date was: {format_date(result['end_date'])}")
         print(f"  Words remaining: {result['words_remaining']:,.0f}")
     elif reason == 'no_remaining_days':
         display_error("Cannot recalculate: No remaining writing days.")
@@ -92,7 +93,7 @@ def print_recalculation_failure(result):
 
 def print_recalculation_summary(result):
     """Show what recalculate_from_progress() changes (or would change)."""
-    print(f"  Changes from: {result['as_of_date'].strftime('%Y-%m-%d')}")
+    print(f"  Changes from: {format_date(result['as_of_date'])}")
     print(f"  Words remaining: {result['words_remaining']:,.0f}")
     print(f"  Remaining writing days: {result['remaining_writing_days']}")
     print(f"  Daily target: {result['old_daily']:,.0f} -> {result['new_daily']:,.0f} words")
@@ -110,7 +111,7 @@ def print_recalculation_summary(result):
         print(f"  Weekend goal: {result['weekend_daily']:,.0f} words/day")
     if result['past_goals_preserved'] > 0:
         print(f"  Past daily goals locked: {result['past_goals_preserved']}")
-    print(f"  Plan end date: {result['end_date'].strftime('%Y-%m-%d')} (unchanged)")
+    print(f"  Plan end date: {format_date(result['end_date'])} (unchanged)")
 
 
 def offer_daily_recalculation(current_plan):
@@ -159,13 +160,13 @@ def confirm_progress_date(current_plan, entry_date):
 
     start, end = current_plan.start_date, current_plan.end_date
     if entry_date < start:
-        where = f"before the plan starts ({start.strftime('%Y-%m-%d')})"
+        where = f"before the plan starts ({format_date(start)})"
     elif end is not None and entry_date > end:
-        where = f"after the plan ends ({end.strftime('%Y-%m-%d')})"
+        where = f"after the plan ends ({format_date(end)})"
     else:
         return True
 
-    display_warning(f"{entry_date.strftime('%Y-%m-%d')} is {where}. The words count toward "
+    display_warning(f"{format_date(entry_date)} is {where}. The words count toward "
                     "your total, but not toward any day's goal.")
     return get_yes_no("Log them anyway?", default='y')
 
@@ -181,13 +182,13 @@ def log_running_total(current_plan):
     Returns:
         True if progress was recorded
     """
-    print("\nEnter the date (YYYY-MM-DD), or press Enter for today:")
+    print(f"\nEnter the date ({date_hint()}), or press Enter for today:")
     date_input = input("Date: ").strip()
     if date_input:
         try:
-            entry_date = datetime.strptime(date_input, "%Y-%m-%d")
+            entry_date = parse_date(date_input)
         except ValueError:
-            display_error(f"Invalid date '{date_input}'. Use YYYY-MM-DD.")
+            display_error(f"Invalid date '{date_input}'. Use {date_hint()}.")
             return False
     else:
         entry_date = plan.today()
@@ -195,7 +196,7 @@ def log_running_total(current_plan):
     if not confirm_progress_date(current_plan, entry_date):
         return False
 
-    day_label = entry_date.strftime('%Y-%m-%d (%A)')
+    day_label = format_date_weekday(entry_date)
     logged_before = current_plan.get_total_written(through=entry_date - timedelta(days=1))
     print(f"\nRunning total for: {day_label}")
     print(f"Logged before this day: {logged_before:,.0f} words (pre-existing words included)")
@@ -221,7 +222,7 @@ def log_running_total(current_plan):
         return False
 
     current_plan.record_progress(entry_date, word_count)
-    display_success(f"Progress recorded: {word_count:,.0f} words on {entry_date.strftime('%Y-%m-%d')} "
+    display_success(f"Progress recorded: {word_count:,.0f} words on {format_date(entry_date)} "
                     f"(running total {running_total:,.0f})")
 
     daily_goal = current_plan.get_daily_goal(date=entry_date)
@@ -269,7 +270,7 @@ def update_progress(current_plan):
             elif choice == 1:
                 # Quick entry for today
                 today = plan.today()
-                print(f"\nEntering progress for: {today.strftime('%Y-%m-%d (%A)')}")
+                print(f"\nEntering progress for: {format_date_weekday(today)}")
                 if not confirm_progress_date(current_plan, today):
                     continue
 
@@ -317,19 +318,19 @@ def update_progress(current_plan):
 
             elif choice == 2:
                 # Enter for specific date
-                print("\nEnter the date (YYYY-MM-DD):")
+                print(f"\nEnter the date ({date_hint()}):")
                 date_input = input("Date: ").strip()
 
                 if date_input == "":
                     continue
 
                 try:
-                    entry_date = datetime.strptime(date_input, "%Y-%m-%d")
+                    entry_date = parse_date(date_input)
 
                     if not confirm_progress_date(current_plan, entry_date):
                         continue
 
-                    print(f"\nEntering progress for: {entry_date.strftime('%Y-%m-%d (%A)')}")
+                    print(f"\nEntering progress for: {format_date_weekday(entry_date)}")
 
                     # Check if it's a spare day
                     if current_plan.is_spare_day(entry_date):
@@ -385,7 +386,7 @@ def update_progress(current_plan):
                     daily_goal = current_plan.get_daily_goal(date=entry_date)
 
                     status_icon = "✓" if word_count >= daily_goal else "○"
-                    print(f"{status_icon} {entry_date.strftime('%Y-%m-%d (%A)')}: {word_count:,.0f} words (goal: {daily_goal:,.0f})")
+                    print(f"{status_icon} {format_date_weekday(entry_date)}: {word_count:,.0f} words (goal: {daily_goal:,.0f})")
 
                 input("\nPress Enter to continue...")
 
@@ -462,7 +463,7 @@ def offer_deadline_adjustment(current_plan):
     print(f"\nProposed adjustment:")
     print(f"  Daily goal: {result['daily']:,.0f} words/day")
     print(f"  Writing days: {result['old_time']} -> {result['new_time']}")
-    print(f"  End date: {result['old_end_date'].strftime('%Y-%m-%d')} -> {result['new_end_date'].strftime('%Y-%m-%d')}")
+    print(f"  End date: {format_date(result['old_end_date'])} -> {format_date(result['new_end_date'])}")
     if day_change < 0:
         print(f"  Finishing early by: {-day_change} days")
     elif day_change > 0:

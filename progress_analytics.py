@@ -6,13 +6,10 @@ from typing import Dict, List, Tuple, Optional
 import plotext as plt
 import config
 from ui_utils import get_menu_choice
-from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
-
-
-console = Console()
+from formatting import colors_enabled, format_date, format_day_month, make_console
 
 
 def _today():
@@ -295,9 +292,16 @@ def display_statistics(plan_obj):
     if stats['completion_eta']:
         eta_date = stats['completion_eta']
         days_until = (eta_date - _today()).days
-        table.add_row("Estimated Completion", f"{eta_date.strftime('%Y-%m-%d')} ({days_until} days)")
+        table.add_row("Estimated Completion", f"{format_date(eta_date)} ({days_until} days)")
 
-    console.print(table)
+    make_console().print(table)
+
+
+def _new_figure():
+    """Start a graph: clear the last one, and drop the colors if they're off."""
+    plt.clear_figure()
+    if not colors_enabled():
+        plt.clear_color()
 
 
 def plot_cumulative_progress(plan_obj):
@@ -333,7 +337,7 @@ def plot_cumulative_progress(plan_obj):
 
     while current_date <= end_date:
         day_numbers.append(day_num)
-        date_labels.append(current_date.strftime('%m/%d'))
+        date_labels.append(format_day_month(current_date))
 
         # Calculate expected
         if day_index < plan_obj.time and not plan_obj.is_spare_day(current_date):
@@ -353,7 +357,7 @@ def plot_cumulative_progress(plan_obj):
         day_num += 1
 
     # Create plot
-    plt.clear_figure()
+    _new_figure()
     plt.plot_size(width=100, height=25)
 
     plt.plot(day_numbers, expected_cumulative, label="Expected", marker="dot")
@@ -400,13 +404,13 @@ def plot_daily_progress(plan_obj):
 
     for idx, date in enumerate(display_dates):
         day_numbers.append(idx)
-        dates_str.append(date.strftime('%m/%d'))
+        dates_str.append(format_day_month(date))
         planned.append(plan_obj.get_daily_goal(date=date))
         actual_progress = plan_obj.get_progress_for_date(date) or 0
         actual.append(actual_progress)
 
     # Create plot
-    plt.clear_figure()
+    _new_figure()
     plt.plot_size(width=100, height=25)
 
     plt.multiple_bar(dates_str, [planned, actual], labels=["Planned", "Actual"])
@@ -460,10 +464,10 @@ def plot_velocity(plan_obj):
         # Use the middle date of the window
         middle_date = days[i + window_size // 2]
         day_numbers.append(i)
-        dates_str.append(middle_date.strftime('%m/%d'))
+        dates_str.append(format_day_month(middle_date))
 
     # Create plot
-    plt.clear_figure()
+    _new_figure()
     plt.plot_size(width=100, height=25)
 
     plt.plot(day_numbers, velocities, label="Velocity (3-day avg)", marker="dot")
@@ -512,7 +516,7 @@ def plot_milestone_progress(plan_obj):
             progress_values.append(0)  # Not reached yet
 
     # Create plot
-    plt.clear_figure()
+    _new_figure()
     plt.plot_size(width=100, height=15)
 
     plt.bar(milestone_labels, progress_values)

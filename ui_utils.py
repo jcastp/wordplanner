@@ -7,6 +7,7 @@ menu display, and user interaction across the planeapalabras application.
 
 from datetime import datetime, timedelta
 import config
+from formatting import date_hint, parse_date
 
 
 def get_yes_no(prompt, default='y'):
@@ -96,9 +97,9 @@ def get_date_input(prompt_text="Start date: "):
             selected_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             try:
-                selected_date = datetime.strptime(date_input, "%Y-%m-%d")
+                selected_date = parse_date(date_input)
             except ValueError:
-                print("Invalid date format. Please use YYYY-MM-DD (e.g., 2025-10-28)")
+                print(f"Invalid date format. Please use {date_hint()}")
                 continue
 
         # Check if date is in the past
@@ -339,7 +340,7 @@ def parse_date_list(text):
     if ' to ' in text.lower():
         parts = text.lower().split(' to ')
         if len(parts) != 2:
-            raise ValueError("use YYYY-MM-DD to YYYY-MM-DD for a range")
-        first, last = sorted(datetime.strptime(part.strip(), "%Y-%m-%d") for part in parts)
+            raise ValueError("use <first date> to <last date> for a range")
+        first, last = sorted(parse_date(part) for part in parts)
         return [first + timedelta(days=n) for n in range((last - first).days + 1)]
-    return [datetime.strptime(part.strip(), "%Y-%m-%d") for part in text.split(',') if part.strip()]
+    return [parse_date(part) for part in text.split(',') if part.strip()]

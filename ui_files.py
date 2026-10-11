@@ -7,6 +7,7 @@ Split out of planea.py (issues-program.org Q3).
 import plan_storage
 import plan_export
 from ui_utils import get_yes_no, get_menu_choice, display_success, display_error
+from formatting import format_date
 
 
 def save_plan_prompt(newplan, ask=True):
@@ -105,7 +106,7 @@ def load_saved_plan():
         daily = plan_info['daily']
         time = plan_info['time']
         created = plan_info['created_date']
-        created_str = created.strftime("%Y-%m-%d %H:%M") if created else "Unknown"
+        created_str = f"{format_date(created)} {created.strftime('%H:%M')}" if created else "Unknown"
 
         print(f"{idx}. {plan_name}")
         print(f"   {total:,.0f} words | {daily:,.0f}/day | {time:.0f} days")

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import plan
 import plan_storage
 import config
+from formatting import format_date
 
 
 def filter_plans_by_status(plans: List[plan.Plan], status: str) -> List[plan.Plan]:
@@ -394,7 +395,7 @@ def compare_plans(plan_list: List[plan.Plan]) -> Dict:
             'completion': p.get_completion_percentage(),
             'written': p.get_total_written(),
             'remaining': p.get_remaining_words(),
-            'start_date': p.start_date.strftime('%Y-%m-%d') if p.start_date else None,
+            'start_date': format_date(p.start_date) if p.start_date else None,
             'is_active': p.is_active,
         }
 

@@ -2,14 +2,28 @@
 
 import calendar
 from datetime import datetime, timedelta
-from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 import plan
+import user_preferences
+from formatting import make_console
 
 # Width of a day column in the monthly calendar
 DAY_CELL_WIDTH = 12
+
+DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def first_weekday():
+    """The first column of the monthly calendar: 0 (Monday) or 6 (Sunday), from Settings."""
+    return user_preferences.get_preference('first_weekday')
+
+
+def week_order():
+    """Weekdays (0 = Monday) in calendar column order."""
+    first = first_weekday()
+    return [(first + i) % 7 for i in range(7)]
 
 
 def day_number(day_date, style=""):
@@ -61,7 +75,7 @@ def display_calendar_view(plan_obj, start_date):
         plan_obj: Plan object with total, daily, and time attributes
         start_date: datetime object for when to start the plan
     """
-    console = Console()
+    console = make_console()
 
     # Plan window (a plan with no writing days ends before it starts)
     total_days = plan_obj.total_calendar_days
@@ -134,16 +148,12 @@ def display_calendar_view(plan_obj, start_date):
 
         # Add columns for days of the week
         table.add_column("Week", style="cyan", justify="center", width=6)
-        table.add_column("Mon", justify="center", width=DAY_CELL_WIDTH)
-        table.add_column("Tue", justify="center", width=DAY_CELL_WIDTH)
-        table.add_column("Wed", justify="center", width=DAY_CELL_WIDTH)
-        table.add_column("Thu", justify="center", width=DAY_CELL_WIDTH)
-        table.add_column("Fri", justify="center", width=DAY_CELL_WIDTH)
-        table.add_column("Sat", justify="center", width=DAY_CELL_WIDTH, style="yellow")
-        table.add_column("Sun", justify="center", width=DAY_CELL_WIDTH, style="yellow")
+        for weekday in week_order():
+            table.add_column(DAY_NAMES[weekday], justify="center", width=DAY_CELL_WIDTH,
+                             style="yellow" if weekday >= 5 else None)
 
-        # Get calendar for this month
-        cal = calendar.monthcalendar(current_date.year, current_date.month)
+        # Get calendar for this month, weeks starting on the chosen day
+        cal = calendar.Calendar(first_weekday()).monthdayscalendar(current_date.year, current_date.month)
 
         # Track if we added any days in this month
         days_added_this_month = 0
@@ -391,7 +401,7 @@ def format_difference(difference):
 
 def display_weekly_summary(plan_obj, start_date):
     """Display a week-by-week summary of the writing plan, with what was written."""
-    console = Console()
+    console = make_console()
     weeks = weekly_summary(plan_obj)
     if not weeks:
         console.print("\nThis plan has no days to show.")

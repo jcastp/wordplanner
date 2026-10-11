@@ -254,6 +254,14 @@ Organize and manage multiple writing projects simultaneously:
 - **Open and delete plans** from the plan manager (deleting asks first and also removes the plan's backup)
 - **Changing the save directory** offers to move your existing plans to the new folder
 
+#### Settings
+Main menu → "Settings" (each option shows its current value):
+- **Save directory** - where plans and exports are kept
+- **Defaults for new plans** - a writing pattern and a weekend setting (same, a different goal, or no writing) offered first when you create a plan from scratch; the two values you type are kept and the third is recalculated. Templates keep their own suggestions
+- **First day of the week** - Monday or Sunday as the first column of the monthly calendar
+- **Date format** - `2026-11-05`, `05/11/2026`, `11/05/2026` or `Nov 05, 2026` on screen, in the Markdown export and in commands. You can type dates as `YYYY-MM-DD` or in the chosen numeric format. Plan files, CSV and iCal always use `YYYY-MM-DD`
+- **Colors** - turn off colors in tables, the calendar and graphs (symbols like ✓ ~ ✗ and the TODAY marker stay). Rich also honours the `NO_COLOR` environment variable
+
 ## Installation
 
 ### Requirements
@@ -965,7 +973,7 @@ Goal: Visualize your progress and analyze your writing patterns
 
 ### Running Tests
 
-The project includes a test suite of 921 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
+The project includes a test suite of 960 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
 
 #### Prerequisites
 
@@ -1034,7 +1042,7 @@ wordplanner/
 ├── ui_modify.py                  # Modify plan, spare days, custom goals, weekends, start date
 ├── ui_progress.py                # Progress entry, ahead/behind offers, recalculation
 ├── ui_files.py                   # Save, load and export screens
-├── ui_settings.py                # Save directory settings
+├── ui_settings.py                # Settings screens (save directory, defaults, week start, date format, colors)
 ├── plan.py                       # Core Plan class: schedule, calculations, all plan changes
 ├── calendar_view.py              # Calendar visualization with Rich
 ├── plan_storage.py               # Save/load functionality
@@ -1046,6 +1054,7 @@ wordplanner/
 ├── ui_utils.py                   # UI utilities (validation, menus, messages)
 ├── pattern_utils.py              # Pattern configuration utilities
 ├── user_preferences.py           # User preferences and settings
+├── formatting.py                 # Date display/parsing and consoles, following the preferences
 ├── file_utils.py                 # Atomic file writes with backups
 ├── config.py                     # Application configuration constants
 ├── tests/                        # Test suite (101+ tests)

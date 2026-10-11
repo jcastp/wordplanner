@@ -20,6 +20,9 @@ from ui_utils import (
 from pattern_utils import choose_writing_pattern, get_pattern_intensity_config
 import ui_modify
 import ui_plan_actions
+import user_preferences
+import ui_settings
+from formatting import date_hint, format_date
 
 
 def choose_calculation_method():
@@ -174,7 +177,7 @@ def create_plan_from_template():
     print("PLAN START DATE")
     print("=" * 50)
     print("\nWhen would you like to start writing?")
-    print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
+    print(f"Enter date in format {date_hint()}")
     print("Or press Enter for today's date")
     start_date = get_date_input("Start date: ")
 
@@ -184,7 +187,7 @@ def create_plan_from_template():
     newplan.name = selected_template.name
 
     display_success(f"Created plan from template: {selected_template.name}")
-    print(f"  Start date: {start_date.strftime('%Y-%m-%d')}")
+    print(f"  Start date: {format_date(start_date)}")
 
     # Apply suggested pattern if available
     if selected_template.suggested_pattern:
@@ -285,8 +288,14 @@ def create_new_plan():
         newplan.calculate_daily()
 
     if newplan:
-        # Ask if user wants to use a writing pattern
-        if get_yes_no("\nWould you like to use a variable writing pattern?", default='n'):
+        # Writing pattern: offer the default from Settings first, if there is one
+        default_pattern = user_preferences.get_preference('default_pattern')
+        if default_pattern != "flat" and get_yes_no(
+                f"\nUse your default writing pattern ({default_pattern})?", default='y'):
+            newplan.pattern = default_pattern
+            newplan.pattern_config = dict(user_preferences.get_preference('default_pattern_config'))
+            display_success(f"Using {default_pattern} pattern")
+        elif get_yes_no("\nWould you like to use a variable writing pattern?", default='n'):
             pattern, pattern_config = choose_writing_pattern()
             newplan.pattern = pattern
             newplan.pattern_config = pattern_config
@@ -297,14 +306,25 @@ def create_new_plan():
         print("PLAN START DATE")
         print("=" * 50)
         print("\nWhen would you like to start writing?")
-        print("Enter date in format YYYY-MM-DD (e.g., 2025-10-28)")
+        print(f"Enter date in format {date_hint()}")
         print("Or press Enter for today's date")
         start_date = get_date_input("Start date: ")
         newplan.start_date = start_date
-        display_success(f"Plan starts on: {start_date.strftime('%Y-%m-%d')}")
+        display_success(f"Plan starts on: {format_date(start_date)}")
 
-        # Configure weekend settings
-        if get_yes_no("\nWould you like to configure weekend-specific settings?", default='n'):
+        # Weekends: offer the default from Settings first, if there is one
+        default_weekend = user_preferences.get_preference('default_weekend_mode')
+        if default_weekend != "same" and get_yes_no(
+                f"\nUse your default weekend setting ({ui_settings.describe_weekend_default()})?", default='y'):
+            newplan.weekend_mode = default_weekend
+            if default_weekend == "different":
+                newplan.weekend_daily = user_preferences.get_preference('default_weekend_daily')
+            # Keep the two values that were typed: recalculate the third
+            recalculate = {1: newplan.calculate_time, 2: newplan.calculate_words,
+                           3: newplan.calculate_daily}[calc_choice]
+            recalculate()
+            display_success(f"Weekends: {ui_settings.describe_weekend_default()}")
+        elif get_yes_no("\nWould you like to configure weekend-specific settings?", default='n'):
             ui_modify.configure_weekend_settings(newplan)
 
         ui_plan_actions.handle_plan_actions(newplan)

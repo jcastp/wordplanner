@@ -117,7 +117,7 @@ class TestShownMilestones:
         out = io.StringIO()
 
         with contextlib.redirect_stdout(out):
-            calendar_view.display_milestones(calendar_view.Console(), p, p.start_date, p.end_date)
+            calendar_view.display_milestones(calendar_view.make_console(), p, p.start_date, p.end_date)
 
         text = out.getvalue()
         assert "Target" in text and "Written" in text

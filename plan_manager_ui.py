@@ -5,7 +5,6 @@ This module provides user interface functions for managing multiple writing plan
 """
 
 from datetime import datetime, timedelta
-from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
@@ -16,9 +15,8 @@ import plan_storage
 import config
 import ui_utils
 import ui_plan_actions
+from formatting import format_date, make_console
 
-
-console = Console()
 
 
 def display_plans_overview():
@@ -90,7 +88,7 @@ def _display_plans_section(title: str, plans: list, show_progress: bool = True):
 
             print(f"   Progress: {completion:.0f}% complete, {status_symbol}")
         elif show_progress and p.start_date:
-            print(f"   Not started yet (starts {p.start_date.strftime('%Y-%m-%d')})")
+            print(f"   Not started yet (starts {format_date(p.start_date)})")
 
         print()
 
@@ -197,7 +195,7 @@ def filter_by_status_ui():
                 if p.category:
                     print(f"   Category: {p.category}")
                 if p.start_date:
-                    print(f"   Started: {p.start_date.strftime('%Y-%m-%d')}")
+                    print(f"   Started: {format_date(p.start_date)}")
         else:
             print(f"\nNo {status} plans found.")
 
@@ -301,10 +299,10 @@ def sort_plans_ui():
             if sort_by == "name":
                 print(f"   {p.total:,.0f} words | Status: {p.status}")
             elif sort_by == "created":
-                created = p.created_date.strftime('%Y-%m-%d') if p.created_date else "Unknown"
+                created = format_date(p.created_date) if p.created_date else "Unknown"
                 print(f"   Created: {created} | {p.total:,.0f} words")
             elif sort_by == "modified":
-                modified = p.last_modified.strftime('%Y-%m-%d') if p.last_modified else "Unknown"
+                modified = format_date(p.last_modified) if p.last_modified else "Unknown"
                 print(f"   Last modified: {modified} | {p.total:,.0f} words")
             elif sort_by == "completion":
                 completion = p.get_completion_percentage()
@@ -312,7 +310,7 @@ def sort_plans_ui():
             elif sort_by == "deadline":
                 if p.start_date:
                     end_date = p.end_date or p.start_date
-                    print(f"   Deadline: {end_date.strftime('%Y-%m-%d')} | {p.total:,.0f} words")
+                    print(f"   Deadline: {format_date(end_date)} | {p.total:,.0f} words")
                 else:
                     print(f"   No deadline set | {p.total:,.0f} words")
 
@@ -422,7 +420,7 @@ def _display_plans_comparison(plans: list):
     for row_name, row_values in rows_data:
         table.add_row(row_name, *row_values)
 
-    console.print(table)
+    make_console().print(table)
 
     # Summary
     print("\nComparison Summary:")
