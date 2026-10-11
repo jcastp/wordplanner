@@ -193,6 +193,26 @@ def plan_actions_menu():
     return get_menu_choice("\nEnter your choice (0-7): ", 0, 7)
 
 
+def mark_weekdays_as_spare(current_plan, weekdays):
+    """
+    Mark every day of the given weekdays (Mon=0) inside the plan as spare.
+
+    Each spare day pushes the end date out by one day, so the window is
+    re-evaluated as days are added; days after the final end date are left alone.
+
+    Returns:
+        Number of spare days added
+    """
+    added_count = 0
+    current = current_plan.start_date
+    while current <= current_plan.end_date:
+        if current.weekday() in weekdays and not current_plan.is_spare_day(current):
+            current_plan.spare_days_dates.append(current)
+            added_count += 1
+        current += timedelta(days=1)
+    return added_count
+
+
 def manage_spare_days(current_plan):
     """Interactively manage spare days for the plan."""
     dt = datetime  # Alias for strptime usage
@@ -203,10 +223,8 @@ def manage_spare_days(current_plan):
         print("  Please view a calendar first to set a start date.")
         return False
 
-    total_calendar_days = int(current_plan.time) + current_plan.spare_days
-    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
-
     while True:
+        plan_end_date = current_plan.end_date or current_plan.start_date
         print("\n" + "=" * 50)
         print("MANAGE SPARE DAYS")
         print("=" * 50)
@@ -215,7 +233,7 @@ def manage_spare_days(current_plan):
         print(f"Writing days: {current_plan.time:.0f}")
         print(f"Spare days: {current_plan.spare_days}")
 
-        if current_plan.spare_days > 0:
+        if current_plan.spare_days_dates:
             print("\nCurrent spare days:")
 
             # Filter out any old integer-based spare days and convert if possible
@@ -241,7 +259,9 @@ def manage_spare_days(current_plan):
 
             sorted_spare = sorted(valid_spare_dates)
             for spare_date in sorted_spare:
-                print(f"  {spare_date.strftime('%Y-%m-%d (%A)')}")
+                outside = spare_date < current_plan.start_date or spare_date > plan_end_date
+                note = "  (outside the plan, ignored)" if outside else ""
+                print(f"  {spare_date.strftime('%Y-%m-%d (%A)')}{note}")
 
         print("\nOptions:")
         print("1. Add spare day(s)")
@@ -306,7 +326,7 @@ def manage_spare_days(current_plan):
                                 new_spare_dates.append(dt.strptime(date_str, "%Y-%m-%d"))
 
                     # Validate dates are reasonable (within plan period + 1 year buffer)
-                    max_allowed_date = current_plan.start_date + timedelta(days=365 + int(current_plan.time))
+                    max_allowed_date = current_plan.start_date + timedelta(days=365 + current_plan.time)
                     min_allowed_date = current_plan.start_date
 
                     invalid_dates = []
@@ -336,8 +356,6 @@ def manage_spare_days(current_plan):
                             current_plan.spare_days_dates.append(new_date)
                             added_count += 1
 
-                    total_calendar_days = int(current_plan.time) + current_plan.spare_days
-                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
                     display_success(f"Added {added_count} spare day(s)")
                     if added_count < len(new_spare_dates):
@@ -349,7 +367,7 @@ def manage_spare_days(current_plan):
 
             elif choice == 2:
                 # Remove spare days by date
-                if current_plan.spare_days == 0:
+                if not current_plan.spare_days_dates:
                     display_error("No spare days to remove")
                     continue
 
@@ -395,8 +413,6 @@ def manage_spare_days(current_plan):
                                 removed_count += 1
                                 break
 
-                    total_calendar_days = int(current_plan.time) + current_plan.spare_days
-                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
 
                     display_success(f"Removed {removed_count} spare day(s)")
                     if removed_count < len(dates_to_remove):
@@ -407,83 +423,24 @@ def manage_spare_days(current_plan):
 
             elif choice == 3:
                 # Clear all spare days
-                if current_plan.spare_days == 0:
+                if not current_plan.spare_days_dates:
                     display_error("No spare days to clear")
                     continue
 
-                if get_yes_no(f"Clear all {current_plan.spare_days} spare days?", default='n'):
+                if get_yes_no(f"Clear all {len(current_plan.spare_days_dates)} spare days?", default='n'):
                     current_plan.spare_days_dates.clear()
-                    total_calendar_days = int(current_plan.time)
-                    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
                     display_success("All spare days cleared")
 
             elif choice == 4:
-                # Mark all Saturdays as spare
-                added_count = 0
-                current = current_plan.start_date
-                one_year_later = current_plan.start_date + timedelta(days=365)
-
-                while current <= one_year_later:
-                    if current.weekday() == 5:  # Saturday
-                        # Check if not already a spare day
-                        is_duplicate = False
-                        for existing in current_plan.spare_days_dates:
-                            if current.date() == existing.date():
-                                is_duplicate = True
-                                break
-                        if not is_duplicate:
-                            current_plan.spare_days_dates.append(current)
-                            added_count += 1
-                    current += timedelta(days=1)
-
-                total_calendar_days = int(current_plan.time) + current_plan.spare_days
-                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                added_count = mark_weekdays_as_spare(current_plan, [5])
                 display_success(f"Marked {added_count} Saturdays as spare days")
 
             elif choice == 5:
-                # Mark all Sundays as spare
-                added_count = 0
-                current = current_plan.start_date
-                one_year_later = current_plan.start_date + timedelta(days=365)
-
-                while current <= one_year_later:
-                    if current.weekday() == 6:  # Sunday
-                        # Check if not already a spare day
-                        is_duplicate = False
-                        for existing in current_plan.spare_days_dates:
-                            if current.date() == existing.date():
-                                is_duplicate = True
-                                break
-                        if not is_duplicate:
-                            current_plan.spare_days_dates.append(current)
-                            added_count += 1
-                    current += timedelta(days=1)
-
-                total_calendar_days = int(current_plan.time) + current_plan.spare_days
-                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                added_count = mark_weekdays_as_spare(current_plan, [6])
                 display_success(f"Marked {added_count} Sundays as spare days")
 
             elif choice == 6:
-                # Mark all weekends as spare
-                added_count = 0
-                current = current_plan.start_date
-                one_year_later = current_plan.start_date + timedelta(days=365)
-
-                while current <= one_year_later:
-                    if current.weekday() in [5, 6]:  # Saturday or Sunday
-                        # Check if not already a spare day
-                        is_duplicate = False
-                        for existing in current_plan.spare_days_dates:
-                            if current.date() == existing.date():
-                                is_duplicate = True
-                                break
-                        if not is_duplicate:
-                            current_plan.spare_days_dates.append(current)
-                            added_count += 1
-                    current += timedelta(days=1)
-
-                total_calendar_days = int(current_plan.time) + current_plan.spare_days
-                plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+                added_count = mark_weekdays_as_spare(current_plan, current_plan.weekend_days)
                 display_success(f"Marked {added_count} weekend days as spare")
 
             else:
@@ -546,29 +503,23 @@ def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
 
         # Count adjustable days (non-custom, non-spare, non-weekend-with-custom-goal)
         adjustable_days = 0
-        total_calendar_days = int(current_plan.time) + current_plan.spare_days
-        current_date = current_plan.start_date
 
-        for day_num in range(total_calendar_days):
+        for current_date in current_plan.plan_days():
             date_key = current_date.strftime('%Y-%m-%d')
 
             # Skip spare days
             if current_plan.is_spare_day(current_date):
-                current_date += timedelta(days=1)
                 continue
 
             # Skip days with custom goals
             if date_key in current_plan.custom_daily_goals:
-                current_date += timedelta(days=1)
                 continue
 
             # Skip weekends if they have a specific different goal
             if current_plan.is_weekend(current_date) and current_plan.weekend_mode == "different":
-                current_date += timedelta(days=1)
                 continue
 
             adjustable_days += 1
-            current_date += timedelta(days=1)
 
         if adjustable_days == 0:
             print("\nWarning: No adjustable days remaining!")
@@ -605,8 +556,7 @@ def edit_individual_day_goal(current_plan):
     print("\nThis allows you to set a custom word goal for a specific date.")
     print("This overrides pattern-based goals and weekend settings for that day.")
 
-    total_calendar_days = int(current_plan.time) + current_plan.spare_days
-    plan_end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+    plan_end_date = current_plan.end_date or current_plan.start_date
     print(f"\nPlan period: {current_plan.start_date.strftime('%Y-%m-%d')} to {plan_end_date.strftime('%Y-%m-%d')}")
 
     if current_plan.custom_daily_goals:
@@ -759,8 +709,7 @@ def recalculate_plan_from_progress(current_plan):
     print(f"  Current daily target: {current_plan.daily:,.0f} words")
 
     if current_plan.start_date:
-        total_calendar_days = int(current_plan.time) + current_plan.spare_days
-        end_date = current_plan.start_date + timedelta(days=total_calendar_days - 1)
+        end_date = current_plan.end_date or current_plan.start_date
         print(f"  Plan end date: {end_date.strftime('%Y-%m-%d')} (fixed)")
 
     print("\nThis will:")

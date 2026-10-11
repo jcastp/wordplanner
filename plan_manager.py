@@ -290,8 +290,7 @@ def sort_plans(plans: List[plan.Plan], sort_by: str = "modified", reverse: bool 
         # Calculate end date for each plan
         def get_end_date(p):
             if p.start_date:
-                total_days = int(p.time) + p.spare_days
-                return p.start_date + timedelta(days=total_days)
+                return p.end_date or p.start_date
             return datetime.max  # Plans without dates go to the end
         return sorted(plans, key=get_end_date, reverse=reverse)
     else:

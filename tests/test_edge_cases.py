@@ -66,10 +66,11 @@ class TestFractionalValues:
         assert abs(p.daily - 1428.57) < 0.01
 
     def test_fractional_time(self):
-        """Test fractional time period."""
+        """Test fractional time period is rounded up to whole days."""
         p = plan.Plan(total=10000, daily=1500)
         p.calculate_time()
-        assert abs(p.time - 6.67) < 0.01
+        assert p.time == 7
+        assert p.daily * p.time == pytest.approx(10000)
 
     def test_fractional_pattern_goals(self):
         """Test patterns work with fractional daily values."""

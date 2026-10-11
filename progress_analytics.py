@@ -255,7 +255,7 @@ def plot_cumulative_progress(plan_obj):
     today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Calculate end date (the later of today or plan end)
-    plan_end = current_date + datetime.timedelta(days=int(plan_obj.time) + len(plan_obj.spare_days_dates))
+    plan_end = plan_obj.end_date or current_date
     end_date = max(today, plan_end)
 
     expected_total = 0

@@ -35,10 +35,9 @@ def display_calendar_view(plan_obj, start_date):
     """
     console = Console()
 
-    # Calculate end dates
-    writing_end_date = start_date + timedelta(days=int(plan_obj.time) - 1)
-    total_days = int(plan_obj.time) + int(plan_obj.spare_days)
-    final_end_date = start_date + timedelta(days=total_days - 1)
+    # Plan window (a plan with no writing days ends before it starts)
+    total_days = plan_obj.total_calendar_days
+    final_end_date = plan_obj.end_date or start_date - timedelta(days=1)
 
     # Display plan summary
     console.print()
@@ -212,7 +211,7 @@ def display_calendar_view(plan_obj, start_date):
             current_date = datetime(current_date.year, current_date.month + 1, 1)
 
     # Display progress milestones
-    display_milestones(console, plan_obj, start_date, writing_end_date)
+    display_milestones(console, plan_obj, start_date, final_end_date)
 
 
 def display_milestones(console, plan_obj, start_date, end_date):
@@ -263,7 +262,7 @@ def display_weekly_summary(plan_obj, start_date):
     table.add_column("Weekly Total", justify="right", style="bold green", width=15)
     table.add_column("Cumulative", justify="right", style="bold cyan", width=15)
 
-    total_days = int(plan_obj.time) + plan_obj.spare_days
+    total_days = plan_obj.total_calendar_days
     current_date = start_date
     week_num = 1
     cumulative_words = 0

@@ -185,7 +185,7 @@ def filter_by_status_ui():
         if filtered:
             for idx, p in enumerate(filtered, 1):
                 print(f"\n{idx}. {p.name or 'Unnamed'}")
-                print(f"   {p.total:,.0f} words | {p.daily:,.0f} per day | {int(p.time)} days")
+                print(f"   {p.total:,.0f} words | {p.daily:,.0f} per day | {p.time} days")
                 if p.category:
                     print(f"   Category: {p.category}")
                 if p.start_date:
@@ -313,7 +313,7 @@ def sort_plans_ui():
                 print(f"   {completion:.0f}% complete | {p.get_total_written():,.0f} / {p.total:,.0f} words")
             elif sort_by == "deadline":
                 if p.start_date:
-                    end_date = p.start_date + timedelta(days=int(p.time) + p.spare_days)
+                    end_date = p.end_date or p.start_date
                     print(f"   Deadline: {end_date.strftime('%Y-%m-%d')} | {p.total:,.0f} words")
                 else:
                     print(f"   No deadline set | {p.total:,.0f} words")

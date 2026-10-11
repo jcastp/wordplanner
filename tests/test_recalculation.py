@@ -105,17 +105,17 @@ class TestRecalculateFailures:
         assert result['words_remaining'] == 9000
         assert result['end_date'] == datetime(2025, 11, 10)
 
-    def test_no_remaining_writing_days(self):
-        # 2 writing days + 1 spare = 11-01 .. 11-03; recalculating on the spare
-        # last day leaves no writing days.
+    def test_spare_day_after_last_writing_day_does_not_extend_plan(self):
+        # 2 writing days (11-01, 11-02); a spare day on 11-03 is outside the
+        # plan, so 11-03 is already past the end.
         p = make_plan(total=2000, time=2, spare_days_dates=[datetime(2025, 11, 3)])
         record(p, [500])
 
         result = p.recalculate_from_progress(as_of_date=datetime(2025, 11, 3))
 
         assert result['success'] is False
-        assert result['reason'] == 'no_remaining_days'
-        assert result['words_remaining'] == 1500
+        assert result['reason'] == 'past_end_date'
+        assert result['end_date'] == datetime(2025, 11, 2)
 
     def test_failed_recalculation_leaves_plan_untouched(self):
         p = make_plan()

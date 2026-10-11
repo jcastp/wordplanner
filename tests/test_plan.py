@@ -33,10 +33,11 @@ class TestPlanCalculations:
         assert abs(p.daily - 1428.57) < 0.01
 
     def test_calculate_time_fractional(self):
-        """Test calculating time with fractional result."""
+        """Test a fractional result rounds up to whole days and lowers the daily goal."""
         p = plan.Plan(total=10000, daily=1500)
         p.calculate_time()
-        assert abs(p.time - 6.67) < 0.01
+        assert p.time == 7
+        assert p.daily == pytest.approx(10000 / 7)
 
 
 class TestPlanSpareDays:

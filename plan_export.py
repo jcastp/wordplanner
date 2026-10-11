@@ -72,7 +72,7 @@ def export_to_csv(plan_obj, filepath=None):
         filepath = Path(filepath)
 
     # Calculate total days including spare days
-    total_days = int(plan_obj.time) + plan_obj.spare_days
+    total_days = plan_obj.total_calendar_days
 
     # Prepare data
     rows = []
@@ -162,7 +162,7 @@ def export_to_ical(plan_obj, filepath=None):
         filepath = Path(filepath)
 
     # Calculate total days including spare days
-    total_days = int(plan_obj.time) + plan_obj.spare_days
+    total_days = plan_obj.total_calendar_days
 
     # Start building iCal content
     ical_lines = [
@@ -219,7 +219,7 @@ def export_to_ical(plan_obj, filepath=None):
                 f"DTSTART;VALUE=DATE:{date_str}",
                 f"DTEND;VALUE=DATE:{date_str}",
                 f"SUMMARY:Write {daily_goal:.0f} words - {plan_obj.name or 'Writing'}",
-                f"DESCRIPTION:Writing goal: {daily_goal:.0f} words\\nDay {writing_day_number} of {int(plan_obj.time)}\\nTotal goal: {plan_obj.total:,.0f} words",
+                f"DESCRIPTION:Writing goal: {daily_goal:.0f} words\\nDay {writing_day_number} of {plan_obj.time}\\nTotal goal: {plan_obj.total:,.0f} words",
                 "STATUS:CONFIRMED",
                 "TRANSP:OPAQUE",
                 "END:VEVENT"
@@ -280,16 +280,15 @@ def export_to_markdown(plan_obj, filepath=None):
     lines.append("")
     lines.append(f"- **Total Word Goal**: {plan_obj.total:,} words")
     lines.append(f"- **Average Daily Goal**: {plan_obj.daily:,.0f} words/day")
-    lines.append(f"- **Writing Days**: {int(plan_obj.time)} days")
+    lines.append(f"- **Writing Days**: {plan_obj.time} days")
 
     if plan_obj.spare_days > 0:
         lines.append(f"- **Spare Days**: {plan_obj.spare_days} days")
-        total_duration = int(plan_obj.time) + plan_obj.spare_days
-        lines.append(f"- **Total Duration**: {total_duration} days")
+        lines.append(f"- **Total Duration**: {plan_obj.total_calendar_days} days")
 
     lines.append(f"- **Start Date**: {plan_obj.start_date.strftime('%B %d, %Y')}")
 
-    end_date = plan_obj.start_date + timedelta(days=int(plan_obj.time) + plan_obj.spare_days - 1)
+    end_date = plan_obj.end_date or plan_obj.start_date - timedelta(days=1)
     lines.append(f"- **End Date**: {end_date.strftime('%B %d, %Y')}")
 
     lines.append(f"- **Writing Pattern**: {plan_obj.pattern.capitalize()}")
@@ -344,7 +343,7 @@ def export_to_markdown(plan_obj, filepath=None):
         lines.append(f"*Using {plan_obj.pattern} pattern - daily goals vary*")
         lines.append("")
 
-    total_days = int(plan_obj.time) + plan_obj.spare_days
+    total_days = plan_obj.total_calendar_days
     writing_day_number = 0
 
     # Group by week for better readability

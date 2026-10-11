@@ -22,6 +22,15 @@ def to_midnight(value):
     return value
 
 
+def whole_days(value):
+    """
+    Round a number of writing days up to a whole day.
+
+    Rounds to 6 decimals first so float noise (48.0000000001) doesn't add a day.
+    """
+    return math.ceil(round(value, 6))
+
+
 class Plan():
     """simple class to store a plan and its attributes."""
     def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None):
@@ -40,7 +49,7 @@ class Plan():
 
         self.daily = daily
         self.total = total
-        self.time = time  # Writing days (not including spare days)
+        self.time = time  # Writing days (not including spare days), always whole
         self.words = words # this is the amount of words in the current plan
         self.name = name  # Name/title of the writing project
         self.start_date = start_date  # When the writing plan starts
@@ -73,9 +82,60 @@ class Plan():
         self._start_date = to_midnight(value)
 
     @property
+    def time(self):
+        """Number of writing days (spare days not included). Always a whole number."""
+        return self._time
+
+    @time.setter
+    def time(self, value):
+        self._time = whole_days(value)
+
+    @property
     def spare_days(self):
-        """Get count of spare days for backward compatibility."""
-        return len(self.spare_days_dates)
+        """
+        Number of spare days inside the plan window.
+
+        Spare days outside the window (e.g. before a moved start date, or a
+        whole year of Saturdays on a short plan) don't lengthen the plan.
+        Without a start date there is no window, so all are counted.
+        """
+        if not self.start_date:
+            return len(self.spare_days_dates)
+        return self.total_calendar_days - self.time
+
+    @property
+    def end_date(self):
+        """
+        Last calendar day of the plan, or None without a start date or writing days.
+
+        Walks forward from the start date until `time` writing days fit, skipping
+        spare days on the way. This is the single source for the plan window.
+        """
+        if not self.start_date or self.time <= 0:
+            return None
+
+        spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}
+        current = self.start_date
+        writing_days_left = self.time
+        while True:
+            if current.date() not in spare:
+                writing_days_left -= 1
+                if writing_days_left == 0:
+                    return current
+            current += timedelta(days=1)
+
+    @property
+    def total_calendar_days(self):
+        """Calendar days from start to end date (writing + spare days), or 0."""
+        end = self.end_date
+        if end is None:
+            return 0
+        return (end - self.start_date).days + 1
+
+    def plan_days(self):
+        """Every calendar day of the plan, from start date to end date, as datetimes."""
+        for offset in range(self.total_calendar_days):
+            yield self.start_date + timedelta(days=offset)
 
     def is_spare_day(self, date):
         """Check if a given date is a spare day."""
@@ -110,7 +170,10 @@ class Plan():
             raise ValueError(f"Cannot calculate time: daily words must be greater than 0 (got {self.daily})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate time: total cannot be negative (got {self.total})")
+        # Round up to whole days, then spread the total evenly over them
         self.time = self.total / self.daily
+        if self.time > 0:
+            self.daily = self.total / self.time
         self.invalidate_daily_goals_cache()
 
     def calculate_words(self):
@@ -139,7 +202,7 @@ class Plan():
         if self._daily_goals_cache is not None:
             return self._daily_goals_cache
 
-        num_days = int(self.time)
+        num_days = self.time
         if num_days <= 0:
             return []
 
@@ -396,17 +459,8 @@ class Plan():
             # Can't recalculate without a start date
             return self.total
 
-        # Calculate total calendar days (writing days + spare days)
-        total_calendar_days = int(self.time) + self.spare_days
-
         # Sum up all daily goals
-        total_words = 0
-        current_date = self.start_date
-
-        for day_num in range(total_calendar_days):
-            daily_goal = self.get_daily_goal(date=current_date)
-            total_words += daily_goal
-            current_date += timedelta(days=1)
+        total_words = sum(self.get_daily_goal(date=day) for day in self.plan_days())
 
         # Update the plan's total
         self.total = total_words
@@ -621,9 +675,8 @@ class Plan():
                 'words_remaining': 0
             }
 
-        # Calculate end date (start_date + time + spare_days)
-        total_calendar_days = int(self.time) + self.spare_days
-        end_date = self.start_date + timedelta(days=total_calendar_days - 1)
+        # A plan with no writing days ends before it starts
+        end_date = self.end_date or self.start_date - timedelta(days=1)
 
         # If we're past the end date, can't recalculate
         if as_of_date > end_date:
