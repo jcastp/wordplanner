@@ -92,7 +92,7 @@ def get_date_input(prompt_text="Start date: "):
         date_input = input(prompt_text).strip()
 
         if date_input == "":
-            selected_date = datetime.now()
+            selected_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             try:
                 selected_date = datetime.strptime(date_input, "%Y-%m-%d")

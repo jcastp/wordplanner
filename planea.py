@@ -1109,7 +1109,7 @@ def show_calendar_options(newplan):
                     # No saved start date - this shouldn't happen for new plans,
                     # but if it does, use today
                     display_warning("No start date set. Using today's date.")
-                    start_date = datetime.now()
+                    start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
                     newplan.start_date = start_date
 
                 # Display chosen views
@@ -1159,7 +1159,7 @@ def update_progress(current_plan):
 
             elif choice == 1:
                 # Quick entry for today
-                today = datetime.now()
+                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
                 print(f"\nEntering progress for: {today.strftime('%Y-%m-%d (%A)')}")
 
                 # Check if it's a spare day

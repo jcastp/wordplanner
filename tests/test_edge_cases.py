@@ -24,22 +24,16 @@ class TestZeroValues:
         assert p.time == 0
 
     def test_calculate_with_zero_time(self):
-        """Test calculation prevents division by zero."""
+        """Test calculate_daily rejects time=0 instead of dividing by zero."""
         p = plan.Plan(total=10000, time=0)
-        # Should not raise ZeroDivisionError
-        try:
+        with pytest.raises(ValueError, match="time must be greater than 0"):
             p.calculate_daily()
-        except ZeroDivisionError:
-            pytest.fail("calculate_daily raised ZeroDivisionError with time=0")
 
     def test_calculate_with_zero_daily(self):
-        """Test calculation prevents division by zero."""
+        """Test calculate_time rejects daily=0 instead of dividing by zero."""
         p = plan.Plan(total=10000, daily=0)
-        # Should not raise ZeroDivisionError
-        try:
+        with pytest.raises(ValueError, match="daily words must be greater than 0"):
             p.calculate_time()
-        except ZeroDivisionError:
-            pytest.fail("calculate_time raised ZeroDivisionError with daily=0")
 
 
 class TestLargeValues:
@@ -166,23 +160,22 @@ class TestDateBoundaries:
 
 
 class TestNegativeValues:
-    """Test handling of negative values (edge case for invalid input)."""
+    """Test that negative values are rejected by the Plan constructor."""
 
     def test_negative_total(self):
-        """Test plan allows negative total (even if illogical)."""
-        p = plan.Plan(total=-1000, daily=1000, time=10)
-        # Should not crash, even if it doesn't make logical sense
-        assert p.total == -1000
+        """Test plan rejects negative total."""
+        with pytest.raises(ValueError, match="Total word count cannot be negative"):
+            plan.Plan(total=-1000, daily=1000, time=10)
 
     def test_negative_daily(self):
-        """Test plan allows negative daily."""
-        p = plan.Plan(total=10000, daily=-1000, time=10)
-        assert p.daily == -1000
+        """Test plan rejects negative daily."""
+        with pytest.raises(ValueError, match="Daily word count cannot be negative"):
+            plan.Plan(total=10000, daily=-1000, time=10)
 
     def test_negative_time(self):
-        """Test plan allows negative time."""
-        p = plan.Plan(total=10000, daily=1000, time=-10)
-        assert p.time == -10
+        """Test plan rejects negative time."""
+        with pytest.raises(ValueError, match="Time \\(days\\) cannot be negative"):
+            plan.Plan(total=10000, daily=1000, time=-10)
 
 
 class TestComplexScenarios:

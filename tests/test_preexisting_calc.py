@@ -1,188 +1,163 @@
-#!/usr/bin/env python3
-"""Test pre-existing words integration with plan calculations."""
+"""Tests for pre-existing words in the plan creation flows.
 
-import datetime
-from datetime import timedelta
-import plan
+These drive the real interactive functions in planea.py with scripted answers,
+and capture the plan that would be handed to the plan actions menu.
+"""
 
-print("=" * 80)
-print("Testing Pre-Existing Words with All Three Calculation Methods")
-print("=" * 80)
+import copy
+import pytest
+from datetime import datetime, timedelta
+import planea
+import plan_templates
 
-# Test Case 1: User's example - Calculate time
-# Total: 80,000, Daily: 1,000, Pre-existing: 32,000
-# Expected: 48 days (because (80,000 - 32,000) / 1,000 = 48)
-print("\n" + "=" * 80)
-print("Test 1: Calculate Time (User's Example)")
-print("=" * 80)
-print("Goal: 80,000 words")
-print("Pre-existing: 32,000 words")
-print("Daily capacity: 1,000 words/day")
-print("Expected result: 48 days")
 
-total = 80000
-pre_existing = 32000
-daily = 1000
-remaining = total - pre_existing
+# Far-future date so get_date_input() never asks about past dates
+START_STR = "2099-01-05"
+START = datetime(2099, 1, 5)
+PRE_START_KEY = (START - timedelta(days=1)).strftime('%Y-%m-%d')
 
-# Simulate the calculation
-p1 = plan.Plan(total=remaining, daily=daily)
-p1.calculate_time()
-p1.total = total  # Restore actual total
 
-print(f"\nCalculated plan:")
-print(f"  Time: {p1.time:.0f} days (expected: 48)")
-print(f"  Daily: {p1.daily:,.0f} words/day")
-print(f"  Total: {p1.total:,.0f} words")
-print(f"  ✓ PASS" if p1.time == 48 else f"  ✗ FAIL: Expected 48, got {p1.time}")
+@pytest.fixture
+def created_plans(monkeypatch):
+    """Capture plans passed to handle_plan_actions instead of opening the menu."""
+    plans = []
+    monkeypatch.setattr(planea, "handle_plan_actions", plans.append)
+    return plans
 
-# Verify with progress
-start_date = datetime.datetime(2025, 11, 20)
-p1.start_date = start_date
-pre_start = start_date - timedelta(days=1)
-p1.record_progress(pre_start, pre_existing)
 
-print(f"\nAfter recording pre-existing words:")
-print(f"  Words completed: {p1.get_total_written():,.0f}")
-print(f"  Remaining: {p1.get_remaining_words():,.0f}")
-print(f"  Completion: {p1.get_completion_percentage():.1f}%")
+@pytest.fixture
+def isolated_templates(monkeypatch):
+    """The template flow mutates template objects; give each test its own copies."""
+    monkeypatch.setattr(plan_templates, "TEMPLATES", copy.deepcopy(plan_templates.TEMPLATES))
 
-# Test Case 2: Calculate Total Words
-# Daily: 500, Time: 60 days, Pre-existing: 5,000
-# Expected total: 500 * 60 + 5,000 = 35,000
-print("\n" + "=" * 80)
-print("Test 2: Calculate Total Words")
-print("=" * 80)
-print("Daily capacity: 500 words/day")
-print("Available time: 60 days")
-print("Pre-existing: 5,000 words")
-print("Expected total: 35,000 words (500 * 60 + 5,000)")
 
-daily2 = 500
-time2 = 60
-pre_existing2 = 5000
+class TestCreateNewPlanWithPreExistingWords:
+    """planea.create_new_plan() for each calculation method."""
 
-# Simulate the calculation
-p2 = plan.Plan(daily=daily2, time=time2)
-p2.calculate_words()
-p2.total = p2.total + pre_existing2  # Add pre-existing to calculated total
+    def test_calculate_time(self, scripted_input, created_plans):
+        # Goal 80,000, 32,000 already written, 1,000/day -> 48 days
+        scripted_input([
+            "1",          # calculate days needed
+            "80000",      # total goal
+            "y",          # already written some words?
+            "32000",      # how many
+            "y",          # confirm
+            "1000",       # daily capacity
+            "n",          # variable pattern?
+            START_STR,    # start date
+            "n",          # weekend settings?
+        ])
 
-print(f"\nCalculated plan:")
-print(f"  Total: {p2.total:,.0f} words (expected: 35,000)")
-print(f"  Daily: {p2.daily:,.0f} words/day")
-print(f"  Time: {p2.time:.0f} days")
-print(f"  ✓ PASS" if p2.total == 35000 else f"  ✗ FAIL: Expected 35,000, got {p2.total}")
+        planea.create_new_plan()
 
-# Verify math
-calculated_writing = daily2 * time2
-print(f"\nVerification:")
-print(f"  New writing needed: {daily2} × {time2} = {calculated_writing:,.0f}")
-print(f"  Pre-existing: {pre_existing2:,.0f}")
-print(f"  Total goal: {calculated_writing + pre_existing2:,.0f}")
+        [p] = created_plans
+        assert p.time == pytest.approx(48)
+        assert p.daily == 1000
+        assert p.total == 80000
+        assert p.progress == {PRE_START_KEY: 32000}
+        assert p.get_remaining_words() == 48000
+        assert p.get_completion_percentage() == pytest.approx(40.0)
 
-# Test Case 3: Calculate Daily Words
-# Total: 50,000, Time: 40 days, Pre-existing: 10,000
-# Expected daily: (50,000 - 10,000) / 40 = 1,000
-print("\n" + "=" * 80)
-print("Test 3: Calculate Daily Words")
-print("=" * 80)
-print("Goal: 50,000 words")
-print("Pre-existing: 10,000 words")
-print("Available time: 40 days")
-print("Expected daily: 1,000 words/day ((50,000 - 10,000) / 40)")
+    def test_calculate_total_words(self, scripted_input, created_plans):
+        # 500/day for 60 days plus 5,000 already written -> goal 35,000
+        scripted_input([
+            "2",          # calculate total words
+            "500",        # daily capacity
+            "60",         # days available
+            "y",          # already written some words?
+            "5000",       # how many
+            "y",          # confirm
+            "n",          # variable pattern?
+            START_STR,
+            "n",          # weekend settings?
+        ])
 
-total3 = 50000
-time3 = 40
-pre_existing3 = 10000
-remaining3 = total3 - pre_existing3
+        planea.create_new_plan()
 
-# Simulate the calculation
-p3 = plan.Plan(total=remaining3, time=time3)
-p3.calculate_daily()
-p3.total = total3  # Restore actual total
+        [p] = created_plans
+        assert p.total == 35000
+        assert p.daily == 500
+        assert p.time == 60
+        assert p.progress == {PRE_START_KEY: 5000}
+        assert p.get_remaining_words() == 30000
 
-print(f"\nCalculated plan:")
-print(f"  Daily: {p3.daily:,.0f} words/day (expected: 1,000)")
-print(f"  Total: {p3.total:,.0f} words")
-print(f"  Time: {p3.time:.0f} days")
-print(f"  ✓ PASS" if p3.daily == 1000 else f"  ✗ FAIL: Expected 1,000, got {p3.daily}")
+    def test_calculate_daily_words(self, scripted_input, created_plans):
+        # Goal 50,000, 10,000 already written, 40 days -> 1,000/day
+        scripted_input([
+            "3",          # calculate daily words
+            "50000",      # total goal
+            "y",          # already written some words?
+            "10000",      # how many
+            "y",          # confirm
+            "40",         # days available
+            "n",          # variable pattern?
+            START_STR,
+            "n",          # weekend settings?
+        ])
 
-# Verify with progress
-start_date3 = datetime.datetime(2025, 12, 1)
-p3.start_date = start_date3
-pre_start3 = start_date3 - timedelta(days=1)
-p3.record_progress(pre_start3, pre_existing3)
+        planea.create_new_plan()
 
-print(f"\nAfter recording pre-existing words:")
-print(f"  Words completed: {p3.get_total_written():,.0f}")
-print(f"  Remaining: {p3.get_remaining_words():,.0f}")
-print(f"  Completion: {p3.get_completion_percentage():.1f}%")
+        [p] = created_plans
+        assert p.daily == pytest.approx(1000)
+        assert p.total == 50000
+        assert p.time == 40
+        assert p.progress == {PRE_START_KEY: 10000}
 
-# Test Case 4: Edge case - Pre-existing equals total
-print("\n" + "=" * 80)
-print("Test 4: Edge Case - Pre-existing Equals Total")
-print("=" * 80)
-print("Goal: 10,000 words")
-print("Pre-existing: 10,000 words")
-print("Expected: Goal already met (no plan needed)")
+    def test_no_pre_existing_words(self, scripted_input, created_plans):
+        scripted_input([
+            "3",
+            "50000",
+            "n",          # already written some words?
+            "40",
+            "n",
+            START_STR,
+            "n",
+        ])
 
-total4 = 10000
-pre_existing4 = 10000
-remaining4 = total4 - pre_existing4
+        planea.create_new_plan()
 
-if remaining4 <= 0:
-    print("✓ PASS: Correctly detected that goal is already met")
-else:
-    print(f"✗ FAIL: Should have detected goal completion")
+        [p] = created_plans
+        assert p.daily == pytest.approx(1250)
+        assert p.progress == {}
 
-# Test Case 5: Verify recalculation works with pre-existing words
-print("\n" + "=" * 80)
-print("Test 5: Recalculation with Pre-existing Words")
-print("=" * 80)
+    def test_pre_existing_equal_to_goal_creates_no_plan(self, scripted_input, created_plans):
+        scripted_input([
+            "1",
+            "10000",      # total goal
+            "y",          # already written some words?
+            "10000",      # how many (equals goal)
+            "y",          # continue anyway?
+            "1000",       # daily capacity
+            "",           # "Press Enter to continue"
+        ])
 
-p5 = plan.Plan(
-    total=20000,
-    daily=1000,
-    time=15,  # Plan for 15 days
-    start_date=datetime.datetime(2025, 11, 20)
-)
+        planea.create_new_plan()
 
-# Record pre-existing words (5,000)
-pre_start5 = p5.start_date - timedelta(days=1)
-p5.record_progress(pre_start5, 5000)
+        assert created_plans == []
 
-# Record progress for 3 days (2,000 words total)
-p5.record_progress(p5.start_date, 700)
-p5.record_progress(p5.start_date + timedelta(days=1), 600)
-p5.record_progress(p5.start_date + timedelta(days=2), 700)
 
-total_written = p5.get_total_written()
-print(f"Progress so far:")
-print(f"  Pre-existing: 5,000 words")
-print(f"  Days 1-3: 2,000 words")
-print(f"  Total written: {total_written:,.0f} words")
+class TestCreateFromTemplateWithPreExistingWords:
+    """planea.create_plan_from_template() with pre-existing words."""
 
-# Recalculate from day 4
-day4 = p5.start_date + timedelta(days=3)
-result = p5.recalculate_from_progress(as_of_date=day4)
+    def test_nanowrimo_with_pre_existing(self, scripted_input, created_plans, isolated_templates):
+        # NaNoWriMo: 50,000 words / 30 days, 10,000 already written
+        scripted_input([
+            "1",          # NaNoWriMo (first template listed)
+            "y",          # use as-is
+            "y",          # already written some words?
+            "10000",      # how many
+            "y",          # confirm
+            START_STR,
+            "y",          # apply suggested 'flat' pattern
+            "n",          # configure suggested weekend settings
+        ])
 
-if result and result['success']:
-    print(f"\n✓ Recalculation successful:")
-    print(f"  Words remaining: {result['words_remaining']:,.0f} (expected: 13,000)")
-    print(f"  Remaining days: {result['remaining_writing_days']}")
-    print(f"  New daily target: {result['new_daily']:,.0f} words")
+        planea.create_plan_from_template()
 
-    # Verify
-    expected_remaining = 20000 - 7000
-    expected_daily = expected_remaining / result['remaining_writing_days']
-    print(f"\nVerification:")
-    print(f"  Expected remaining: {expected_remaining:,.0f}")
-    print(f"  Match: {result['words_remaining'] == expected_remaining}")
-    print(f"  Expected daily: {expected_daily:,.0f}")
-    print(f"  Match: {abs(result['new_daily'] - expected_daily) < 0.01}")
-else:
-    print("✗ Recalculation failed!")
-
-print("\n" + "=" * 80)
-print("All tests completed!")
-print("=" * 80)
+        [p] = created_plans
+        assert p.name == "NaNoWriMo"
+        assert p.total == 50000
+        assert p.time == 30
+        assert p.daily == pytest.approx(40000 / 30)
+        assert p.progress == {PRE_START_KEY: 10000}
+        assert p.get_remaining_words() == 40000

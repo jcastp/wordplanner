@@ -6,6 +6,22 @@ import json
 """class for the Plan."""
 
 
+def to_midnight(value):
+    """
+    Normalize a plan date to midnight, dropping any time of day.
+
+    Plan dates (start date, spare days) are compared against calendar days at
+    midnight, so a stored time of day would make the start day fall outside
+    the plan. Accepts datetime or date; anything else (None, legacy integer
+    spare days) is returned unchanged.
+    """
+    if isinstance(value, datetime.datetime):
+        return value.replace(hour=0, minute=0, second=0, microsecond=0)
+    if isinstance(value, datetime.date):
+        return datetime.datetime.combine(value, datetime.time())
+    return value
+
+
 class Plan():
     """simple class to store a plan and its attributes."""
     def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None):
@@ -29,7 +45,7 @@ class Plan():
         self.name = name  # Name/title of the writing project
         self.start_date = start_date  # When the writing plan starts
         self.created_date = created_date or datetime.datetime.now()  # When this plan was created
-        self.spare_days_dates = spare_days_dates or []  # List of actual dates (datetime objects) with 0 words
+        self.spare_days_dates = [to_midnight(d) for d in (spare_days_dates or [])]  # List of actual dates (datetime objects) with 0 words
         self.source_file = source_file  # Path to the file this plan was loaded from (None for new plans)
         self.pattern = pattern  # Pattern type: flat, valley, mountain, rising, declining, random
         self.pattern_config = pattern_config or {}  # Pattern-specific configuration
@@ -46,6 +62,15 @@ class Plan():
         self.category = category  # Category string (e.g., "novel", "blog", "academic")
         self.is_active = is_active  # Boolean flag for the currently active plan
         self.last_modified = last_modified or datetime.datetime.now()  # When this plan was last modified
+
+    @property
+    def start_date(self):
+        """When the writing plan starts (always at midnight, or None)."""
+        return self._start_date
+
+    @start_date.setter
+    def start_date(self, value):
+        self._start_date = to_midnight(value)
 
     @property
     def spare_days(self):

@@ -242,3 +242,36 @@ def nanowrimo_plan():
         name="NaNoWriMo 2025",
         start_date=datetime.datetime(2025, 11, 1)
     )
+
+
+class InputExhausted(BaseException):
+    """
+    Raised when a test's scripted answers run out.
+
+    Derives from BaseException so the `except Exception` retry loops in
+    ui_utils cannot swallow it and spin forever.
+    """
+
+
+@pytest.fixture
+def scripted_input(monkeypatch):
+    """
+    Replace input() with a fixed list of answers.
+
+    Usage:
+        scripted_input(["1", "80000", "y"])
+
+    Raises InputExhausted if the code asks for more answers than provided.
+    """
+    def _script(answers):
+        remaining = iter(answers)
+
+        def fake_input(prompt=""):
+            try:
+                return next(remaining)
+            except StopIteration:
+                raise InputExhausted(f"No scripted answer left for prompt: {prompt!r}")
+
+        monkeypatch.setattr('builtins.input', fake_input)
+
+    return _script

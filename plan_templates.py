@@ -41,7 +41,7 @@ class PlanTemplate:
             Plan object based on template
         """
         if start_date is None:
-            start_date = datetime.datetime.now()
+            start_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Create plan with template values
         new_plan = plan.Plan(
