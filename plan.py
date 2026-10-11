@@ -196,9 +196,14 @@ class Plan():
         Finds the fewest whole days whose schedule fits the words at `daily`,
         then lowers `daily` slightly so the schedule adds up to exactly the total.
         Never shrinks the plan below its locked (past) writing days.
+
+        A daily goal of 0 is allowed when the fixed days (past goals, custom
+        and weekend goals, words already written) can carry the total, e.g.
+        "finish early" once everything is written. If they never can, raises
+        ValueError and leaves the plan unchanged.
         """
-        if self.daily <= 0:
-            raise ValueError(f"Cannot calculate time: daily words must be greater than 0 (got {self.daily})")
+        if self.daily < 0:
+            raise ValueError(f"Cannot calculate time: daily words cannot be negative (got {self.daily})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate time: total cannot be negative (got {self.total})")
 
@@ -209,11 +214,34 @@ class Plan():
             self.time = days
             return self.total_for_daily(daily) >= self.total - 1e-6
 
-        days = max(min_days, whole_days(self.words_to_schedule / daily))
-        while not fits(days) and days < config.MAX_DAYS:
-            days += 1
+        # What the days hold only grows as days are added, so search by doubling
+        # and halving (a day-by-day walk could rebuild the schedule thousands of
+        # times when `daily` is tiny, freezing the app)
+        original_time = self.time
+        estimate = whole_days(self.words_to_schedule / daily) if daily > 0 else original_time
+        guess = min(config.MAX_DAYS, max(min_days, estimate, 1))
+        if fits(guess):
+            low, high = min_days - 1, guess
+        else:
+            low, high = guess, min(config.MAX_DAYS, guess * 2)
+            while not fits(high) and high < config.MAX_DAYS:
+                low, high = high, min(config.MAX_DAYS, high * 2)
+        # Invariant: fits(high), or high == MAX_DAYS; low doesn't fit (or is below min_days)
+        while high - low > 1:
+            middle = (low + high) // 2
+            if fits(middle):
+                high = middle
+            else:
+                low = middle
+        days = max(min_days, high)
+        # Patterns re-spread their weights with the length, so check the days just below
         while days > min_days and fits(days - 1):
             days -= 1
+
+        if daily == 0 and not fits(days):
+            self.time = original_time
+            raise ValueError("Cannot calculate time: with a daily goal of 0, "
+                             "the remaining days never reach the total")
 
         self.time = days
         if self.time > 0:

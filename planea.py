@@ -1559,7 +1559,11 @@ def offer_deadline_adjustment(current_plan):
     """
     preview = copy.deepcopy(current_plan)
     as_of_date = preview.default_recalculation_date()
-    result = preview.adjust_time_from_progress(as_of_date=as_of_date)
+    try:
+        result = preview.adjust_time_from_progress(as_of_date=as_of_date)
+    except ValueError as e:
+        display_error(f"Could not adjust the deadline: {e}")
+        return
 
     if result is None or result['new_end_date'] is None or result['old_end_date'] is None:
         display_error("Could not adjust the deadline.")

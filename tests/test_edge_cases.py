@@ -30,10 +30,11 @@ class TestZeroValues:
             p.calculate_daily()
 
     def test_calculate_with_zero_daily(self):
-        """Test calculate_time rejects daily=0 instead of dividing by zero."""
-        p = plan.Plan(total=10000, daily=0)
-        with pytest.raises(ValueError, match="daily words must be greater than 0"):
+        """calculate_time with daily=0 and nothing else to carry the total is refused."""
+        p = plan.Plan(total=10000, daily=0, time=7)
+        with pytest.raises(ValueError, match="daily goal of 0"):
             p.calculate_time()
+        assert p.time == 7  # left unchanged
 
 
 class TestLargeValues:
