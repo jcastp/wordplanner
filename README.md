@@ -1166,6 +1166,7 @@ Exports are named with the plan name and timestamp in the appropriate format:
   - Actual word counts vs goals
   - Status indicators (Exceeded, Met, Partial, Missed, Future)
   - Cumulative progress tracking
+  - Markdown milestones show the words written so far and how many are left to each milestone
 - **Spare Days in Exports** - All formats properly handle spare days:
   - CSV marks spare days with "Spare" type
   - iCal creates transparent events for spare days

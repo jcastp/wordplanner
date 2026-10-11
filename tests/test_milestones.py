@@ -135,5 +135,18 @@ class TestShownMilestones:
         plan_export.export_to_markdown(p, path)
 
         text = path.read_text()
-        assert "| 25% | before the start | 12,500 | - | ✅ reached |" in text
-        assert "| 50% | Nov 06, 2026 | 25,000 | 5 |  |" in text
+        assert "| Progress | Date | Target | Written | Plan Day | Status |" in text
+        assert "| 25% | before the start | 12,500 | 20,000 | - | ✅ reached |" in text
+        assert "| 50% | Nov 06, 2026 | 25,000 | 20,000 | 5 | 5,000 to go |" in text
+
+    def test_markdown_export_counts_progress(self, tmp_path):
+        p = make_plan(total=50000, time=30, preexisting_words=20000)
+        p.calculate_daily()
+        p.record_progress(day(1), 1500)
+        path = tmp_path / "plan.md"
+
+        plan_export.export_to_markdown(p, path)
+
+        text = path.read_text()
+        assert "| 50% | Nov 06, 2026 | 25,000 | 21,500 | 5 | 3,500 to go |" in text
+        assert "| 100% |" in text and "28,500 to go |" in text

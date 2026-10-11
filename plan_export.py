@@ -406,15 +406,21 @@ def export_to_markdown(plan_obj, filepath=None):
     lines.append("## Milestones")
     lines.append("")
 
-    lines.append("| Progress | Date | Words | Plan Day | Status |")
-    lines.append("|----------|------|-------|----------|--------|")
+    lines.append("| Progress | Date | Target | Written | Plan Day | Status |")
+    lines.append("|----------|------|--------|---------|----------|--------|")
+
+    # Words written so far, pre-existing words included (like the targets)
+    written = plan_obj.get_total_written()
 
     for milestone in plan_obj.milestones():
         date_text = milestone['date'].strftime('%b %d, %Y') if milestone['date'] else "before the start"
         day_text = str(milestone['day']) if milestone['day'] else "-"
-        status = "✅ reached" if milestone['reached'] else ""
+        if milestone['reached']:
+            status = "✅ reached"
+        else:
+            status = f"{milestone['words'] - written:,.0f} to go"
         lines.append(f"| {int(milestone['fraction'] * 100)}% | {date_text} | "
-                     f"{milestone['words']:,.0f} | {day_text} | {status} |")
+                     f"{milestone['words']:,.0f} | {written:,.0f} | {day_text} | {status} |")
 
     lines.append("")
 
