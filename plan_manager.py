@@ -192,14 +192,16 @@ def add_tag_to_plan(plan_obj: plan.Plan, tag: str) -> bool:
         tag: Tag to add
 
     Returns:
-        True if successful, False otherwise
+        True if the tag was added; False if it was empty, the plan already
+        had it, or saving failed
     """
     try:
         tag = tag.strip().lower()
-        if tag and tag not in plan_obj.tags:
-            plan_obj.tags.append(tag)
-            plan_obj.last_modified = datetime.now()
-            plan_storage.save_plan(plan_obj, overwrite_source=True)
+        if not tag or tag in plan_obj.tags:
+            return False
+        plan_obj.tags.append(tag)
+        plan_obj.last_modified = datetime.now()
+        plan_storage.save_plan(plan_obj, overwrite_source=True)
         return True
     except Exception as e:
         print(f"Error adding tag: {e}")

@@ -8,6 +8,9 @@ omit =
     app.py
 
 [report]
+fail_under = 80
+show_missing = True
+skip_covered = True
 exclude_lines =
     pragma: no cover
     def __repr__

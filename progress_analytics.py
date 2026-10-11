@@ -5,6 +5,7 @@ import sys
 from typing import Dict, List, Tuple, Optional
 import plotext as plt
 import config
+from ui_utils import get_menu_choice
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -556,11 +557,7 @@ def show_analytics_menu(plan_obj):
         try:
             sys.stdout.flush()
             sys.stderr.flush()
-            choice_str = input("\nEnter your choice (0-6): ").strip()
-            if not choice_str:
-                print("Please enter a number.")
-                continue
-            choice = int(choice_str)
+            choice = get_menu_choice("\nEnter your choice (0-6): ", 0, 6)
 
             if choice == 0:
                 return
@@ -613,10 +610,6 @@ def show_analytics_menu(plan_obj):
                 plot_milestone_progress(plan_obj)
                 sys.stdout.flush()
                 input("Press Enter to continue...")
-            else:
-                print("Invalid choice. Please try again.")
         except ValueError as e:
-            print(f"Invalid input. Please enter a number. (Error: {e})")
-        except KeyboardInterrupt:
-            print("\nReturning to plan menu...")
-            return
+            # Menu choices are validated by get_menu_choice; this catches the rest
+            print(f"Error: {e}")

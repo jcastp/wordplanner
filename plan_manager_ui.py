@@ -639,16 +639,20 @@ def add_tags_ui():
     if not tags_input:
         return
 
-    tags = [t.strip() for t in tags_input.split(',') if t.strip()]
+    # Tags are stored lowercase; typing one twice adds it once
+    tags = list(dict.fromkeys(t.strip().lower() for t in tags_input.split(',') if t.strip()))
+    already = [t for t in tags if t in selected_plan.tags]
 
     success_count = 0
     for tag in tags:
-        if plan_manager.add_tag_to_plan(selected_plan, tag):
+        if tag not in already and plan_manager.add_tag_to_plan(selected_plan, tag):
             success_count += 1
 
     if success_count > 0:
         ui_utils.display_success(f"Added {success_count} tag(s).")
-    else:
+    if already:
+        print(f"Already tagged: {', '.join(already)}")
+    if success_count == 0 and len(already) < len(tags):
         ui_utils.display_error("Failed to add tags.")
 
     input("\nPress Enter to continue...")

@@ -933,69 +933,46 @@ Goal: Visualize your progress and analyze your writing patterns
 
 ### Running Tests
 
-The project includes a comprehensive test suite with 164+ tests covering core functionality, error handling, and multiple plans management.
+The project includes a test suite of 848 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
 
 #### Prerequisites
 
-Install testing dependencies:
+The test tools (pytest, pytest-cov, pytest-mock, freezegun, faker) are in the `test` extra, and uv installs them by default:
 
 ```bash
-# Using uv (recommended)
-uv pip install pytest pytest-cov
+# Using uv (recommended): `uv sync` installs them, `uv run` keeps them installed
+uv sync
 
 # Or using pip
-pip install pytest pytest-cov
+pip install -e ".[test]"
 ```
 
 #### Running Tests
 
 ```bash
 # Run all tests
-python3 -m pytest tests/ -v
+uv run pytest
 
-# Run tests with coverage report
-python3 -m pytest tests/ --cov=. --cov-report=html
+# Run all tests with coverage (fails under 80%, see .coveragerc)
+uv run pytest --cov
 
-# Run specific test file
-python3 -m pytest tests/test_plan.py -v
+# Same, plus an HTML report in htmlcov/
+uv run pytest --cov --cov-report=html
+
+# Run a specific file, or a single test
+uv run pytest tests/test_plan.py
+uv run pytest tests/test_plan.py::TestClass::test_name
 
 # Run only failed tests from last run
-python3 -m pytest tests/ --lf
+uv run pytest --lf
 
 # Run tests matching a pattern (e.g., all pattern-related tests)
-python3 -m pytest tests/ -k "pattern" -v
+uv run pytest -k "pattern"
 ```
 
 #### Test Coverage
 
-Current test coverage:
-- **Total Tests:** 164+
-- **Pass Rate:** 100%
-- **Coverage:** Core modules have 70-100% coverage
-
-Test breakdown by category:
-- **Core Tests:** 101 tests
-  - config.py: 100%
-  - plan_storage.py: 84%
-  - plan.py: 71%
-  - ui_utils.py: 59%
-- **Error Handling Tests:** 28 tests
-  - Division by zero handling
-  - Negative number validation
-  - Corrupted JSON handling
-  - File I/O error scenarios
-  - Invalid data handling
-- **Multiple Plans Tests:** 35+ tests
-  - Plan fields and serialization
-  - Filtering and sorting
-  - Active plan management
-  - Archive operations
-  - Tag and category management
-  - Plan comparison
-  - Search functionality
-  - Statistics dashboard
-
-For detailed test results and recommendations, see [TEST_RESULTS.md](TEST_RESULTS.md).
+Coverage is opt-in (`--cov`), so running one file or one test never fails on the threshold. A full run with `--cov` must reach 80%; it is currently about 88%, with the planning model (`plan.py`) at 94% and every screen module at 76% or more.
 
 #### Test Organization
 

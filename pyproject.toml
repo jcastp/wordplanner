@@ -17,3 +17,7 @@ test = [
     "freezegun>=1.2.0",
     "faker>=18.0.0",
 ]
+
+# `uv sync` / `uv run` install the default groups, so `uv run pytest` works
+[dependency-groups]
+dev = ["wordplanner[test]"]
