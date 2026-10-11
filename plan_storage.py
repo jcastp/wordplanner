@@ -1,7 +1,5 @@
 """Module for saving and loading writing plans to/from disk."""
 
-import json
-import os
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
@@ -109,6 +107,11 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
     """
     ensure_plans_directory()
 
+    old_source = plan_obj.source_file
+    old_active = plan_obj.is_active
+    old_modified = plan_obj.last_modified
+    new_file = False
+
     if custom_path:
         filepath = custom_path
     elif overwrite_source and plan_obj.source_file:
@@ -119,18 +122,32 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
         plan_name = plan_obj.name or f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         filename = get_plan_filename(plan_name)
         filepath = get_plans_directory() / filename
+        new_file = True
         # Update source_file since we're creating a new file
         plan_obj.source_file = filepath
+        # A copy of a saved plan is never the active plan: the original keeps
+        # that role, so there is only ever one active plan
+        if old_source is not None:
+            plan_obj.is_active = False
+
+    # "Last modified" means the content changed, not that it was written again
+    if new_file or plan_obj.has_unsaved_changes():
+        plan_obj.last_modified = datetime.now()
 
     # Save to file: atomically, keeping the previous version as <file>.bak
     try:
         write_atomically(filepath, plan_obj.to_json(), backup=True)
-    except PermissionError:
-        raise PermissionError(f"Permission denied: Cannot write to {filepath}")
-    except OSError as e:
-        raise OSError(f"Failed to save plan to {filepath}: {e}")
-    except Exception as e:
-        raise RuntimeError(f"Unexpected error saving plan: {e}")
+    except BaseException as e:
+        plan_obj.source_file = old_source
+        plan_obj.is_active = old_active
+        plan_obj.last_modified = old_modified
+        if isinstance(e, PermissionError):
+            raise PermissionError(f"Permission denied: Cannot write to {filepath}")
+        if isinstance(e, OSError):
+            raise OSError(f"Failed to save plan to {filepath}: {e}")
+        if isinstance(e, Exception):
+            raise RuntimeError(f"Unexpected error saving plan: {e}")
+        raise
 
     plan_obj.mark_saved()
     return filepath

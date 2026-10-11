@@ -149,11 +149,15 @@ def save_plan_prompt(newplan, ask=True):
                                         newplan.name = plan_name
 
                         try:
+                            was_active = newplan.is_active
                             filepath = plan_storage.save_plan(newplan, overwrite_source=overwrite)
                             if overwrite:
                                 display_success(f"Plan updated successfully in: {filepath}")
                             else:
                                 display_success(f"Plan saved as new file: {filepath}")
+                                if was_active and not newplan.is_active:
+                                    print("  The original stays your active plan. "
+                                          "Use 'Manage multiple plans' to switch.")
                             return True
                         except Exception as e:
                             display_error(f"Error saving plan: {e}")
