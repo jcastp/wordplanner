@@ -780,6 +780,38 @@ class Plan():
 
         return streak
 
+    def _expected_progress(self, as_of_date):
+        """
+        Words the schedule expects to be logged by the end of as_of_date.
+
+        Returns:
+            (expected words, excluding pre-existing words; writing days elapsed)
+        """
+        goals = self.build_schedule()['goals']
+        expected_words = 0
+        days_elapsed = 0
+
+        for day in self.plan_days():
+            if day > as_of_date:
+                break
+            expected_words += goals[day.strftime('%Y-%m-%d')]
+            if not self.is_spare_day(day):
+                days_elapsed += 1
+
+        # After a recalculation from progress, "on track" means following the
+        # new baseline: expected words start from what had been written then
+        if days_elapsed > 0:
+            expected_words = max(0, expected_words - self.schedule_adjustment)
+        return expected_words, days_elapsed
+
+    def get_planned_total(self, through):
+        """
+        Where the project should stand by the end of a day: pre-existing words
+        plus the goals up to it, on the same baseline as is_on_track() (so it
+        reaches total on the end date, even after a recalculation).
+        """
+        return self.preexisting_words + self._expected_progress(through)[0]
+
     def is_on_track(self, as_of_date=None):
         """
         Check if progress is on track based on expected progress.
@@ -802,22 +834,7 @@ class Plan():
         if as_of_date is None:
             as_of_date = to_midnight(datetime.datetime.now()) - timedelta(days=1)
 
-        # Calculate expected progress up to this date
-        goals = self.build_schedule()['goals']
-        expected_words = 0
-        days_elapsed = 0
-
-        for day in self.plan_days():
-            if day > as_of_date:
-                break
-            expected_words += goals[day.strftime('%Y-%m-%d')]
-            if not self.is_spare_day(day):
-                days_elapsed += 1
-
-        # After a recalculation from progress, "on track" means following the
-        # new baseline: expected words start from what had been written then
-        if days_elapsed > 0:
-            expected_words = max(0, expected_words - self.schedule_adjustment)
+        expected_words, days_elapsed = self._expected_progress(as_of_date)
 
         actual_words = self.get_plan_written()
         difference = actual_words - expected_words

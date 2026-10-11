@@ -277,86 +277,147 @@ def display_milestones(console, plan_obj, start_date, end_date):
     console.print()
 
 
-def display_weekly_summary(plan_obj, start_date):
-    """Display a week-by-week summary of the writing plan."""
-    console = Console()
+def weekly_summary(plan_obj):
+    """
+    The plan in 7-day weeks from the start date, with what was written.
 
-    table = Table(title="[bold cyan]Weekly Summary[/bold cyan]",
+    Rest days are days with a goal of 0 (spare days, weekend rest days,
+    custom or locked 0). Totals include pre-existing words, like the
+    calendar cells and milestones. For the current week, ahead/behind
+    compares everything written with the goals up to yesterday, like
+    is_on_track() (today isn't expected until it's over).
+
+    Returns:
+        A list of dicts, one per week: 'number', 'start', 'end',
+        'writing_days', 'rest_days', 'goals' (goals of the writing days),
+        'goal' (week's goal), 'planned_total', 'started', 'ended', and for
+        started weeks 'written', 'days_written', 'written_total' and
+        'difference' (words ahead, negative if behind; None otherwise).
+    """
+    days = list(plan_obj.plan_days())
+    today = plan.today()
+    weeks = []
+
+    for number, first in enumerate(range(0, len(days), 7), 1):
+        week_days = days[first:first + 7]
+        start, end = week_days[0], week_days[-1]
+        goals = [plan_obj.get_daily_goal(date=d) for d in week_days]
+        week = {
+            'number': number,
+            'start': start,
+            'end': end,
+            'writing_days': sum(1 for g in goals if g > 0),
+            'rest_days': sum(1 for g in goals if g == 0),
+            'goals': [g for g in goals if g > 0],
+            'goal': sum(goals),
+            'planned_total': plan_obj.get_planned_total(end),
+            'started': start <= today,
+            'ended': end < today,
+            'written': None,
+            'days_written': None,
+            'written_total': None,
+            'difference': None,
+        }
+        if week['started']:
+            before = start - timedelta(days=1)
+            week['written'] = plan_obj.get_plan_written(through=end) - plan_obj.get_plan_written(through=before)
+            week['days_written'] = sum(1 for d in week_days if (plan_obj.get_progress_for_date(d) or 0) > 0)
+            week['written_total'] = plan_obj.get_total_written(through=end)
+            # The current week is expected only up to yesterday
+            expected_through = end if week['ended'] else today - timedelta(days=1)
+            week['difference'] = week['written_total'] - plan_obj.get_planned_total(expected_through)
+        weeks.append(week)
+
+    return weeks
+
+
+def format_week_goal(week):
+    """The daily goal of a week's writing days: one value, or the range."""
+    if not week['goals']:
+        return "-"
+    low, high = min(week['goals']), max(week['goals'])
+    if high - low < 1:
+        return f"{high:,.0f}"
+    return f"{low:,.0f}-{high:,.0f}"
+
+
+def format_week_written(week):
+    """Words written in a week, with ✓ / ~ / ✗ and the share of its goal."""
+    if not week['started']:
+        return ""
+    written, goal = week['written'], week['goal']
+    if goal > 0 and written >= goal - 0.5:
+        icon = "[green]✓[/green]"
+    elif not week['ended']:
+        icon = ""   # still running
+    elif written > 0:
+        icon = "[yellow]~[/yellow]"
+    else:
+        icon = "[red]✗[/red]"
+    text = f"{written:,.0f}"
+    if icon:
+        text += f" {icon}"
+    if goal > 0:
+        text += f" {written / goal * 100:.0f}%"
+    return text
+
+
+def format_difference(difference):
+    """Words ahead (+, green) or behind (-, red)."""
+    if difference is None:
+        return ""
+    if round(difference) > 0:
+        return f"[green]+{difference:,.0f}[/green]"
+    if round(difference) < 0:
+        return f"[red]-{abs(difference):,.0f}[/red]"
+    return "0"
+
+
+def display_weekly_summary(plan_obj, start_date):
+    """Display a week-by-week summary of the writing plan, with what was written."""
+    console = Console()
+    weeks = weekly_summary(plan_obj)
+    if not weeks:
+        console.print("\nThis plan has no days to show.")
+        return
+
+    first, last = weeks[0]['start'], weeks[-1]['end']
+    table = Table(title=f"[bold cyan]Weekly Summary[/bold cyan] "
+                        f"({first.strftime('%b %d, %Y')} - {last.strftime('%b %d, %Y')})",
                  border_style="blue",
                  show_header=True,
                  header_style="bold magenta")
 
-    table.add_column("Week", justify="center", style="cyan", width=8)
-    table.add_column("Dates", justify="center", style="yellow", width=30)
-    table.add_column("Writing Days", justify="center", style="green", width=15)
-    table.add_column("Spare Days", justify="center", style="orange1", width=12)
-    table.add_column("Daily Goal", justify="right", style="green", width=15)
-    table.add_column("Weekly Total", justify="right", style="bold green", width=15)
-    table.add_column("Cumulative", justify="right", style="bold cyan", width=15)
+    table.add_column("Week", justify="center", style="cyan")
+    table.add_column("Dates", justify="center", style="yellow", no_wrap=True)
+    table.add_column("Days Written", justify="center", style="green")
+    table.add_column("Rest Days", justify="center", style="orange1")
+    table.add_column("Daily Goal", justify="right", style="green", no_wrap=True)
+    table.add_column("Weekly Goal", justify="right", style="bold green")
+    table.add_column("Written", justify="right", no_wrap=True)
+    table.add_column("Planned Total", justify="right", style="cyan")
+    table.add_column("Actual Total", justify="right", style="bold cyan")
+    table.add_column("+/-", justify="right", no_wrap=True)
 
-    total_days = plan_obj.total_calendar_days
-    current_date = start_date
-    week_num = 1
-    cumulative_words = 0
-    days_remaining = total_days
-
-    while days_remaining > 0:
-        # Calculate days in this week
-        days_in_week = min(7, days_remaining)
-        week_end = current_date + timedelta(days=days_in_week - 1)
-
-        # Count writing days and spare days in this week, and sum daily goals
-        writing_days_in_week = 0
-        spare_days_in_week = 0
-        weekly_words = 0
-        daily_goals_in_week = []
-
-        check_date = current_date
-        for i in range(days_in_week):
-            if plan_obj.is_spare_day(check_date):
-                spare_days_in_week += 1
-            else:
-                writing_days_in_week += 1
-                daily_goal = plan_obj.get_daily_goal(date=check_date)
-                daily_goals_in_week.append(daily_goal)
-                weekly_words += daily_goal
-            check_date += timedelta(days=1)
-
-        cumulative_words += int(weekly_words)
-
-        # Calculate average daily goal for this week (for display)
-        avg_daily_goal = sum(daily_goals_in_week) / len(daily_goals_in_week) if daily_goals_in_week else 0
-
-        # Format date range
-        date_range = f"{current_date.strftime('%b %d')} - {week_end.strftime('%b %d, %Y')}"
-
-        # If pattern is flat, show single value; otherwise show average or range
-        if plan_obj.pattern == "flat":
-            daily_goal_str = f"{plan_obj.daily:,.0f}"
+    for week in weeks:
+        if week['started']:
+            days_written = f"{week['days_written']}/{week['writing_days']}"
+            actual_total = f"{week['written_total']:,.0f}"
         else:
-            if daily_goals_in_week:
-                min_goal = min(daily_goals_in_week)
-                max_goal = max(daily_goals_in_week)
-                if abs(max_goal - min_goal) < 1:  # Nearly the same
-                    daily_goal_str = f"{avg_daily_goal:,.0f}"
-                else:
-                    daily_goal_str = f"{min_goal:,.0f}-{max_goal:,.0f}"
-            else:
-                daily_goal_str = "-"
-
+            days_written = f"-/{week['writing_days']}"
+            actual_total = ""
         table.add_row(
-            f"{week_num}",
-            date_range,
-            f"{writing_days_in_week}",
-            f"{spare_days_in_week}" if spare_days_in_week > 0 else "-",
-            daily_goal_str,
-            f"{int(weekly_words):,.0f}",
-            f"{cumulative_words:,.0f}"
+            str(week['number']),
+            f"{week['start'].strftime('%b %d')} - {week['end'].strftime('%b %d')}",
+            days_written,
+            str(week['rest_days']) if week['rest_days'] else "-",
+            format_week_goal(week),
+            f"{week['goal']:,.0f}",
+            format_week_written(week),
+            f"{week['planned_total']:,.0f}",
+            actual_total,
+            format_difference(week['difference']),
         )
-
-        current_date = week_end + timedelta(days=1)
-        days_remaining -= days_in_week
-        week_num += 1
 
     console.print()
     console.print(table)

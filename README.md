@@ -191,12 +191,12 @@ Beautiful terminal-based calendar views powered by Rich:
   - Spare days marked in orange
   - Weekend highlighting
   - Week numbers
-- Weekly summary - Week-by-week breakdown showing:
+- Weekly summary - Week-by-week breakdown (7-day weeks from the start date) showing:
   - Date ranges for each week
-  - Writing days vs spare days per week
-  - Daily goal ranges for variable patterns
-  - Weekly word totals
-  - Cumulative progress
+  - Days written out of the week's writing days, and rest days (spare days and weekend rest days)
+  - Daily goal, or its range when it varies (patterns, weekend goals, custom day goals)
+  - Weekly goal and the words written that week, with ✓ / ~ / ✗ and the share of the goal
+  - Planned and actual running totals (pre-existing words included), and words ahead (+) or behind (-) by the end of each week; the current week counts goals up to yesterday
 - Milestone tracking - Key progress points at 25%, 50%, 75%, 100%
 - Progress summary in calendar header - Shows completion % and on-track status
 - Start date set during plan creation - No prompts when viewing calendar
