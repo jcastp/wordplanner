@@ -13,6 +13,7 @@ import plan_storage
 import plan_export
 import progress_analytics
 import plan_templates
+import plan_manager
 import config
 import user_preferences
 from ui_utils import (
@@ -26,8 +27,13 @@ from pattern_utils import choose_writing_pattern, get_pattern_description, get_p
 # (get_yes_no, get_positive_number, get_date_input)
 
 
-def initial_menu():
-    """Display the initial menu: create new plan or load existing."""
+def initial_menu(current_plan=None):
+    """
+    Display the initial menu: create new plan or load existing.
+
+    Args:
+        current_plan: The current (★) plan, if any: adds "Continue" as option 6
+    """
     display_header("WORD COUNT PLANNER")
     print("\nWhat would you like to do?")
     print("\n1. Create a new plan from scratch")
@@ -35,10 +41,14 @@ def initial_menu():
     print("3. Load an existing plan")
     print("4. Manage multiple plans")
     print("5. Settings")
+    last = 5
+    if current_plan is not None:
+        print(f"6. Continue the current plan: ★ {current_plan.name or 'Unnamed'}")
+        last = 6
     print("0. Exit")
     print("=" * 50)
 
-    return get_menu_choice("\nEnter your choice (0-5): ", 0, 5)
+    return get_menu_choice(f"\nEnter your choice (0-{last}): ", 0, last)
 
 
 # choose_writing_pattern is now imported from pattern_utils module
@@ -156,7 +166,7 @@ def save_plan_prompt(newplan, ask=True):
                             else:
                                 display_success(f"Plan saved as new file: {filepath}")
                                 if was_active and not newplan.is_active:
-                                    print("  The original stays your active plan. "
+                                    print("  The original stays your current plan (★). "
                                           "Use 'Manage multiple plans' to switch.")
                             return True
                         except Exception as e:
@@ -2190,9 +2200,37 @@ def create_new_plan():
         handle_plan_actions(newplan)
 
 
+def offer_to_move_plans(old_plans_dir):
+    """
+    After the save directory changed, offer to move the plans in the old one (S4).
+
+    Plans are only listed from the current directory, so plans left behind
+    would disappear from the app (they stay on disk).
+    """
+    new_plans_dir = plan_storage.get_plans_directory()
+    if not old_plans_dir.is_dir() or old_plans_dir.resolve() == new_plans_dir.resolve():
+        return
+    count = len(list(old_plans_dir.glob("*.json")))
+    if count == 0:
+        return
+
+    print(f"\n{count} plan(s) are in the previous folder: {old_plans_dir}")
+    print("Only plans in the current folder are listed in the app.")
+    if not get_yes_no(f"Move them to {new_plans_dir}?", default='y'):
+        print(f"They stay in {old_plans_dir}.")
+        return
+
+    moved, skipped = plan_storage.move_plans(old_plans_dir, new_plans_dir)
+    display_success(f"Moved {moved} plan(s) to {new_plans_dir}")
+    if skipped:
+        display_warning(f"{len(skipped)} plan(s) not moved: a file with the same name "
+                        f"is already there ({', '.join(skipped[:3])}{'...' if len(skipped) > 3 else ''})")
+
+
 def configure_save_directory():
     """Configure the custom save directory for plans and exports."""
     display_header("CONFIGURE SAVE DIRECTORY")
+    old_plans_dir = plan_storage.get_plans_directory()
 
     # Show current directory
     current_custom_dir = user_preferences.get_custom_save_directory()
@@ -2272,6 +2310,7 @@ def configure_save_directory():
         display_success(f"Custom save directory set to: {custom_path}")
         print(f"\nPlans will be saved in: {custom_path}/plans")
         print(f"Exports will be saved in: {custom_path}/exports")
+        offer_to_move_plans(old_plans_dir)
 
     elif choice == 2:
         # Reset to default
@@ -2280,6 +2319,7 @@ def configure_save_directory():
                 user_preferences.set_custom_save_directory(None)
                 default_dir = Path.home() / config.SAVE_DIRECTORY
                 display_success(f"Reset to default directory: {default_dir}")
+                offer_to_move_plans(old_plans_dir)
         else:
             display_warning("Already using default directory.")
 
@@ -2338,7 +2378,8 @@ def main():
 def main_menu_loop():
     """The main menu, until the user exits."""
     while True:
-        choice = initial_menu()
+        current_plan = plan_manager.get_active_plan()
+        choice = initial_menu(current_plan)
 
         if choice == 0:
             print("\nThank you for using Word Count Planner. Happy writing!")
@@ -2366,6 +2407,10 @@ def main_menu_loop():
         elif choice == 5:
             # Settings
             settings_menu()
+
+        elif choice == 6:
+            # Continue the current plan
+            handle_plan_actions(current_plan)
 
 
 if __name__ == "__main__":

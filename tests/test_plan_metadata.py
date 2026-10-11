@@ -134,4 +134,4 @@ class TestSaveAsNewCopy:
         with contextlib.redirect_stdout(out):
             assert planea.save_plan_prompt(active_plan, ask=False)
 
-        assert "The original stays your active plan" in out.getvalue()
+        assert "The original stays your current plan" in out.getvalue()

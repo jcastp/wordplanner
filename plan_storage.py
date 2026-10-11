@@ -1,5 +1,6 @@
 """Module for saving and loading writing plans to/from disk."""
 
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
@@ -284,3 +285,32 @@ def delete_plan(filepath: Path) -> bool:
         raise PermissionError(f"Permission denied: Cannot delete {filepath}")
     except OSError as e:
         raise OSError(f"Failed to delete plan file {filepath}: {e}")
+
+
+def move_plans(from_dir: Path, to_dir: Path) -> tuple:
+    """
+    Move every plan file (and its .bak backup) from one plans directory to another.
+
+    Used when the save directory changes, so existing plans don't disappear
+    from the list. A plan whose file name already exists in to_dir is left
+    where it is.
+
+    Returns:
+        (number of plans moved, list of file names left behind)
+    """
+    from_dir, to_dir = Path(from_dir), Path(to_dir)
+    if not from_dir.is_dir() or from_dir.resolve() == to_dir.resolve():
+        return 0, []
+    to_dir.mkdir(parents=True, exist_ok=True)
+
+    moved, skipped = 0, []
+    for filepath in sorted(from_dir.glob("*.json")):
+        target = to_dir / filepath.name
+        if target.exists():
+            skipped.append(filepath.name)
+            continue
+        shutil.move(str(filepath), str(target))
+        if backup_path(filepath).exists() and not backup_path(target).exists():
+            shutil.move(str(backup_path(filepath)), str(backup_path(target)))
+        moved += 1
+    return moved, skipped

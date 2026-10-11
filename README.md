@@ -242,11 +242,13 @@ Organize and manage multiple writing projects simultaneously:
   - Tag usage analysis
   - Average completion tracking
   - Plans with progress reporting
-- **Active Plan Feature** - Focus on what matters
-  - Set one plan as currently active
-  - Quick access to your main project
-  - Only one active plan at a time for focus
-  - Active indicator (★) shown in all plan listings
+- **Current Plan** - Focus on what matters
+  - Make one plan the current plan (★)
+  - "Continue the current plan" right from the main menu
+  - Only one current plan at a time for focus
+  - Current-plan indicator (★) shown in all plan listings
+- **Open and delete plans** from the plan manager (deleting asks first and also removes the plan's backup)
+- **Changing the save directory** offers to move your existing plans to the new folder
 
 ## Installation
 
@@ -730,7 +732,7 @@ Goal: Organize and track multiple writing projects simultaneously
    Total Plans: 5
    Active: 3 | Archived: 1 | Completed: 1
 
-   ★ Currently Active: Novel Draft 2
+   ★ Current plan: Novel Draft 2
 
    Active Plans (3):
    ★ • Novel Draft 2
@@ -755,13 +757,13 @@ Goal: Organize and track multiple writing projects simultaneously
            Perfect for focusing on long-form work
    ```
 
-3. Set Active Plan
+3. Set the Current Plan
    ```
-   Choose: "Set active plan"
+   Choose: "Set the current plan (★)"
    Select: "Blog Series"
 
-   Result: ★ Blog Series marked as active
-           Quick access to your current focus
+   Result: ★ Blog Series is the current plan
+           The main menu now offers "Continue the current plan: ★ Blog Series"
    ```
 
 4. Add Tags to a Plan

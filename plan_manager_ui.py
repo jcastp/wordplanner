@@ -35,7 +35,7 @@ def display_plans_overview():
     print(f"Total Written: {stats['total_words_written']:,} words")
 
     if stats['active_plan']:
-        print(f"\n★ Currently Active: {stats['active_plan'].name}")
+        print(f"\n★ Current plan: {stats['active_plan'].name}")
 
     # Display active plans
     if plans_by_status['active']:
@@ -103,10 +103,12 @@ def manage_plans_menu():
             (2, "Filter and sort plans"),
             (3, "Search plans"),
             (4, "Compare plans"),
-            (5, "Set active plan"),
+            (5, "Set the current plan (★)"),
             (6, "Manage plan categories and tags"),
             (7, "Archive/Unarchive plans"),
             (8, "View plan statistics"),
+            (9, "Open a plan"),
+            (10, "Delete a plan"),
         ]
 
         choice = ui_utils.display_menu("Manage Multiple Plans", options, show_exit=True)
@@ -131,6 +133,10 @@ def manage_plans_menu():
         elif choice == 8:
             display_plan_statistics()
             input("\nPress Enter to continue...")
+        elif choice == 9:
+            open_plan_ui()
+        elif choice == 10:
+            delete_plan_ui()
 
 
 def filter_and_sort_menu():
@@ -434,9 +440,66 @@ def _display_plans_comparison(plans: list):
     print(f"  Average daily goal: {comparison['summary']['avg_daily']:,.0f} words/day")
 
 
+def choose_plan(prompt: str):
+    """
+    List all plans (★ marks the current one) and let the user pick one.
+
+    Returns:
+        The chosen Plan, or None (no plans, or "Go back")
+    """
+    all_plans = plan_manager.get_all_plans()
+    if not all_plans:
+        print("\nNo plans available.")
+        input("\nPress Enter to continue...")
+        return None
+
+    print(f"\n{prompt}")
+    for idx, p in enumerate(all_plans, 1):
+        marker = " ★" if p.is_active else ""
+        status = f" [{p.status}]" if p.status != "active" else ""
+        print(f"{idx}. {p.name or 'Unnamed'}{marker}{status}")
+    print("0. Go back")
+
+    choice = ui_utils.get_menu_choice("\nChoice: ", 0, len(all_plans))
+    return all_plans[choice - 1] if choice else None
+
+
+def open_plan_ui():
+    """Open a plan from the plan manager, with the usual plan actions (S4)."""
+    ui_utils.display_header("Open a Plan", width=70)
+    selected_plan = choose_plan("Select a plan to open:")
+    if selected_plan is None:
+        return
+
+    import planea  # planea imports this module lazily too
+    planea.handle_plan_actions(selected_plan)
+
+
+def delete_plan_ui():
+    """Delete a plan file (and its backup) after confirmation (S4)."""
+    ui_utils.display_header("Delete a Plan", width=70)
+    selected_plan = choose_plan("Select a plan to delete:")
+    if selected_plan is None:
+        return
+
+    name = selected_plan.name or "Unnamed"
+    print(f"\nThis permanently deletes '{name}' and its backup:")
+    print(f"  {selected_plan.source_file}")
+    if ui_utils.get_yes_no(f"Delete '{name}'?", default='n'):
+        try:
+            plan_storage.delete_plan(selected_plan.source_file)
+            ui_utils.display_success(f"'{name}' deleted.")
+        except (OSError, FileNotFoundError) as e:
+            ui_utils.display_error(f"Could not delete the plan: {e}")
+    else:
+        print("Nothing deleted.")
+
+    input("\nPress Enter to continue...")
+
+
 def set_active_plan_ui():
-    """Set a plan as the active plan."""
-    ui_utils.display_header("Set Active Plan", width=70)
+    """Choose the current plan (★): the one "Continue" opens from the main menu."""
+    ui_utils.display_header("Set the Current Plan", width=70)
 
     all_plans = plan_manager.get_all_plans()
 
@@ -445,32 +508,31 @@ def set_active_plan_ui():
         input("\nPress Enter to continue...")
         return
 
-    current_active = plan_manager.get_active_plan()
-
-    print("\nSelect a plan to set as active:")
+    print("\nThe current plan (★) can be opened from the main menu with 'Continue'.")
+    print("Select a plan to make it the current plan:")
     print("=" * 70)
 
     for idx, p in enumerate(all_plans, 1):
-        active_str = " (currently active)" if p.is_active else ""
+        active_str = " ★ (current)" if p.is_active else ""
         print(f"{idx}. {p.name or 'Unnamed'}{active_str}")
 
-    print("0. Clear active plan")
+    print("0. No current plan")
 
     choice = ui_utils.get_menu_choice("\nChoice: ", 0, len(all_plans))
 
     if choice == 0:
-        if ui_utils.get_yes_no("Clear the active plan?", default='n'):
+        if ui_utils.get_yes_no("Clear the current plan?", default='n'):
             if plan_manager.clear_active_plan():
-                ui_utils.display_success("Active plan cleared.")
+                ui_utils.display_success("No plan is the current plan now.")
             else:
-                ui_utils.display_error("Failed to clear active plan.")
+                ui_utils.display_error("Failed to clear the current plan.")
     else:
         selected_plan = all_plans[choice - 1]
         if selected_plan.source_file:
             if plan_manager.set_active_plan(selected_plan.source_file):
-                ui_utils.display_success(f"'{selected_plan.name}' set as active plan.")
+                ui_utils.display_success(f"'{selected_plan.name}' is now the current plan.")
             else:
-                ui_utils.display_error("Failed to set active plan.")
+                ui_utils.display_error("Failed to set the current plan.")
 
     input("\nPress Enter to continue...")
 
@@ -848,5 +910,5 @@ def display_plan_statistics():
         print(f"  {', '.join(stats['tags'])}")
 
     if stats['active_plan']:
-        print(f"\nCurrently Active Plan:")
+        print(f"\nCurrent plan:")
         print(f"  ★ {stats['active_plan'].name}")
