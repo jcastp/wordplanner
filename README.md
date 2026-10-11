@@ -103,15 +103,15 @@ Distribute your writing goals with different patterns to match your energy and s
 #### Plan Templates
 - **Pre-configured Templates** - Start writing faster with ready-made plans
   - NaNoWriMo: 50,000 words in 30 days (1,667 words/day)
-  - Short Story: 5,000 words in 7 days
-  - Novel Draft: 80,000 words in 60 days
-  - Blog Post: 1,500 words in 1 day
-  - Academic Paper: 10,000 words in 14 days
-  - Novella: 30,000 words in 30 days
-  - Screenplay: 25,000 words in 45 days
-  - Weekly Goal: 7,000 words in 7 days
-  - Daily Sprint (1K): 30,000 words at 1,000/day
-  - Daily Habit (500): 15,000 words at 500/day
+  - Short Story: 5,000 words in 7 days (714 words/day)
+  - Novel Draft: 80,000 words in 60 days (1,333 words/day)
+  - Blog Post: 1,500 words in 1 day (1,500 words/day)
+  - Academic Paper: 10,000 words in 14 days (714 words/day)
+  - Novella: 30,000 words in 30 days (1,000 words/day)
+  - Screenplay: 25,000 words in 45 days (556 words/day)
+  - Weekly Writing Goal: 7,000 words in 7 days (1,000 words/day)
+  - 1K Daily Sprint: 30,000 words at 1,000 words/day (30 days)
+  - 500 Word Daily Habit: 15,000 words at 500 words/day (30 days)
 - **Template Customization** - Adapt templates to your needs
   - Modify word count, duration, or daily goals
   - Choose start date
@@ -156,7 +156,7 @@ Share and use your plans in other applications:
   - Daily events with word goals
   - Spare days as transparent events
   - Compatible with Google Calendar, Apple Calendar, Outlook
-  - Reminders and notifications (app-dependent)
+  - Optional reminder at a time you choose on each writing day (whether imported reminders are kept depends on the calendar app)
   - Full calendar integration
 - **Markdown Export** - Readable text format
   - Complete plan overview
@@ -198,7 +198,7 @@ Beautiful terminal-based calendar views powered by Rich:
   - Days written out of the week's writing days, and rest days (spare days and weekend rest days)
   - Daily goal, or its range when it varies (patterns, weekend goals, custom day goals)
   - Weekly goal and the words written that week, with ✓ / ~ / ✗ and the share of the goal
-  - Planned and actual running totals (pre-existing words included), and words ahead (+) or behind (-) by the end of each week; the current week counts goals up to yesterday
+  - Planned and actual running totals (pre-existing words included), and words ahead (+) or behind (-) by the end of each week; for the current week, the planned total and the difference count goals up to yesterday (today counts once it's over)
 - Milestone tracking - Key progress points at 25%, 50%, 75%, 100%
 - Progress summary in calendar header - Shows completion % and on-track status
 - Start date set during plan creation - No prompts when viewing calendar

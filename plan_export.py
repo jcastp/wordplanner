@@ -167,7 +167,22 @@ def ical_fold(line):
     return "\r\n".join(parts)
 
 
-def export_to_ical(plan_obj, filepath=None):
+def ical_time_offset(reminder):
+    """
+    A time of day as an RFC 5545 duration from midnight (09:30 -> PT9H30M).
+
+    All-day events start at midnight, so this offset from the start is the
+    alarm's time of day.
+    """
+    duration = "PT"
+    if reminder.hour:
+        duration += f"{reminder.hour}H"
+    if reminder.minute:
+        duration += f"{reminder.minute}M"
+    return duration if duration != "PT" else "PT0S"
+
+
+def export_to_ical(plan_obj, filepath=None, reminder=None):
     """
     Export plan to iCal/ICS format for calendar apps (RFC 5545).
 
@@ -176,9 +191,13 @@ def export_to_ical(plan_obj, filepath=None):
     0. Event UIDs come from the plan's plan_id and the date, so re-importing
     after a rename updates the events instead of duplicating them.
 
+    With a reminder time, each writing day's event gets an alarm (VALARM) at
+    that time of the day. Rest days get none.
+
     Args:
         plan_obj: Plan object to export
         filepath: Optional custom filepath (defaults to exports directory)
+        reminder: Optional datetime.time for the writing-day alarms
 
     Returns:
         Path to the exported file
@@ -226,7 +245,7 @@ def export_to_ical(plan_obj, filepath=None):
                            f"Total goal: {plan_obj.total:,.0f} words")
             transparency = "OPAQUE"
 
-        lines.extend([
+        event = [
             "BEGIN:VEVENT",
             f"UID:{kind}-{date_str}-{plan_obj.plan_id}@wordplanner",
             f"DTSTAMP:{dtstamp}",
@@ -236,8 +255,17 @@ def export_to_ical(plan_obj, filepath=None):
             f"DESCRIPTION:{ical_escape(description)}",
             "STATUS:CONFIRMED",
             f"TRANSP:{transparency}",
-            "END:VEVENT",
-        ])
+        ]
+        if reminder is not None and kind == "writing":
+            event.extend([
+                "BEGIN:VALARM",
+                "ACTION:DISPLAY",
+                f"DESCRIPTION:{ical_escape(summary)}",
+                f"TRIGGER;RELATED=START:{ical_time_offset(reminder)}",
+                "END:VALARM",
+            ])
+        event.append("END:VEVENT")
+        lines.extend(event)
 
     lines.append("END:VCALENDAR")
     content = "".join(ical_fold(line) + "\r\n" for line in lines)

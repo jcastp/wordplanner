@@ -311,7 +311,9 @@ def weekly_summary(plan_obj):
     custom or locked 0). Totals include pre-existing words, like the
     calendar cells and milestones. For the current week, ahead/behind
     compares everything written with the goals up to yesterday, like
-    is_on_track() (today isn't expected until it's over).
+    is_on_track() (today isn't expected until it's over), and its
+    'planned_total' is the planned total up to yesterday too, so that
+    'written_total' - 'planned_total' is always 'difference'.
 
     Returns:
         A list of dicts, one per week: 'number', 'start', 'end',
@@ -349,9 +351,11 @@ def weekly_summary(plan_obj):
             week['written'] = plan_obj.get_plan_written(through=end) - plan_obj.get_plan_written(through=before)
             week['days_written'] = sum(1 for d in week_days if (plan_obj.get_progress_for_date(d) or 0) > 0)
             week['written_total'] = plan_obj.get_total_written(through=end)
-            # The current week is expected only up to yesterday
+            # The current week is expected only up to yesterday; its planned
+            # total is measured there too, so actual - planned = difference
             expected_through = end if week['ended'] else today - timedelta(days=1)
-            week['difference'] = week['written_total'] - plan_obj.get_planned_total(expected_through)
+            week['planned_total'] = plan_obj.get_planned_total(expected_through)
+            week['difference'] = week['written_total'] - week['planned_total']
         weeks.append(week)
 
     return weeks

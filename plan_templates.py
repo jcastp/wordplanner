@@ -2,6 +2,7 @@
 
 import copy
 import datetime
+import math
 import plan
 
 
@@ -67,16 +68,35 @@ class PlanTemplate:
 
         return new_plan
 
+    def planned_days(self):
+        """Days the template lasts: its own, or the days its daily goal needs (None if unknown)."""
+        if self.time:
+            return self.time
+        if self.daily:
+            return math.ceil(self.total / self.daily)
+        return None
+
+    def planned_daily(self):
+        """Words per day: the template's own, or its total spread over its days (None if unknown)."""
+        if self.daily:
+            return self.daily
+        if self.time:
+            return self.total / self.time
+        return None
+
     def __str__(self):
-        """String representation of template."""
-        if self.time and self.daily:
-            return f"{self.name}: {self.total:,.0f} words in {self.time} days ({self.daily:,.0f} words/day)"
-        elif self.time:
-            return f"{self.name}: {self.total:,.0f} words in {self.time} days"
-        elif self.daily:
-            return f"{self.name}: {self.total:,.0f} words at {self.daily:,.0f} words/day"
-        else:
+        """String representation: the total, the days and the words per day."""
+        days, daily = self.planned_days(), self.planned_daily()
+        if days is None:
             return f"{self.name}: {self.total:,.0f} words"
+        if self.time:
+            return f"{self.name}: {self.total:,.0f} words in {days_text(days)} ({daily:,.0f} words/day)"
+        return f"{self.name}: {self.total:,.0f} words at {daily:,.0f} words/day ({days_text(days)})"
+
+
+def days_text(days):
+    """'1 day', '30 days'."""
+    return f"{days:,.0f} day" if days == 1 else f"{days:,.0f} days"
 
 
 # Pre-defined templates

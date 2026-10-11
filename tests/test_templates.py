@@ -105,3 +105,31 @@ class TestTemplatePatternIntensity:
         assert spread(mild) == pytest.approx(1.5)
         assert spread(extreme) > 6
         assert sum(mild.get_daily_goal(date=d) for d in mild.plan_days()) == pytest.approx(5000)
+
+
+class TestTemplateWording:
+    """The list said "1,500 words in 1 days" and gave no words per day for most templates."""
+
+    @pytest.mark.parametrize("key, text", [
+        ('nanowrimo', "NaNoWriMo: 50,000 words in 30 days (1,667 words/day)"),
+        ('blog_post', "Blog Post: 1,500 words in 1 day (1,500 words/day)"),
+        ('sprint_500', "500 Word Daily Habit: 15,000 words at 500 words/day (30 days)"),
+    ])
+    def test_list_line(self, key, text):
+        assert str(plan_templates.get_template(key)) == text
+
+    def test_days_round_up(self):
+        template = plan_templates.create_custom_template("T", "d", total=1001, daily=500)
+
+        assert template.planned_days() == 3
+        assert str(template) == "T: 1,001 words at 500 words/day (3 days)"
+
+    def test_without_time_or_daily(self):
+        template = plan_templates.create_custom_template("T", "d", total=1000)
+
+        assert template.planned_days() is None and template.planned_daily() is None
+        assert str(template) == "T: 1,000 words"
+
+    @pytest.mark.parametrize("days, text", [(1, "1 day"), (2, "2 days"), (1500, "1,500 days")])
+    def test_days_text(self, days, text):
+        assert plan_templates.days_text(days) == text

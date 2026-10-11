@@ -119,6 +119,20 @@ class TestProgress:
         assert second['difference'] == pytest.approx(p.is_on_track()[1]['difference'])
         assert calendar_view.format_week_written(second) == "500 8%"
 
+    def test_current_week_planned_total_matches_the_difference(self, p):
+        # Planned total up to yesterday, like the difference: a week where
+        # today's goal was in the planned total but not in +/- read as a contradiction
+        second = weeks(p)[1]
+
+        assert second['planned_total'] == pytest.approx(1000 + 9 * 950)
+        assert second['written_total'] - second['planned_total'] == pytest.approx(second['difference'])
+
+    def test_ended_and_future_weeks_plan_to_their_last_day(self, p):
+        first, second, third = weeks(p)
+
+        assert first['planned_total'] == pytest.approx(1000 + 7 * 950)
+        assert third['planned_total'] == pytest.approx(p.get_planned_total(third['end']))
+
     def test_writing_today_counts(self, p):
         p.record_progress(day(9), 3000)
 

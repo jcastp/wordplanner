@@ -4,6 +4,7 @@ Save, load and export screens.
 Split out of planea.py (issues-program.org Q3).
 """
 
+from datetime import datetime
 import plan_storage
 import plan_export
 from ui_utils import get_yes_no, get_menu_choice, display_success, display_error
@@ -130,6 +131,26 @@ def load_saved_plan():
         return None
 
 
+DEFAULT_REMINDER = "09:00"
+
+
+def ask_reminder_time():
+    """
+    Ask whether the iCal events get a reminder, and at what time.
+
+    Returns:
+        A datetime.time, or None for no reminders
+    """
+    if not get_yes_no("\nAdd a reminder on each writing day?", default='y'):
+        return None
+    while True:
+        text = input(f"Reminder time (HH:MM, or press Enter for {DEFAULT_REMINDER}): ").strip()
+        try:
+            return datetime.strptime(text or DEFAULT_REMINDER, "%H:%M").time()
+        except ValueError:
+            display_error(f"Invalid time '{text}'. Use HH:MM, e.g. 08:30 or 19:00.")
+
+
 def export_plan_menu(current_plan):
     """Display export menu and handle export operations."""
     if not current_plan.start_date:
@@ -147,7 +168,7 @@ def export_plan_menu(current_plan):
     print("   - Compatible with Excel, Google Sheets, etc.")
     print("\n2. iCal/ICS (Calendar)")
     print("   - Import into Google Calendar, Apple Calendar, etc.")
-    print("   - Daily writing reminders")
+    print("   - Optional reminder on each writing day")
     print("\n3. Markdown (Text)")
     print("   - Readable text format")
     print("   - Good for sharing or documentation")
@@ -172,6 +193,8 @@ def export_plan_menu(current_plan):
         elif choice == 4:
             formats_to_export = ['csv', 'ical', 'markdown']
 
+        reminder = ask_reminder_time() if 'ical' in formats_to_export else None
+
         # Export each format
         exported_files = []
         for fmt in formats_to_export:
@@ -180,7 +203,7 @@ def export_plan_menu(current_plan):
                     filepath = plan_export.export_to_csv(current_plan)
                     display_success(f"CSV exported: {filepath}")
                 elif fmt == 'ical':
-                    filepath = plan_export.export_to_ical(current_plan)
+                    filepath = plan_export.export_to_ical(current_plan, reminder=reminder)
                     display_success(f"iCal exported: {filepath}")
                 elif fmt == 'markdown':
                     filepath = plan_export.export_to_markdown(current_plan)

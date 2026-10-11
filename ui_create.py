@@ -132,10 +132,9 @@ def create_plan_from_template():
     print("=" * 50)
     print(f"Description: {selected_template.description}")
     print(f"Total words: {selected_template.total:,.0f}")
-    if selected_template.time:
-        print(f"Duration: {selected_template.time} days")
-    if selected_template.daily:
-        print(f"Daily goal: {selected_template.daily:,.0f} words/day")
+    if selected_template.planned_days():
+        print(f"Duration: {plan_templates.days_text(selected_template.planned_days())}")
+        print(f"Daily goal: {selected_template.planned_daily():,.0f} words/day")
     if selected_template.suggested_pattern:
         print(f"Suggested pattern: {selected_template.suggested_pattern}")
     if selected_template.suggested_weekend_mode:

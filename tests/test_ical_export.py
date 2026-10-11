@@ -2,7 +2,8 @@
 
 import re
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+import pytest
 import plan
 import plan_export
 import plan_storage
@@ -30,9 +31,13 @@ def unfold(text):
 
 def events(text):
     """Each VEVENT as a dict of property name (without parameters) -> value."""
-    result, current = [], None
+    result, current, in_alarm = [], None, False
     for line in unfold(text):
-        if line == "BEGIN:VEVENT":
+        if line in ("BEGIN:VALARM", "END:VALARM"):
+            in_alarm = line == "BEGIN:VALARM"
+        elif in_alarm:
+            continue
+        elif line == "BEGIN:VEVENT":
             current = {}
         elif line == "END:VEVENT":
             result.append(current)
@@ -159,3 +164,55 @@ class TestStableUids:
 
         assert all(re.fullmatch(rf"(writing|spare|rest)-\d{{8}}-{p.plan_id}@wordplanner", uid)
                    for uid in self.uids(p, tmp_path))
+
+
+def alarms(text):
+    """Each event's alarm as a dict (None for an event without one), in order."""
+    result, alarm = [], None
+    for line in unfold(text):
+        if line == "BEGIN:VEVENT":
+            alarm = None
+        elif line == "BEGIN:VALARM":
+            alarm = {}
+        elif line == "END:VEVENT":
+            result.append(alarm)
+        elif alarm is not None and line != "END:VALARM":
+            name, value = line.split(":", 1)
+            alarm[name] = value
+    return result
+
+
+class TestReminders:
+    """The export screen offered "daily writing reminders" but wrote no alarms."""
+
+    def export_with(self, p, tmp_path, reminder):
+        path = tmp_path / "plan.ics"
+        plan_export.export_to_ical(p, path, reminder=reminder)
+        return path.read_bytes().decode('utf-8')
+
+    def test_no_alarms_by_default(self, tmp_path):
+        assert "VALARM" not in export(make_plan(), tmp_path)
+
+    def test_writing_days_get_an_alarm_at_the_time(self, tmp_path):
+        text = self.export_with(make_plan(), tmp_path, time(9, 30))
+
+        first = alarms(text)[0]
+        assert first == {"ACTION": "DISPLAY",
+                         "DESCRIPTION": "Write 1\\,000 words - Novel",
+                         "TRIGGER;RELATED=START": "PT9H30M"}
+
+    def test_rest_days_get_no_alarm(self, tmp_path):
+        p = make_plan(spare_days_dates=[MON + timedelta(days=2)])
+
+        text = self.export_with(p, tmp_path, time(9))
+
+        kinds = [e["UID"].split("-")[0] for e in events(text)]
+        for kind, alarm in zip(kinds, alarms(text)):
+            assert (alarm is not None) == (kind == "writing")
+        assert "spare" in kinds
+
+    @pytest.mark.parametrize("reminder, offset", [
+        (time(0, 0), "PT0S"), (time(8, 0), "PT8H"), (time(0, 45), "PT45M"), (time(19, 5), "PT19H5M"),
+    ])
+    def test_time_offsets(self, reminder, offset):
+        assert plan_export.ical_time_offset(reminder) == offset

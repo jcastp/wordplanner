@@ -3,7 +3,7 @@
 import contextlib
 import io
 import pytest
-from datetime import datetime
+from datetime import datetime, time
 import plan
 import plan_storage
 import ui_files
@@ -154,11 +154,41 @@ class TestLoadScreen:
 class TestExportMenu:
 
     def test_all_formats(self, scripted_input):
-        scripted_input(["4", ""])
+        scripted_input(["4", "n", ""])
 
         _, output = run(ui_files.export_plan_menu, make_plan())
 
         assert "Exported 3 file(s)" in output
+
+    def test_ical_asks_for_a_reminder_time(self, scripted_input, monkeypatch):
+        used = []
+        monkeypatch.setattr(ui_files.plan_export, 'export_to_ical',
+                            lambda p, reminder=None: used.append(reminder) or "plan.ics")
+        scripted_input(["2", "y", "25:00", "19:30", ""])   # an invalid time is asked again
+
+        _, output = run(ui_files.export_plan_menu, make_plan())
+
+        assert used == [time(19, 30)]
+        assert "Invalid time '25:00'" in output
+
+    @pytest.mark.parametrize("answers, reminder", [
+        (["y", ""], time(9, 0)),    # Enter: the default time
+        (["n"], None),
+    ])
+    def test_reminder_answers(self, scripted_input, answers, reminder):
+        scripted_input(answers)
+
+        result, _ = run(ui_files.ask_reminder_time)
+
+        assert result == reminder
+
+    def test_other_formats_ask_nothing(self, scripted_input):
+        scripted_input(["1", ""])   # CSV, then "Press Enter": no reminder question
+
+        _, output = run(ui_files.export_plan_menu, make_plan())
+
+        assert "CSV exported" in output
+        assert "Add a reminder" not in output
 
     def test_needs_a_start_date(self, scripted_input):
         scripted_input([""])
