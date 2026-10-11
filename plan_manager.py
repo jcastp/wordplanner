@@ -287,13 +287,9 @@ def sort_plans(plans: List[plan.Plan], sort_by: str = "modified", reverse: bool 
 
 
 def _group_by_status(plans: List[plan.Plan]) -> Dict[str, List[plan.Plan]]:
-    plans_by_status = {
-        "active": [],
-        "archived": [],
-        "completed": []
-    }
+    plans_by_status = {status: [] for status in config.PLAN_STATUSES}
     for p in plans:
-        status = p.status if p.status in plans_by_status else "active"
+        status = p.status if p.status in plans_by_status else config.PLAN_STATUSES[0]
         plans_by_status[status].append(p)
     return plans_by_status
 

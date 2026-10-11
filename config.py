@@ -14,48 +14,18 @@ EXPORTS_SUBDIRECTORY = "exports"
 DEFAULT_HEADER_WIDTH = 50
 DEFAULT_SECTION_WIDTH = 50
 
-# Date format
-DATE_FORMAT = "%Y-%m-%d"
-DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-# Default values
-DEFAULT_WEEKEND_DAYS = [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
-DEFAULT_WEEKEND_MODE = "same"  # Options: "same", "different", "spare"
-
-# Pattern defaults
-DEFAULT_PATTERN = "flat"
-AVAILABLE_PATTERNS = ["flat", "valley", "mountain", "rising", "declining", "random"]
-
-# Validation limits
-MIN_WORDS = 1
-MAX_WORDS = 10000000  # 10 million words
-MIN_DAYS = 1
+# Upper limits for numbers typed at prompts (values must also be > 0).
+# MAX_DAYS also caps the search for the number of days in Plan.calculate_time().
+MAX_WORDS = 10000000  # 10 million words: totals and pre-existing words
 MAX_DAYS = 36500  # 100 years
-MIN_DAILY_WORDS = 1
-MAX_DAILY_WORDS = 100000
+MAX_DAILY_WORDS = 100000  # daily, weekend and custom day goals
 
-# Menu options
-INITIAL_MENU_OPTIONS = {
-    1: "Create a new plan from scratch",
-    2: "Create plan from template",
-    3: "Load an existing plan",
-    0: "Exit"
-}
+# Plan defaults (weekend days, weekend mode, pattern, status) are not here on
+# purpose: they are also what old plan files without those fields load as, so
+# they live with the file format in Plan.__init__ / Plan.from_dict.
 
-PLAN_ACTIONS_MENU_OPTIONS = {
-    1: "Update progress",
-    2: "View progress summary",
-    3: "View progress graphs & analytics",
-    4: "Modify plan",
-    5: "View calendar",
-    6: "Export plan",
-    7: "Save plan",
-    0: "Go back to main menu"
-}
-
-# Multiple plans management
+# Multiple plans management (the first status is what plans without one get)
 PLAN_STATUSES = ["active", "archived", "completed"]
-DEFAULT_PLAN_STATUS = "active"
 
 PLAN_CATEGORIES = [
     "novel",

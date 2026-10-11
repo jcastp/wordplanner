@@ -279,22 +279,12 @@ def sort_plans_ui():
     ui_utils.display_header("Sort Plans", width=70)
 
     print("\nSort by:")
-    print("1. Name (A-Z)")
-    print("2. Creation date (newest first)")
-    print("3. Last modified (newest first)")
-    print("4. Completion percentage")
-    print("5. Deadline (end date)")
+    sort_map = dict(enumerate(config.PLAN_SORT_OPTIONS, 1))
+    for number, sort_by in sort_map.items():
+        print(f"{number}. {config.PLAN_SORT_OPTIONS[sort_by]}")
     print("0. Go back")
 
-    choice = ui_utils.get_menu_choice("\nChoice: ", 0, 5)
-
-    sort_map = {
-        1: "name",
-        2: "created",
-        3: "modified",
-        4: "completion",
-        5: "deadline"
-    }
+    choice = ui_utils.get_menu_choice("\nChoice: ", 0, len(sort_map))
 
     if choice in sort_map:
         sort_by = sort_map[choice]

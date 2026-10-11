@@ -6,6 +6,7 @@ menu display, and user interaction across the planeapalabras application.
 """
 
 from datetime import datetime
+import config
 
 
 def get_yes_no(prompt, default='y'):
@@ -149,7 +150,7 @@ def get_menu_choice(prompt, min_value, max_value):
             print(f"Unexpected error: {e}. Please try again.")
 
 
-def display_header(title, width=50):
+def display_header(title, width=config.DEFAULT_HEADER_WIDTH):
     """
     Display a formatted header.
 
@@ -162,7 +163,7 @@ def display_header(title, width=50):
     print("=" * width)
 
 
-def display_section(text, width=50):
+def display_section(text, width=config.DEFAULT_SECTION_WIDTH):
     """
     Display a formatted section separator.
 

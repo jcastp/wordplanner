@@ -844,7 +844,7 @@ def get_writing_days(prompt, current_plan):
     """Ask for a number of writing days, not fewer than the plan's locked (past) days."""
     min_days = current_plan.min_writing_days()
     while True:
-        days = get_positive_number(prompt)
+        days = get_positive_number(prompt, max_value=config.MAX_DAYS)
         if days >= min_days:
             return days
         display_error(f"The plan already has {min_days} past writing days; enter at least {min_days}.")
@@ -1033,7 +1033,7 @@ def modify_plan(current_plan):
 
             elif choice == 1:
                 # Modify total words, ask what to keep constant
-                new_total = get_positive_number("\nEnter new total words: ")
+                new_total = get_positive_number("\nEnter new total words: ", max_value=config.MAX_WORDS)
                 print("\nKeep constant:")
                 print("1. Daily words (recalculate time)")
                 print("2. Time (recalculate daily words)")
@@ -1050,7 +1050,7 @@ def modify_plan(current_plan):
 
             elif choice == 2:
                 # Modify daily words, ask what to keep constant
-                new_daily = get_positive_number("\nEnter new daily words: ")
+                new_daily = get_positive_number("\nEnter new daily words: ", max_value=config.MAX_DAILY_WORDS)
                 print("\nKeep constant:")
                 print("1. Total words (recalculate time)")
                 print("2. Time (recalculate total words)")
@@ -1117,22 +1117,22 @@ def modify_plan(current_plan):
 
                 calc_choice = get_menu_choice("Enter your choice (1-3): ", 1, 3)
                 if calc_choice == 1:
-                    daily = get_positive_number("Enter daily words: ")
+                    daily = get_positive_number("Enter daily words: ", max_value=config.MAX_DAILY_WORDS)
                     time = get_writing_days("Enter writing days: ", current_plan)
                     current_plan.daily = daily
                     current_plan.time = time
                     current_plan.calculate_words()
                     return True
                 elif calc_choice == 2:
-                    total = get_positive_number("Enter total words: ")
+                    total = get_positive_number("Enter total words: ", max_value=config.MAX_WORDS)
                     time = get_writing_days("Enter writing days: ", current_plan)
                     current_plan.total = total
                     current_plan.time = time
                     current_plan.calculate_daily()
                     return True
                 elif calc_choice == 3:
-                    total = get_positive_number("Enter total words: ")
-                    daily = get_positive_number("Enter daily words: ")
+                    total = get_positive_number("Enter total words: ", max_value=config.MAX_WORDS)
+                    daily = get_positive_number("Enter daily words: ", max_value=config.MAX_DAILY_WORDS)
                     current_plan.total = total
                     current_plan.daily = daily
                     current_plan.calculate_time()
@@ -1780,7 +1780,7 @@ def configure_weekend_settings(current_plan):
         current_plan.weekend_mode = "different"
         print("\nSet weekend writing goal:")
         print("(This could be higher for extra writing time, or lower for rest)")
-        weekend_goal = get_positive_number("Weekend daily goal: ")
+        weekend_goal = get_positive_number("Weekend daily goal: ", max_value=config.MAX_DAILY_WORDS)
         current_plan.weekend_daily = weekend_goal
         display_success(f"Weekends will have a goal of {weekend_goal:,.0f} words/day")
 
@@ -1834,7 +1834,7 @@ def ask_for_pre_existing_words_count(total_goal=None):
         return 0
 
     while True:
-        words_written = get_positive_number("\nHow many words have you already written? ")
+        words_written = get_positive_number("\nHow many words have you already written? ", max_value=config.MAX_WORDS)
 
         if words_written <= 0:
             display_error("Word count must be positive")
@@ -1919,16 +1919,16 @@ def create_plan_from_template():
 
         # Allow customization
         if get_yes_no("Change total word count?", default='n'):
-            new_total = get_positive_number("Enter total words: ")
+            new_total = get_positive_number("Enter total words: ", max_value=config.MAX_WORDS)
             selected_template.total = new_total
 
         if selected_template.time and get_yes_no("Change duration (days)?", default='n'):
-            new_time = get_positive_number("Enter number of days: ")
+            new_time = get_positive_number("Enter number of days: ", max_value=config.MAX_DAYS)
             selected_template.time = new_time
             selected_template.daily = None  # Will be recalculated
 
         elif selected_template.daily and get_yes_no("Change daily goal?", default='n'):
-            new_daily = get_positive_number("Enter daily words: ")
+            new_daily = get_positive_number("Enter daily words: ", max_value=config.MAX_DAILY_WORDS)
             selected_template.daily = new_daily
             selected_template.time = None  # Will be recalculated
 
@@ -1980,7 +1980,7 @@ def create_plan_from_template():
                 if get_yes_no("Use this weekend goal?", default='y'):
                     newplan.weekend_daily = suggested_weekend_goal
                 else:
-                    weekend_goal = get_positive_number("Enter weekend daily goal: ")
+                    weekend_goal = get_positive_number("Enter weekend daily goal: ", max_value=config.MAX_DAILY_WORDS)
                     newplan.weekend_daily = weekend_goal
                 print(f"✓ Weekend mode: different ({newplan.weekend_daily:,.0f} words/day)")
             elif selected_template.suggested_weekend_mode == 'spare':
@@ -2005,12 +2005,12 @@ def create_new_plan():
     if calc_choice == 1:
         # Know total words and daily words → calculate time
         print("\n--- Calculate days needed ---")
-        total = get_positive_number("Enter your total word goal: ")
+        total = get_positive_number("Enter your total word goal: ", max_value=config.MAX_WORDS)
 
         # Ask about pre-existing words
         pre_existing_words = ask_for_pre_existing_words_count(total_goal=total)
 
-        daily = get_positive_number("Enter how many words you can write daily: ")
+        daily = get_positive_number("Enter how many words you can write daily: ", max_value=config.MAX_DAILY_WORDS)
 
         if pre_existing_words >= total:
             display_success("You've already met or exceeded your goal!")
@@ -2026,8 +2026,8 @@ def create_new_plan():
     elif calc_choice == 2:
         # Know daily words and time → calculate total words
         print("\n--- Calculate total words ---")
-        daily = get_positive_number("Enter how many words you can write daily: ")
-        time = get_positive_number("Enter how many days you have available: ")
+        daily = get_positive_number("Enter how many words you can write daily: ", max_value=config.MAX_DAILY_WORDS)
+        time = get_positive_number("Enter how many days you have available: ", max_value=config.MAX_DAYS)
 
         # Ask about pre-existing words (no total yet to check against)
         pre_existing_words = ask_for_pre_existing_words_count()
@@ -2039,12 +2039,12 @@ def create_new_plan():
     elif calc_choice == 3:
         # Know total words and time → calculate daily words
         print("\n--- Calculate daily words needed ---")
-        total = get_positive_number("Enter your total word goal: ")
+        total = get_positive_number("Enter your total word goal: ", max_value=config.MAX_WORDS)
 
         # Ask about pre-existing words
         pre_existing_words = ask_for_pre_existing_words_count(total_goal=total)
 
-        time = get_positive_number("Enter how many days you have available: ")
+        time = get_positive_number("Enter how many days you have available: ", max_value=config.MAX_DAYS)
 
         if pre_existing_words >= total:
             display_success("You've already met or exceeded your goal!")
