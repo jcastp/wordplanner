@@ -3,7 +3,7 @@
 Plan.move_start_date() keeps spare days and custom goals on their dates unless
 asked to shift them, never moves progress, keeps locked goals on their dates,
 and rebases a started plan so its open days cover the words actually left.
-planea.change_start_date() previews both options and asks before applying.
+ui_modify.change_start_date() previews both options and asks before applying.
 """
 
 import contextlib
@@ -12,7 +12,7 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
 
 
 MON = datetime(2026, 11, 2)
@@ -162,7 +162,7 @@ def run_change(p, new_start, answers, scripted_input):
     scripted_input(answers)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        changed = planea.change_start_date(p, new_start)
+        changed = ui_modify.change_start_date(p, new_start)
     return changed, out.getvalue()
 
 
@@ -233,7 +233,7 @@ class TestChangeStartDateUI:
         scripted_input(["6", key(day(8)), "y"])
 
         with contextlib.redirect_stdout(io.StringIO()):
-            assert planea.modify_plan(ten_day_plan)
+            assert ui_modify.modify_plan(ten_day_plan)
 
         assert ten_day_plan.start_date == day(8)
 

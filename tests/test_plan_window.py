@@ -12,7 +12,6 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
 import plan_export
 import plan_manager
 import calendar_view
@@ -155,7 +154,7 @@ class TestMarkWeekdaysAsSpare:
     def test_saturdays_on_ten_day_plan(self, ten_day_plan):
         # Used to add 52 Saturdays: 62-day plan, 53,000 words.
         # Mon 11-02 .. Fri 11-06 (5), Sat 11-07 spare, Sun 11-08 .. Thu 11-12 (5)
-        added = planea.mark_weekdays_as_spare(ten_day_plan, [5])
+        added = ten_day_plan.mark_weekdays_as_spare([5])
 
         assert added == 1
         assert ten_day_plan.spare_days_dates == [datetime(2026, 11, 7)]
@@ -165,7 +164,7 @@ class TestMarkWeekdaysAsSpare:
     def test_weekends_follow_growing_window(self, ten_day_plan):
         # 10 weekdays from Mon 11-02 end on Fri 11-13; only Sat 11-07 and
         # Sun 11-08 fall inside, the next weekend is after the end
-        added = planea.mark_weekdays_as_spare(ten_day_plan, [5, 6])
+        added = ten_day_plan.mark_weekdays_as_spare([5, 6])
 
         assert added == 2
         assert ten_day_plan.spare_days_dates == [datetime(2026, 11, 7), datetime(2026, 11, 8)]
@@ -175,7 +174,7 @@ class TestMarkWeekdaysAsSpare:
     def test_custom_weekend_days(self, ten_day_plan):
         ten_day_plan.weekend_days = [4, 5]  # Friday and Saturday
 
-        planea.mark_weekdays_as_spare(ten_day_plan, ten_day_plan.weekend_days)
+        ten_day_plan.mark_weekdays_as_spare(ten_day_plan.weekend_days)
 
         # Mon-Thu (4), Fri 6 + Sat 7 spare, Sun-Thu (9), Fri 13 + Sat 14 spare, Sun 15 (10)
         assert ten_day_plan.spare_days_dates == [
@@ -187,7 +186,7 @@ class TestMarkWeekdaysAsSpare:
     def test_existing_spare_day_not_duplicated(self, ten_day_plan):
         ten_day_plan.spare_days_dates.append(datetime(2026, 11, 7))
 
-        added = planea.mark_weekdays_as_spare(ten_day_plan, [5])
+        added = ten_day_plan.mark_weekdays_as_spare([5])
 
         assert added == 0
         assert len(ten_day_plan.spare_days_dates) == 1

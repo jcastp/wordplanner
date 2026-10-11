@@ -5,7 +5,7 @@ This module provides common user interface functions for input validation,
 menu display, and user interaction across the planeapalabras application.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 
 
@@ -322,3 +322,24 @@ def display_info(message):
         message: The info message to display
     """
     print(f"\nℹ {message}")
+
+
+def parse_date_list(text):
+    """
+    Parse dates typed as "2025-12-25", "2025-12-25,2025-12-26" or "2025-12-24 to 2025-12-26".
+
+    A range includes both ends (in either order).
+
+    Returns:
+        List of datetimes at midnight
+
+    Raises:
+        ValueError: on a malformed date or range
+    """
+    if ' to ' in text.lower():
+        parts = text.lower().split(' to ')
+        if len(parts) != 2:
+            raise ValueError("use YYYY-MM-DD to YYYY-MM-DD for a range")
+        first, last = sorted(datetime.strptime(part.strip(), "%Y-%m-%d") for part in parts)
+        return [first + timedelta(days=n) for n in range((last - first).days + 1)]
+    return [datetime.strptime(part.strip(), "%Y-%m-%d") for part in text.split(',') if part.strip()]

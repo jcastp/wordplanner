@@ -11,7 +11,6 @@ import pytest
 from freezegun import freeze_time
 from datetime import datetime, timedelta
 import plan
-import planea
 import progress_analytics
 
 
@@ -116,7 +115,7 @@ class TestScheduleCoversOnlyWordsToWrite:
         novel_plan.weekend_mode = "different"
         novel_plan.weekend_daily = novel_plan.daily
 
-        planea.apply_plan_adjustment(novel_plan, before, 'keep_end')
+        novel_plan.apply_adjustment(before, 'keep_end')
 
         assert novel_plan.daily == pytest.approx(40000 / 30)
         assert novel_plan.total == 50000
@@ -124,7 +123,7 @@ class TestScheduleCoversOnlyWordsToWrite:
 
     def test_keep_days_keeps_pre_existing_in_total(self, novel_plan):
         # Was: total dropped to 40,000 and completion showed 25% instead of 20%
-        planea.apply_plan_adjustment(novel_plan, copy.deepcopy(novel_plan), 'change_total')
+        novel_plan.apply_adjustment(copy.deepcopy(novel_plan), 'change_total')
 
         assert novel_plan.total == pytest.approx(50000)
         assert novel_plan.get_completion_percentage() == pytest.approx(20.0)

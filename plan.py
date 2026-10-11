@@ -25,6 +25,11 @@ def to_midnight(value):
     return value
 
 
+def today():
+    """Today's date at midnight: the boundary between locked (past) and open days."""
+    return to_midnight(datetime.datetime.now())
+
+
 def whole_if_integral(value):
     """A number from a plan file: an int when it is whole (50000, not 50000.0), else a float."""
     number = float(value)
@@ -268,6 +273,90 @@ class Plan():
         self.time = max(self.min_writing_days(), self.writing_days_until(end_date))
         if self.time > 0:
             self.sync_daily()
+
+    def mark_weekdays_as_spare(self, weekdays):
+        """
+        Mark every day of the given weekdays (Mon=0) inside the plan as spare (P5).
+
+        Each spare day pushes the end date out by one day, so the window is
+        re-evaluated as days are added; days after the final end date are left
+        alone. Days before today are locked and never marked.
+
+        Returns:
+            Number of spare days added
+        """
+        added_count = 0
+        current = max(self.start_date, today())
+        while current <= self.end_date:
+            if current.weekday() in weekdays and not self.is_spare_day(current):
+                self.spare_days_dates.append(current)
+                added_count += 1
+            current += timedelta(days=1)
+        return added_count
+
+    # The three ways to absorb a change to the schedule (decision 1)
+    ADJUSTMENTS = ('move_end', 'keep_end', 'change_total')
+
+    def apply_adjustment(self, before, adjustment, drop_after_end=()):
+        """
+        Rebalance the plan after a change, in one of three ways (decision 1).
+
+        - 'move_end': keep the daily goal and the total, move the end date;
+        - 'keep_end': keep the end date and the total, change the daily goal;
+        - 'change_total': keep the end date and the daily goal, change the total.
+
+        If no adjustable day is left (every day is past, spare, custom or a
+        weekend with its own goal), the total becomes what the fixed days add up to.
+
+        Args:
+            before: A copy of the plan taken before the change
+            adjustment: One of Plan.ADJUSTMENTS
+            drop_after_end: Spare days just added that are dropped when the end
+                date is kept and they fall after it (quick actions mark days up
+                to the end date, which only grows if the end date moves)
+        """
+        old_end = before.end_date
+        old_daily = before.daily
+
+        if adjustment != 'move_end':
+            self.spare_days_dates = [d for d in self.spare_days_dates
+                                     if not (d > old_end and d in drop_after_end)]
+
+        if adjustment == 'move_end':
+            self.total = before.total
+            self.daily = old_daily
+            self.calculate_time()
+        elif adjustment == 'keep_end':
+            self.total = before.total
+            self.keep_end_date(old_end)
+        elif adjustment == 'change_total':
+            self.keep_end_date(old_end)
+            self.total = round(self.total_for_daily(old_daily))
+            self.sync_daily()
+        else:
+            raise ValueError(f"Unknown plan adjustment: {adjustment}")
+
+        if self.build_schedule()['adjustable_weight'] == 0:
+            self.total = round(self.total_for_daily(0))
+
+    def custom_goal_problem(self, date):
+        """
+        Why a custom goal can't be set on a date (P17), or None if it can.
+
+        Returns:
+            'past' (locked), 'outside' (no goal there), 'spare' (spare day) or
+            'weekend_rest' (weekends off), or None
+        """
+        if date < today():
+            return 'past'
+        end = self.end_date
+        if end is None or not self.start_date <= date <= end:
+            return 'outside'
+        if self.is_spare_day(date):
+            return 'spare'
+        if self.weekend_mode == "spare" and self.is_weekend(date):
+            return 'weekend_rest'
+        return None
 
     def calculate_words(self):
         """Calculate the total from the daily goal and time (keeps the daily goal), in whole words."""

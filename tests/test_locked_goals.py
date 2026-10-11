@@ -11,7 +11,8 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
+import ui_plan_actions
 
 
 MON = datetime(2026, 11, 2)
@@ -174,7 +175,7 @@ class TestKeepTotalSkipsLockedDays:
         before = copy.deepcopy(locked_plan)
         locked_plan.set_custom_daily_goal(day(8), 2000)
 
-        planea.apply_plan_adjustment(locked_plan, before, 'keep_end')
+        locked_plan.apply_adjustment(before, 'keep_end')
 
         assert goals(locked_plan, range(1, 6)) == [1000] * 5
         assert goals(locked_plan, [6, 7, 9, 10]) == [pytest.approx(750)] * 4
@@ -199,13 +200,13 @@ class TestUserInterface:
     def test_plan_actions_menu_locks_past_days(self, ten_day_plan, scripted_input):
         scripted_input(["0", "2"])  # back to the main menu, without saving
 
-        quiet(planea.handle_plan_actions, ten_day_plan)
+        quiet(ui_plan_actions.handle_plan_actions, ten_day_plan)
 
         assert sorted(ten_day_plan.locked_goals) == [key(day(n)) for n in range(1, 6)]
 
     def test_quick_action_skips_past_days(self, ten_day_plan):
         # Sat 11-07 is today; no Saturday before today gets marked
-        added = planea.mark_weekdays_as_spare(ten_day_plan, [5, 6])
+        added = ten_day_plan.mark_weekdays_as_spare([5, 6])
 
         assert all(d >= TODAY for d in ten_day_plan.spare_days_dates)
         assert added == len(ten_day_plan.spare_days_dates) > 0
@@ -215,7 +216,7 @@ class TestUserInterface:
 
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            planea.manage_spare_days(ten_day_plan)
+            ui_modify.manage_spare_days(ten_day_plan)
 
         assert ten_day_plan.spare_days_dates == []
         assert "locked" in output.getvalue()
@@ -224,7 +225,7 @@ class TestUserInterface:
         ten_day_plan.spare_days_dates.append(day(2))
         scripted_input(["2", key(day(2)), "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.spare_days_dates == [day(2)]
 
@@ -232,20 +233,20 @@ class TestUserInterface:
         ten_day_plan.spare_days_dates.extend([day(2), day(8)])
         scripted_input(["3", "y", "1", "0"])  # clear, then "move the end date"
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.spare_days_dates == [day(2)]
 
     def test_custom_goal_on_past_date_refused(self, ten_day_plan, scripted_input):
         scripted_input(["1", key(day(2)), "0"])
 
-        quiet(planea.edit_individual_day_goal, ten_day_plan)
+        quiet(ui_modify.edit_individual_day_goal, ten_day_plan)
 
         assert ten_day_plan.custom_daily_goals == {}
 
     def test_custom_goal_today_allowed(self, ten_day_plan, scripted_input):
         scripted_input(["1", key(TODAY), "1500", "2", "0"])  # set, then "keep days"
 
-        quiet(planea.edit_individual_day_goal, ten_day_plan)
+        quiet(ui_modify.edit_individual_day_goal, ten_day_plan)
 
         assert ten_day_plan.custom_daily_goals == {key(TODAY): 1500}

@@ -11,7 +11,7 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_progress
 
 
 MON = datetime(2026, 11, 2)
@@ -35,13 +35,13 @@ def ten_day_plan():
 @pytest.fixture
 def log_progress(monkeypatch, scripted_input):
     """Run the progress screen with answers (the ahead/behind offer is tested elsewhere)."""
-    monkeypatch.setattr(planea, 'check_and_offer_recalculation', lambda p: True)
+    monkeypatch.setattr(ui_progress, 'check_and_offer_recalculation', lambda p: True)
 
     def _run(p, answers):
         scripted_input(answers)
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            planea.update_progress(p)
+            ui_progress.update_progress(p)
         return out.getvalue()
     return _run
 

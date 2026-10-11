@@ -6,7 +6,8 @@ import json
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
+import ui_plan_actions
 
 
 MON = datetime(2026, 11, 2)
@@ -86,7 +87,7 @@ class TestModifiedMessage:
         scripted_input(answers)
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            planea.handle_plan_actions(p)
+            ui_plan_actions.handle_plan_actions(p)
         return out.getvalue()
 
     def test_cancel_says_nothing(self, scripted_input):
@@ -115,4 +116,4 @@ class TestModifiedMessage:
         scripted_input(["0"])
 
         with contextlib.redirect_stdout(io.StringIO()):
-            assert planea.manage_spare_days(p) is False
+            assert ui_modify.manage_spare_days(p) is False

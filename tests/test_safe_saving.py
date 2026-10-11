@@ -18,6 +18,9 @@ import planea
 import ui_utils
 import user_preferences
 import file_utils
+import ui_files
+import ui_plan_actions
+import ui_progress
 
 
 @pytest.fixture
@@ -171,13 +174,13 @@ class TestLeavingAPlan:
     def test_clean_plan_leaves_without_asking(self, saved_plan, scripted_input):
         scripted_input(["0"])
 
-        quiet(planea.handle_plan_actions, saved_plan)
+        quiet(ui_plan_actions.handle_plan_actions, saved_plan)
 
     def test_go_back_without_saving(self, saved_plan, scripted_input):
         saved_plan.total = 20000
         scripted_input(["0", "2"])
 
-        quiet(planea.handle_plan_actions, saved_plan)
+        quiet(ui_plan_actions.handle_plan_actions, saved_plan)
 
         assert plan_storage.load_plan(saved_plan.source_file).total == 10000
 
@@ -185,7 +188,7 @@ class TestLeavingAPlan:
         saved_plan.total = 20000
         scripted_input(["0", "1", "1"])  # back, save, overwrite the original
 
-        quiet(planea.handle_plan_actions, saved_plan)
+        quiet(ui_plan_actions.handle_plan_actions, saved_plan)
 
         assert plan_storage.load_plan(saved_plan.source_file).total == 20000
 
@@ -193,13 +196,13 @@ class TestLeavingAPlan:
         saved_plan.total = 20000
         scripted_input(["0", "0", "0", "2"])  # back, stay; back, discard
 
-        quiet(planea.handle_plan_actions, saved_plan)
+        quiet(ui_plan_actions.handle_plan_actions, saved_plan)
 
     def test_cancelled_save_stays(self, saved_plan, scripted_input):
         saved_plan.total = 20000
         scripted_input(["0", "1", "0", "0", "2"])  # back, save, cancel; back, discard
 
-        quiet(planea.handle_plan_actions, saved_plan)
+        quiet(ui_plan_actions.handle_plan_actions, saved_plan)
 
 
 class TestInterrupts:
@@ -226,7 +229,7 @@ class TestInterrupts:
     @pytest.fixture
     def open_plan(self, saved_plan, monkeypatch):
         """Main menu option 3 opens saved_plan."""
-        monkeypatch.setattr(planea, 'load_saved_plan', lambda: saved_plan)
+        monkeypatch.setattr(ui_files, 'load_saved_plan', lambda: saved_plan)
         return saved_plan
 
     def test_ctrl_c_in_main_menu_exits_cleanly(self, plans_dir, run_main):
@@ -284,7 +287,7 @@ class TestSaveAfterProgress:
         # quick entry 500, decline the "behind" offer, done, save, overwrite
         scripted_input(["1", "500", "n", "0", "y", "1"])
 
-        quiet(planea.update_progress, saved_plan)
+        quiet(ui_progress.update_progress, saved_plan)
 
         assert plan_storage.load_plan(saved_plan.source_file).progress == {'2026-11-04': 500}
         assert not saved_plan.has_unsaved_changes()

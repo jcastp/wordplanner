@@ -1,7 +1,7 @@
 """Tests for decision 1: adding or removing writing days asks how the plan adjusts.
 
 Spare days (added, removed, cleared, quick actions) and weekend settings
-(menu and template flow) all go through planea.offer_plan_adjustment(),
+(menu and template flow) all go through ui_modify.offer_plan_adjustment(),
 which offers: move the end date (keep daily), keep the end date (change daily),
 or keep the end date and daily (change the total). Issues-program.org P4 and P5.
 """
@@ -13,7 +13,7 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
 
 
 MON = datetime(2026, 11, 2)
@@ -88,7 +88,7 @@ class TestSpareDays:
     def test_add_move_end(self, ten_day_plan, scripted_input):
         scripted_input(["1", key(day(4)), MOVE_END, "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(11)
         assert ten_day_plan.daily == pytest.approx(1000)
@@ -97,7 +97,7 @@ class TestSpareDays:
     def test_add_keep_end(self, ten_day_plan, scripted_input):
         scripted_input(["1", key(day(4)), KEEP_END, "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
         assert ten_day_plan.daily == pytest.approx(10000 / 9)
@@ -106,7 +106,7 @@ class TestSpareDays:
     def test_add_change_total(self, ten_day_plan, scripted_input):
         scripted_input(["1", key(day(4)), CHANGE_TOTAL, "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
         assert ten_day_plan.daily == pytest.approx(1000)
@@ -117,7 +117,7 @@ class TestSpareDays:
         ten_day_plan.spare_days_dates.append(day(4))
         scripted_input(["2", key(day(4)), MOVE_END, "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
         assert ten_day_plan.daily == pytest.approx(1000)
@@ -126,7 +126,7 @@ class TestSpareDays:
         ten_day_plan.spare_days_dates.append(day(4))
         scripted_input(["2", key(day(4)), KEEP_END, "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(11)
         assert ten_day_plan.daily == pytest.approx(10000 / 11)
@@ -136,7 +136,7 @@ class TestSpareDays:
         # Day 20 is after the end: ignored, nothing to adjust
         scripted_input(["1", key(day(20)), "0"])
 
-        quiet(planea.manage_spare_days, ten_day_plan)
+        quiet(ui_modify.manage_spare_days, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
 
@@ -145,7 +145,7 @@ class TestSpareDays:
         out = io.StringIO()
 
         with contextlib.redirect_stdout(out):
-            planea.manage_spare_days(ten_day_plan)
+            ui_modify.manage_spare_days(ten_day_plan)
 
         text = out.getvalue()
         assert "Before: ends 2026-11-11, 1,000 words/day, total 10,000 words" in text
@@ -167,7 +167,7 @@ class TestQuickActions:
         # The growing window reaches the second weekend (11-14, 11-15)
         scripted_input(["6", MOVE_END, "0"])
 
-        quiet(planea.manage_spare_days, twelve_day_plan)
+        quiet(ui_modify.manage_spare_days, twelve_day_plan)
 
         assert sorted(twelve_day_plan.spare_days_dates) == [day(6), day(7), day(13), day(14)]
         assert twelve_day_plan.end_date == day(16)
@@ -179,7 +179,7 @@ class TestQuickActions:
         out = io.StringIO()
 
         with contextlib.redirect_stdout(out):
-            planea.manage_spare_days(twelve_day_plan)
+            ui_modify.manage_spare_days(twelve_day_plan)
 
         assert sorted(twelve_day_plan.spare_days_dates) == [day(6), day(7)]
         assert twelve_day_plan.end_date == day(12)
@@ -195,7 +195,7 @@ class TestWeekendSettings:
     def test_spare_move_end(self, ten_day_plan, scripted_input):
         scripted_input(["3", "n", MOVE_END])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         # 10 weekdays from Mon 11-02 end on Fri 11-13
         assert ten_day_plan.end_date == datetime(2026, 11, 13)
@@ -205,7 +205,7 @@ class TestWeekendSettings:
     def test_spare_keep_end(self, ten_day_plan, scripted_input):
         scripted_input(["3", "n", KEEP_END])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
         assert ten_day_plan.daily == pytest.approx(1250)
@@ -215,7 +215,7 @@ class TestWeekendSettings:
         # The old silent behaviour, now an explicit choice
         scripted_input(["3", "n", CHANGE_TOTAL])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         assert ten_day_plan.total == pytest.approx(8000)
         assert schedule_sum(ten_day_plan) == pytest.approx(8000)
@@ -223,7 +223,7 @@ class TestWeekendSettings:
     def test_bigger_weekend_goal_can_finish_early(self, ten_day_plan, scripted_input):
         scripted_input(["2", "2000", "n", MOVE_END])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         # Mon-Fri 5,000 + Sat-Sun 4,000 = 9,000 by Sun 11-08; one more day
         assert ten_day_plan.end_date == day(8)
@@ -233,7 +233,7 @@ class TestWeekendSettings:
     def test_same_mode_unchanged_asks_nothing(self, ten_day_plan, scripted_input):
         scripted_input(["1"])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         assert ten_day_plan.end_date == day(10)
 
@@ -245,7 +245,7 @@ class TestLockedDays:
         ten_day_plan.lock_past_goals()
         scripted_input(["3", "n", KEEP_END])
 
-        quiet(planea.configure_weekend_settings, ten_day_plan)
+        quiet(ui_modify.configure_weekend_settings, ten_day_plan)
 
         # Sat 11-07 (today) and Sun 11-08 rest; days 8-10 absorb their words
         assert [ten_day_plan.get_daily_goal(date=day(n)) for n in range(1, 6)] == [1000] * 5
@@ -261,7 +261,7 @@ class TestRebalanceHelper:
         ten_day_plan.weekend_mode = 'spare'
         scripted_input([KEEP_END])
 
-        choice = quiet(planea.offer_plan_adjustment, ten_day_plan, before)
+        choice = quiet(ui_modify.offer_plan_adjustment, ten_day_plan, before)
 
         assert choice == 'keep_end'
         assert schedule_sum(ten_day_plan) == pytest.approx(10000)
@@ -271,4 +271,4 @@ class TestRebalanceHelper:
         before = copy.deepcopy(p)
         p.weekend_mode = 'spare'
 
-        assert planea.offer_plan_adjustment(p, before) is None
+        assert ui_modify.offer_plan_adjustment(p, before) is None

@@ -1017,8 +1017,14 @@ Additional test scripts:
 
 ```
 wordplanner/
-├── planea.py                     # Console interface
-├── plan.py                       # Core Plan class with calculations
+├── planea.py                     # Entry point: main menu, Ctrl+C / end-of-input handling
+├── ui_create.py                  # Creating plans (from scratch, from templates)
+├── ui_plan_actions.py            # Plan actions menu, results, calendar, leaving a plan
+├── ui_modify.py                  # Modify plan, spare days, custom goals, weekends, start date
+├── ui_progress.py                # Progress entry, ahead/behind offers, recalculation
+├── ui_files.py                   # Save, load and export screens
+├── ui_settings.py                # Save directory settings
+├── plan.py                       # Core Plan class: schedule, calculations, all plan changes
 ├── calendar_view.py              # Calendar visualization with Rich
 ├── plan_storage.py               # Save/load functionality
 ├── plan_export.py                # Export functionality (CSV, iCal, Markdown)
@@ -1029,6 +1035,7 @@ wordplanner/
 ├── ui_utils.py                   # UI utilities (validation, menus, messages)
 ├── pattern_utils.py              # Pattern configuration utilities
 ├── user_preferences.py           # User preferences and settings
+├── file_utils.py                 # Atomic file writes with backups
 ├── config.py                     # Application configuration constants
 ├── tests/                        # Test suite (101+ tests)
 │   ├── conftest.py               # Pytest fixtures

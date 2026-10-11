@@ -17,6 +17,8 @@ import plan_storage
 import planea
 import user_preferences
 import config
+import ui_plan_actions
+import ui_settings
 
 
 OPEN, DELETE = "9", "10"
@@ -81,7 +83,7 @@ class TestOpen:
 
     def test_opens_the_plan_actions(self, two_plans, scripted_input, monkeypatch):
         opened = []
-        monkeypatch.setattr(planea, 'handle_plan_actions', opened.append)
+        monkeypatch.setattr(ui_plan_actions, 'handle_plan_actions', opened.append)
         scripted_input([OPEN, menu_number("Beta"), "0"])
 
         quiet(plan_manager_ui.manage_plans_menu)
@@ -91,7 +93,7 @@ class TestOpen:
 
     def test_go_back(self, two_plans, scripted_input, monkeypatch):
         opened = []
-        monkeypatch.setattr(planea, 'handle_plan_actions', opened.append)
+        monkeypatch.setattr(ui_plan_actions, 'handle_plan_actions', opened.append)
         scripted_input([OPEN, "0", "0"])
 
         quiet(plan_manager_ui.manage_plans_menu)
@@ -104,7 +106,7 @@ class TestContinueCurrentPlan:
     def test_main_menu_offers_it(self, two_plans, scripted_input, monkeypatch):
         plan_manager.set_active_plan(two_plans[1].source_file)
         opened = []
-        monkeypatch.setattr(planea, 'handle_plan_actions', opened.append)
+        monkeypatch.setattr(ui_plan_actions, 'handle_plan_actions', opened.append)
         scripted_input(["6", "0"])
 
         output = quiet(planea.main_menu_loop)
@@ -157,7 +159,7 @@ class TestMovePlans:
         target = tmp_path / "Writing"
         scripted_input(["1", str(target), "y", "y"])  # set, create it, move plans
 
-        quiet(planea.configure_save_directory)
+        quiet(ui_settings.configure_save_directory)
 
         assert plan_storage.get_plans_directory() == target / config.PLANS_SUBDIRECTORY
         assert names() == ["Alpha", "Beta"]
@@ -166,7 +168,7 @@ class TestMovePlans:
         target = tmp_path / "Writing"
         scripted_input(["1", str(target), "y", "n"])
 
-        output = quiet(planea.configure_save_directory)
+        output = quiet(ui_settings.configure_save_directory)
 
         assert names() == []
         assert "They stay in" in output

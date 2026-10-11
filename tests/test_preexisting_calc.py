@@ -7,8 +7,9 @@ and capture the plan that would be handed to the plan actions menu.
 import copy
 import pytest
 from datetime import datetime
-import planea
+import ui_plan_actions
 import plan_templates
+import ui_create
 
 
 # Far-future date so get_date_input() never asks about past dates
@@ -20,7 +21,7 @@ START = datetime(2099, 1, 5)
 def created_plans(monkeypatch):
     """Capture plans passed to handle_plan_actions instead of opening the menu."""
     plans = []
-    monkeypatch.setattr(planea, "handle_plan_actions", plans.append)
+    monkeypatch.setattr(ui_plan_actions, "handle_plan_actions", plans.append)
     return plans
 
 
@@ -31,7 +32,7 @@ def isolated_templates(monkeypatch):
 
 
 class TestCreateNewPlanWithPreExistingWords:
-    """planea.create_new_plan() for each calculation method."""
+    """ui_create.create_new_plan() for each calculation method."""
 
     def test_calculate_time(self, scripted_input, created_plans):
         # Goal 80,000, 32,000 already written, 1,000/day -> 48 days
@@ -47,7 +48,7 @@ class TestCreateNewPlanWithPreExistingWords:
             "n",          # weekend settings?
         ])
 
-        planea.create_new_plan()
+        ui_create.create_new_plan()
 
         [p] = created_plans
         assert p.time == pytest.approx(48)
@@ -72,7 +73,7 @@ class TestCreateNewPlanWithPreExistingWords:
             "n",          # weekend settings?
         ])
 
-        planea.create_new_plan()
+        ui_create.create_new_plan()
 
         [p] = created_plans
         assert p.total == 35000
@@ -96,7 +97,7 @@ class TestCreateNewPlanWithPreExistingWords:
             "n",          # weekend settings?
         ])
 
-        planea.create_new_plan()
+        ui_create.create_new_plan()
 
         [p] = created_plans
         assert p.daily == pytest.approx(1000)
@@ -116,7 +117,7 @@ class TestCreateNewPlanWithPreExistingWords:
             "n",
         ])
 
-        planea.create_new_plan()
+        ui_create.create_new_plan()
 
         [p] = created_plans
         assert p.daily == pytest.approx(1250)
@@ -133,13 +134,13 @@ class TestCreateNewPlanWithPreExistingWords:
             "",           # "Press Enter to continue"
         ])
 
-        planea.create_new_plan()
+        ui_create.create_new_plan()
 
         assert created_plans == []
 
 
 class TestCreateFromTemplateWithPreExistingWords:
-    """planea.create_plan_from_template() with pre-existing words."""
+    """ui_create.create_plan_from_template() with pre-existing words."""
 
     def test_nanowrimo_with_pre_existing(self, scripted_input, created_plans, isolated_templates):
         # NaNoWriMo: 50,000 words / 30 days, 10,000 already written
@@ -154,7 +155,7 @@ class TestCreateFromTemplateWithPreExistingWords:
             "n",          # configure suggested weekend settings
         ])
 
-        planea.create_plan_from_template()
+        ui_create.create_plan_from_template()
 
         [p] = created_plans
         assert p.name == "NaNoWriMo"

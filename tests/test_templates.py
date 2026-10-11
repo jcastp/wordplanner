@@ -11,7 +11,8 @@ import pytest
 from datetime import datetime
 from freezegun import freeze_time
 import plan_templates
-import planea
+import ui_create
+import ui_plan_actions
 
 
 def template_number(key):
@@ -25,10 +26,10 @@ def run_template_flow(monkeypatch, scripted_input):
     """Run the template flow with answers and return the plan it creates."""
     def _run(answers):
         created = []
-        monkeypatch.setattr(planea, 'handle_plan_actions', created.append)
+        monkeypatch.setattr(ui_plan_actions, 'handle_plan_actions', created.append)
         scripted_input(answers)
         with contextlib.redirect_stdout(io.StringIO()):
-            planea.create_plan_from_template()
+            ui_create.create_plan_from_template()
         return created[0]
     return _run
 

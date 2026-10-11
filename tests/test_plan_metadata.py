@@ -13,7 +13,7 @@ from freezegun import freeze_time
 import plan
 import plan_manager
 import plan_storage
-import planea
+import ui_files
 
 
 CREATED = datetime(2026, 10, 1, 9, 0)
@@ -132,6 +132,6 @@ class TestSaveAsNewCopy:
         out = io.StringIO()
 
         with contextlib.redirect_stdout(out):
-            assert planea.save_plan_prompt(active_plan, ask=False)
+            assert ui_files.save_plan_prompt(active_plan, ask=False)
 
         assert "The original stays your current plan" in out.getvalue()

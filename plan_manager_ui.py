@@ -15,6 +15,7 @@ import plan_manager
 import plan_storage
 import config
 import ui_utils
+import ui_plan_actions
 
 
 console = Console()
@@ -462,8 +463,7 @@ def open_plan_ui():
     if selected_plan is None:
         return
 
-    import planea  # planea imports this module lazily too
-    planea.handle_plan_actions(selected_plan)
+    ui_plan_actions.handle_plan_actions(selected_plan)
 
 
 def delete_plan_ui():

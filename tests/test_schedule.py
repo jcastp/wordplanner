@@ -14,7 +14,8 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
+import ui_progress
 
 
 MON = datetime(2026, 11, 2)
@@ -261,7 +262,7 @@ class TestRecalculateFromProgressBaseline:
 
         before = copy.deepcopy(p)
         p.set_custom_daily_goal(day(8), 1000)
-        planea.apply_plan_adjustment(p, before, 'keep_end')
+        p.apply_adjustment(before, 'keep_end')
 
         # Still covers exactly the 2,500 words left
         future = sum(goals(p, range(6, 11)))
@@ -302,7 +303,7 @@ class TestAdjustTimeFromProgress:
         before = p.to_dict()
         scripted_input(["n"])
 
-        quiet(planea.offer_deadline_adjustment, p)
+        quiet(ui_progress.offer_deadline_adjustment, p)
 
         assert p.to_dict() == before
 
@@ -313,20 +314,20 @@ class TestAdjustTimeFromProgress:
             p.record_progress(day(n), 1500)
         scripted_input(["y"])
 
-        quiet(planea.offer_deadline_adjustment, p)
+        quiet(ui_progress.offer_deadline_adjustment, p)
 
         # Today (day 5) keeps 1,000; 3,000 left after it at 1,000/day -> ends day 8
         assert p.end_date == day(8)
 
 
 class TestKeepTotalOrDays:
-    """apply_plan_adjustment() on top of the schedule (P3)."""
+    """Plan.apply_adjustment() on top of the schedule (P3)."""
 
     def test_weekend_spare_keep_total(self):
         # P3: used to give daily 1,200 and a 9,600 schedule
         p = make_plan(weekend_mode="spare")
 
-        planea.apply_plan_adjustment(p, make_plan(), 'keep_end')
+        p.apply_adjustment(make_plan(), 'keep_end')
 
         assert p.daily == pytest.approx(1250)
         assert schedule_sum(p) == pytest.approx(10000)
@@ -334,7 +335,7 @@ class TestKeepTotalOrDays:
     def test_weekend_spare_keep_days(self):
         p = make_plan(weekend_mode="spare")
 
-        planea.apply_plan_adjustment(p, make_plan(), 'change_total')
+        p.apply_adjustment(make_plan(), 'change_total')
 
         assert p.total == pytest.approx(8000)
         assert p.daily == pytest.approx(1000)
@@ -345,7 +346,7 @@ class TestKeepTotalOrDays:
         before = copy.deepcopy(p)
         p.set_custom_daily_goal(day(5), 4000)
 
-        planea.apply_plan_adjustment(p, before, 'keep_end')
+        p.apply_adjustment(before, 'keep_end')
 
         assert schedule_sum(p) == pytest.approx(10000)
 
@@ -355,7 +356,7 @@ class TestKeepTotalOrDays:
         p.set_custom_daily_goal(day(1), 700)
         p.set_custom_daily_goal(day(2), 800)
 
-        planea.apply_plan_adjustment(p, before, 'keep_end')
+        p.apply_adjustment(before, 'keep_end')
 
         assert p.total == pytest.approx(1500)
 
@@ -401,7 +402,7 @@ class TestWritingDaysGuard:
 
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            days = planea.get_writing_days("Days: ", p)
+            days = ui_modify.get_writing_days("Days: ", p)
 
         assert days == 6
         assert "at least 5" in output.getvalue()
@@ -459,13 +460,13 @@ class TestAheadBehindOffer:
         before = behind_plan.to_dict()
         scripted_input(["n"])
 
-        assert quiet(planea.offer_daily_recalculation, behind_plan) is False
+        assert quiet(ui_progress.offer_daily_recalculation, behind_plan) is False
         assert behind_plan.to_dict() == before
 
     def test_daily_recalculation_accepted(self, behind_plan, scripted_input):
         scripted_input(["y"])
 
-        assert quiet(planea.offer_daily_recalculation, behind_plan) is True
+        assert quiet(ui_progress.offer_daily_recalculation, behind_plan) is True
         # 7,500 left over days 6-10
         assert goals(behind_plan, range(6, 11)) == [pytest.approx(1500)] * 5
 
@@ -473,7 +474,7 @@ class TestAheadBehindOffer:
         before = behind_plan.to_dict()
         scripted_input([""])  # Enter at "Would you like to adjust your plan?"
 
-        assert quiet(planea.check_and_offer_recalculation, behind_plan) is True
+        assert quiet(ui_progress.check_and_offer_recalculation, behind_plan) is True
         assert behind_plan.to_dict() == before
 
     def test_offer_shown_once_per_visit(self, behind_plan, scripted_input):
@@ -485,7 +486,7 @@ class TestAheadBehindOffer:
 
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            planea.update_progress(behind_plan)
+            ui_progress.update_progress(behind_plan)
 
         assert output.getvalue().count("PROGRESS STATUS") == 1
         assert behind_plan.get_progress_for_date(day(6)) == 200

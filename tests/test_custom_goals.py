@@ -13,7 +13,7 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import ui_modify
 
 
 MON = datetime(2026, 11, 2)
@@ -43,7 +43,7 @@ def edit_goals(p, answers, scripted_input):
     scripted_input(answers + ["0"])  # ... then "Done"
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        planea.edit_individual_day_goal(p)
+        ui_modify.edit_individual_day_goal(p)
     return out.getvalue()
 
 
@@ -127,6 +127,30 @@ class TestRefusedDates:
         edit_goals(ten_day_plan, ["1", key(day(6)), "2000", KEEP_END], scripted_input)
 
         assert ten_day_plan.get_daily_goal(date=day(6)) == 2000
+
+
+@freeze_time("2026-11-05 10:00")   # day 4 of the plan
+class TestCustomGoalProblem:
+    """Plan.custom_goal_problem(): the rule; the UI only words it."""
+
+    @pytest.mark.parametrize("date, problem", [
+        (day(3), 'past'),
+        (day(4), None),             # today is allowed
+        (day(11), 'outside'),
+        (MON - timedelta(days=1), 'past'),
+    ])
+    def test_codes(self, ten_day_plan, date, problem):
+        assert ten_day_plan.custom_goal_problem(date) == problem
+
+    def test_spare_and_weekend_rest(self, ten_day_plan):
+        ten_day_plan.spare_days_dates.append(day(5))
+        ten_day_plan.weekend_mode = "spare"
+
+        assert ten_day_plan.custom_goal_problem(day(5)) == 'spare'
+        assert ten_day_plan.custom_goal_problem(day(6)) == 'weekend_rest'
+
+    def test_today_helper(self):
+        assert plan.today() == datetime(2026, 11, 5)
 
 
 class TestRemoveAndClear:

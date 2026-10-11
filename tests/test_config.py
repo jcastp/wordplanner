@@ -9,7 +9,9 @@ from freezegun import freeze_time
 import config
 import plan
 import plan_manager_ui
-import planea
+import ui_create
+import ui_modify
+import ui_plan_actions
 
 
 ROOT = Path(__file__).parent.parent
@@ -37,13 +39,13 @@ class TestInputLimits:
 
     def test_total_above_max_words_is_refused(self, scripted_input, monkeypatch):
         opened = []
-        monkeypatch.setattr(planea, 'handle_plan_actions', opened.append)
+        monkeypatch.setattr(ui_plan_actions, 'handle_plan_actions', opened.append)
         # Calculate days: total (too big, then ok), no pre-existing, daily (too big, then ok),
         # no pattern, start date, no weekend settings
         scripted_input(["1", str(config.MAX_WORDS + 1), "50000", "n",
                         str(config.MAX_DAILY_WORDS + 1), "2000", "n", "2026-11-02", "n"])
 
-        _, output = run(planea.create_new_plan)
+        _, output = run(ui_create.create_new_plan)
 
         assert output.count("Value cannot exceed") == 2
         assert (opened[0].total, opened[0].time) == (50000, 25)
@@ -53,7 +55,7 @@ class TestInputLimits:
         # Modify -> writing days -> too many, then 20 -> keep total (recalculate daily)
         scripted_input(["3", str(config.MAX_DAYS + 1), "20", "1"])
 
-        _, output = run(planea.modify_plan, p)
+        _, output = run(ui_modify.modify_plan, p)
 
         assert "Value cannot exceed 36,500" in output
         assert p.time == 20

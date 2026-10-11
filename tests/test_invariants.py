@@ -21,7 +21,8 @@ import pytest
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 import plan
-import planea
+import copy
+import ui_modify
 
 
 START = datetime(2026, 11, 2)
@@ -84,11 +85,11 @@ class Simulation:
     def adjust(self, before):
         """Pick one of the decision 1 options and check its promise."""
         p = self.plan
-        adjustment = self.rng.choice(planea.PLAN_ADJUSTMENTS)
+        adjustment = self.rng.choice(plan.Plan.ADJUSTMENTS)
         if adjustment == 'move_end' and before.daily <= 0:
             adjustment = 'keep_end'
         old_end = before.end_date
-        planea.apply_plan_adjustment(p, before, adjustment)
+        p.apply_adjustment(before, adjustment)
 
         if p.build_schedule()['adjustable_weight'] == 0:
             return  # the total was refitted to the fixed days
@@ -107,7 +108,7 @@ class Simulation:
     def modify(self):
         p = self.plan
         rng = self.rng
-        before = planea.copy.deepcopy(p)
+        before = copy.deepcopy(p)
         action = rng.choice([
             'spare_add', 'spare_remove', 'custom_set', 'custom_remove', 'weekend',
             'pattern', 'total', 'daily', 'time', 'recalculate', 'adjust_time',
@@ -126,7 +127,7 @@ class Simulation:
                 self.adjust(before)
         elif action == 'custom_set':
             d = self.future_plan_day()
-            if d and planea.custom_goal_date_problem(p, d) is None:
+            if d and ui_modify.custom_goal_date_problem(p, d) is None:
                 p.set_custom_daily_goal(d, rng.choice([0, 250, 1200, 4000]))
                 self.adjust(before)
         elif action == 'custom_remove':
