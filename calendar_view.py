@@ -8,23 +8,6 @@ from rich.panel import Panel
 from rich.text import Text
 
 
-def get_date_input(prompt):
-    """Get a valid date from user input."""
-    while True:
-        date_str = input(prompt)
-        try:
-            # Try parsing different date formats
-            for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y"]:
-                try:
-                    return datetime.strptime(date_str, fmt)
-                except ValueError:
-                    continue
-            # If we get here, no format worked
-            print("Invalid date format. Please use YYYY-MM-DD (e.g., 2025-11-01)")
-        except Exception as e:
-            print(f"Error parsing date: {e}")
-
-
 def display_calendar_view(plan_obj, start_date):
     """
     Display a beautiful calendar view of the writing plan.

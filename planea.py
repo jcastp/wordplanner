@@ -141,41 +141,35 @@ def save_plan_prompt(newplan, ask=True):
             print("2. Save as a new file (with timestamp)")
             print("0. Cancel")
 
-            while True:
+            choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
+            if choice == 0:
+                return False
+            elif choice in [1, 2]:
+                overwrite = (choice == 1)
+
+                # If saving as new, optionally allow name change
+                if not overwrite:
+                    if newplan.name:
+                        print(f"\nCurrent plan name: {newplan.name}")
+                        if not get_yes_no("Keep this name?", default='y'):
+                            plan_name = input("Enter a new name for this plan: ").strip()
+                            if plan_name:
+                                newplan.name = plan_name
+
                 try:
-                    choice = int(input("\nEnter your choice (0-2): "))
-                    if choice == 0:
-                        return False
-                    elif choice in [1, 2]:
-                        overwrite = (choice == 1)
-
-                        # If saving as new, optionally allow name change
-                        if not overwrite:
-                            if newplan.name:
-                                print(f"\nCurrent plan name: {newplan.name}")
-                                if not get_yes_no("Keep this name?", default='y'):
-                                    plan_name = input("Enter a new name for this plan: ").strip()
-                                    if plan_name:
-                                        newplan.name = plan_name
-
-                        try:
-                            was_active = newplan.is_active
-                            filepath = plan_storage.save_plan(newplan, overwrite_source=overwrite)
-                            if overwrite:
-                                display_success(f"Plan updated successfully in: {filepath}")
-                            else:
-                                display_success(f"Plan saved as new file: {filepath}")
-                                if was_active and not newplan.is_active:
-                                    print("  The original stays your current plan (★). "
-                                          "Use 'Manage multiple plans' to switch.")
-                            return True
-                        except Exception as e:
-                            display_error(f"Error saving plan: {e}")
-                            return False
+                    was_active = newplan.is_active
+                    filepath = plan_storage.save_plan(newplan, overwrite_source=overwrite)
+                    if overwrite:
+                        display_success(f"Plan updated successfully in: {filepath}")
                     else:
-                        print("Please enter 0, 1, or 2.")
-                except ValueError:
-                    print("Invalid input. Please enter a number.")
+                        display_success(f"Plan saved as new file: {filepath}")
+                        if was_active and not newplan.is_active:
+                            print("  The original stays your current plan (★). "
+                                  "Use 'Manage multiple plans' to switch.")
+                    return True
+                except Exception as e:
+                    display_error(f"Error saving plan: {e}")
+                    return False
         else:
             # New plan - ask for name
             if newplan.name:
@@ -349,9 +343,29 @@ def offer_plan_adjustment(current_plan, before, drop_after_end=(),
     return adjustment
 
 
+def parse_date_list(text):
+    """
+    Parse dates typed as "2025-12-25", "2025-12-25,2025-12-26" or "2025-12-24 to 2025-12-26".
+
+    A range includes both ends (in either order).
+
+    Returns:
+        List of datetimes at midnight
+
+    Raises:
+        ValueError: on a malformed date or range
+    """
+    if ' to ' in text.lower():
+        parts = text.lower().split(' to ')
+        if len(parts) != 2:
+            raise ValueError("use YYYY-MM-DD to YYYY-MM-DD for a range")
+        first, last = sorted(datetime.strptime(part.strip(), "%Y-%m-%d") for part in parts)
+        return [first + timedelta(days=n) for n in range((last - first).days + 1)]
+    return [datetime.strptime(part.strip(), "%Y-%m-%d") for part in text.split(',') if part.strip()]
+
+
 def manage_spare_days(current_plan):
     """Interactively manage spare days for the plan."""
-    dt = datetime  # Alias for strptime usage
 
     # Check if start_date is set
     if not current_plan.start_date:
@@ -413,7 +427,7 @@ def manage_spare_days(current_plan):
 
         before = copy.deepcopy(current_plan)
         try:
-            choice = int(input("\nEnter your choice (0-6): "))
+            choice = get_menu_choice("\nEnter your choice (0-6): ", 0, 6)
 
             if choice == 0:
                 return current_plan.fingerprint() != fingerprint  # True if the plan changed
@@ -432,36 +446,7 @@ def manage_spare_days(current_plan):
                     continue
 
                 try:
-                    new_spare_dates = []
-
-                    # Check if it's a range (contains 'to')
-                    if ' to ' in dates_input.lower():
-                        # Date range
-                        parts = dates_input.lower().split(' to ')
-                        if len(parts) == 2:
-                            start_str = parts[0].strip()
-                            end_str = parts[1].strip()
-
-                            start_date = dt.strptime(start_str, "%Y-%m-%d")
-                            end_date = dt.strptime(end_str, "%Y-%m-%d")
-
-                            if start_date > end_date:
-                                start_date, end_date = end_date, start_date
-
-                            # Generate all dates in range
-                            current = start_date
-                            while current <= end_date:
-                                new_spare_dates.append(current)
-                                current += timedelta(days=1)
-                        else:
-                            display_error("Invalid range format. Use: YYYY-MM-DD to YYYY-MM-DD")
-                            continue
-                    else:
-                        # Comma-separated dates
-                        date_strings = [d.strip() for d in dates_input.split(',')]
-                        for date_str in date_strings:
-                            if date_str:
-                                new_spare_dates.append(dt.strptime(date_str, "%Y-%m-%d"))
+                    new_spare_dates = parse_date_list(dates_input)
 
                     # Validate dates are reasonable (within plan period + 1 year buffer)
                     max_allowed_date = current_plan.start_date + timedelta(days=365 + current_plan.time)
@@ -524,28 +509,7 @@ def manage_spare_days(current_plan):
                     continue
 
                 try:
-                    dates_to_remove = []
-
-                    # Check if it's a range
-                    if ' to ' in dates_input.lower():
-                        parts = dates_input.lower().split(' to ')
-                        if len(parts) == 2:
-                            start_date = dt.strptime(parts[0].strip(), "%Y-%m-%d")
-                            end_date = dt.strptime(parts[1].strip(), "%Y-%m-%d")
-
-                            if start_date > end_date:
-                                start_date, end_date = end_date, start_date
-
-                            current = start_date
-                            while current <= end_date:
-                                dates_to_remove.append(current)
-                                current += timedelta(days=1)
-                    else:
-                        # Comma-separated
-                        date_strings = [d.strip() for d in dates_input.split(',')]
-                        for date_str in date_strings:
-                            if date_str:
-                                dates_to_remove.append(dt.strptime(date_str, "%Y-%m-%d"))
+                    dates_to_remove = parse_date_list(dates_input)
 
                     if any(d < today_midnight() for d in dates_to_remove):
                         display_error(LOCKED_DAYS_MESSAGE)
@@ -594,11 +558,9 @@ def manage_spare_days(current_plan):
                 added_count = sum(1 for d in added if d in current_plan.spare_days_dates)
                 display_success(f"Marked {added_count} {label} as spare days")
 
-            else:
-                print("Please enter a number between 0 and 6.")
-
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except ValueError as e:
+            # Menu choices are validated by get_menu_choice; this catches the rest
+            display_error(f"Invalid input: {e}")
 
 
 CUSTOM_GOAL_QUESTION = "This changes the day's goal. How should the rest of the plan adjust?"
@@ -660,7 +622,7 @@ def edit_individual_day_goal(current_plan):
     fingerprint = current_plan.fingerprint()
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-3): "))
+            choice = get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
 
             if choice == 0:
                 return current_plan.fingerprint() != fingerprint  # True if the plan changed
@@ -749,11 +711,9 @@ def edit_individual_day_goal(current_plan):
                     display_success("Custom day goals from today on cleared")
                     offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
 
-            else:
-                print("Please enter a number between 0 and 3.")
-
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except ValueError as e:
+            # Menu choices are validated by get_menu_choice; this catches the rest
+            display_error(f"Invalid input: {e}")
 
 
 def recalculate_plan_from_progress(current_plan):
@@ -1067,7 +1027,7 @@ def modify_plan(current_plan):
 
     while True:
         try:
-            choice = int(input("\nEnter your choice (0-10): "))
+            choice = get_menu_choice("\nEnter your choice (0-10): ", 0, 10)
             if choice == 0:
                 return False  # No changes made
 
@@ -1078,21 +1038,15 @@ def modify_plan(current_plan):
                 print("1. Daily words (recalculate time)")
                 print("2. Time (recalculate daily words)")
 
-                while True:
-                    try:
-                        keep_choice = int(input("Enter your choice (1-2): "))
-                        if keep_choice == 1:
-                            current_plan.total = new_total
-                            current_plan.calculate_time()
-                            return True
-                        elif keep_choice == 2:
-                            current_plan.total = new_total
-                            current_plan.calculate_daily()
-                            return True
-                        else:
-                            print("Please enter 1 or 2.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+                keep_choice = get_menu_choice("Enter your choice (1-2): ", 1, 2)
+                if keep_choice == 1:
+                    current_plan.total = new_total
+                    current_plan.calculate_time()
+                    return True
+                elif keep_choice == 2:
+                    current_plan.total = new_total
+                    current_plan.calculate_daily()
+                    return True
 
             elif choice == 2:
                 # Modify daily words, ask what to keep constant
@@ -1101,21 +1055,15 @@ def modify_plan(current_plan):
                 print("1. Total words (recalculate time)")
                 print("2. Time (recalculate total words)")
 
-                while True:
-                    try:
-                        keep_choice = int(input("Enter your choice (1-2): "))
-                        if keep_choice == 1:
-                            current_plan.daily = new_daily
-                            current_plan.calculate_time()
-                            return True
-                        elif keep_choice == 2:
-                            current_plan.daily = new_daily
-                            current_plan.calculate_words()
-                            return True
-                        else:
-                            print("Please enter 1 or 2.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+                keep_choice = get_menu_choice("Enter your choice (1-2): ", 1, 2)
+                if keep_choice == 1:
+                    current_plan.daily = new_daily
+                    current_plan.calculate_time()
+                    return True
+                elif keep_choice == 2:
+                    current_plan.daily = new_daily
+                    current_plan.calculate_words()
+                    return True
 
             elif choice == 3:
                 # Modify time, ask what to keep constant
@@ -1124,21 +1072,15 @@ def modify_plan(current_plan):
                 print("1. Total words (recalculate daily words)")
                 print("2. Daily words (recalculate total words)")
 
-                while True:
-                    try:
-                        keep_choice = int(input("Enter your choice (1-2): "))
-                        if keep_choice == 1:
-                            current_plan.time = new_time
-                            current_plan.calculate_daily()
-                            return True
-                        elif keep_choice == 2:
-                            current_plan.time = new_time
-                            current_plan.calculate_words()
-                            return True
-                        else:
-                            print("Please enter 1 or 2.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+                keep_choice = get_menu_choice("Enter your choice (1-2): ", 1, 2)
+                if keep_choice == 1:
+                    current_plan.time = new_time
+                    current_plan.calculate_daily()
+                    return True
+                elif keep_choice == 2:
+                    current_plan.time = new_time
+                    current_plan.calculate_words()
+                    return True
 
             elif choice == 4:
                 # Manage spare days
@@ -1173,34 +1115,28 @@ def modify_plan(current_plan):
                 print("2. Calculate daily words (from total ÷ time)")
                 print("3. Calculate time (from total ÷ daily)")
 
-                while True:
-                    try:
-                        calc_choice = int(input("Enter your choice (1-3): "))
-                        if calc_choice == 1:
-                            daily = get_positive_number("Enter daily words: ")
-                            time = get_writing_days("Enter writing days: ", current_plan)
-                            current_plan.daily = daily
-                            current_plan.time = time
-                            current_plan.calculate_words()
-                            return True
-                        elif calc_choice == 2:
-                            total = get_positive_number("Enter total words: ")
-                            time = get_writing_days("Enter writing days: ", current_plan)
-                            current_plan.total = total
-                            current_plan.time = time
-                            current_plan.calculate_daily()
-                            return True
-                        elif calc_choice == 3:
-                            total = get_positive_number("Enter total words: ")
-                            daily = get_positive_number("Enter daily words: ")
-                            current_plan.total = total
-                            current_plan.daily = daily
-                            current_plan.calculate_time()
-                            return True
-                        else:
-                            print("Please enter 1, 2, or 3.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+                calc_choice = get_menu_choice("Enter your choice (1-3): ", 1, 3)
+                if calc_choice == 1:
+                    daily = get_positive_number("Enter daily words: ")
+                    time = get_writing_days("Enter writing days: ", current_plan)
+                    current_plan.daily = daily
+                    current_plan.time = time
+                    current_plan.calculate_words()
+                    return True
+                elif calc_choice == 2:
+                    total = get_positive_number("Enter total words: ")
+                    time = get_writing_days("Enter writing days: ", current_plan)
+                    current_plan.total = total
+                    current_plan.time = time
+                    current_plan.calculate_daily()
+                    return True
+                elif calc_choice == 3:
+                    total = get_positive_number("Enter total words: ")
+                    daily = get_positive_number("Enter daily words: ")
+                    current_plan.total = total
+                    current_plan.daily = daily
+                    current_plan.calculate_time()
+                    return True
 
             elif choice == 8:
                 # Configure weekend settings
@@ -1216,11 +1152,9 @@ def modify_plan(current_plan):
                 # Recalculate from progress
                 modified = recalculate_plan_from_progress(current_plan)
                 return modified
-
-            else:
-                print("Please enter a number between 0 and 10.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except ValueError as e:
+            # Menu choices are validated by get_menu_choice; this catches the rest
+            display_error(f"Invalid input: {e}")
 
 
 def load_saved_plan():
@@ -1253,27 +1187,19 @@ def load_saved_plan():
     print("0. Cancel")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nSelect a plan to load (0 to cancel): "))
-            if choice == 0:
-                return None
-            if 1 <= choice <= len(saved_plans):
-                plan_info = saved_plans[choice - 1]
-                filepath = plan_info['path']
+    choice = get_menu_choice("\nSelect a plan to load (0 to cancel): ", 0, len(saved_plans))
+    if choice == 0:
+        return None
+    filepath = saved_plans[choice - 1]['path']
 
-                try:
-                    loaded_plan = plan_storage.load_plan(filepath)
-                    display_success(f"Loaded plan: {loaded_plan.name}")
-                    return loaded_plan
-                except Exception as e:
-                    display_error(f"Error loading plan: {e}")
-                    input("\nPress Enter to continue...")
-                    return None
-            else:
-                print(f"Please enter a number between 0 and {len(saved_plans)}.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    try:
+        loaded_plan = plan_storage.load_plan(filepath)
+        display_success(f"Loaded plan: {loaded_plan.name}")
+        return loaded_plan
+    except Exception as e:
+        display_error(f"Error loading plan: {e}")
+        input("\nPress Enter to continue...")
+        return None
 
 
 def show_calendar_options(newplan):
@@ -1288,36 +1214,27 @@ def show_calendar_options(newplan):
     print("0. Skip calendar view")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
-                if choice == 0:
-                    return
+    choice = get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
+    if choice == 0:
+        return
 
-                # Get start date
-                if newplan.start_date:
-                    # Plan has a saved start date - use it directly
-                    start_date = newplan.start_date
-                else:
-                    # No saved start date - this shouldn't happen for new plans,
-                    # but if it does, use today
-                    display_warning("No start date set. Using today's date.")
-                    start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                    newplan.start_date = start_date
+    # Get start date
+    if newplan.start_date:
+        # Plan has a saved start date - use it directly
+        start_date = newplan.start_date
+    else:
+        # No saved start date - this shouldn't happen for new plans,
+        # but if it does, use today
+        display_warning("No start date set. Using today's date.")
+        start_date = today_midnight()
+        newplan.start_date = start_date
 
-                # Display chosen views
-                if choice == 1 or choice == 3:
-                    calendar_view.display_calendar_view(newplan, start_date)
+    # Display chosen views
+    if choice == 1 or choice == 3:
+        calendar_view.display_calendar_view(newplan, start_date)
 
-                if choice == 2 or choice == 3:
-                    calendar_view.display_weekly_summary(newplan, start_date)
-
-                return
-            else:
-                print("Please enter a number between 0 and 3.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    if choice == 2 or choice == 3:
+        calendar_view.display_weekly_summary(newplan, start_date)
 
 
 def confirm_progress_date(current_plan, entry_date):
@@ -1373,7 +1290,7 @@ def update_progress(current_plan):
         print("=" * 50)
 
         try:
-            choice = int(input("\nEnter your choice (0-3): "))
+            choice = get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
 
             if choice == 0:
                 # Prompt to save if progress was updated
@@ -1505,11 +1422,9 @@ def update_progress(current_plan):
 
                 input("\nPress Enter to continue...")
 
-            else:
-                print("Please enter a number between 0 and 3.")
-
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except ValueError as e:
+            # Menu choices are validated by get_menu_choice; this catches the rest
+            display_error(f"Invalid input: {e}")
 
 
 def check_and_offer_recalculation(current_plan):
@@ -1597,28 +1512,22 @@ def offer_ahead_recalculation(current_plan, info):
     print("0. Keep plan as is")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-2): "))
+    choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
 
-            if choice == 0:
-                return
+    if choice == 0:
+        return
 
-            elif choice == 1:
-                # Reduce daily goals (keep end date)
-                offer_daily_recalculation(current_plan)
-                return
+    elif choice == 1:
+        # Reduce daily goals (keep end date)
+        offer_daily_recalculation(current_plan)
+        return
 
-            elif choice == 2:
-                # Finish early
-                offer_deadline_adjustment(current_plan)
-                return
+    elif choice == 2:
+        # Finish early
+        offer_deadline_adjustment(current_plan)
+        return
 
-            else:
-                print("Please enter 0, 1, or 2.")
 
-        except ValueError:
-            print("Invalid input. Please enter a number.")
 
 
 def offer_behind_recalculation(current_plan, info):
@@ -1632,28 +1541,22 @@ def offer_behind_recalculation(current_plan, info):
     print("0. Keep plan as is")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-2): "))
+    choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
 
-            if choice == 0:
-                return
+    if choice == 0:
+        return
 
-            elif choice == 1:
-                # Increase daily goals (keep end date)
-                offer_daily_recalculation(current_plan)
-                return
+    elif choice == 1:
+        # Increase daily goals (keep end date)
+        offer_daily_recalculation(current_plan)
+        return
 
-            elif choice == 2:
-                # Extend deadline
-                offer_deadline_adjustment(current_plan)
-                return
+    elif choice == 2:
+        # Extend deadline
+        offer_deadline_adjustment(current_plan)
+        return
 
-            else:
-                print("Please enter 0, 1, or 2.")
 
-        except ValueError:
-            print("Invalid input. Please enter a number.")
 
 
 def view_progress_summary(current_plan):
@@ -1732,54 +1635,46 @@ def export_plan_menu(current_plan):
     print("0. Cancel")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-4): "))
+    choice = get_menu_choice("\nEnter your choice (0-4): ", 0, 4)
 
-            if choice == 0:
-                return
+    if choice == 0:
+        return
 
-            elif choice in [1, 2, 3, 4]:
-                # Determine which formats to export
-                formats_to_export = []
-                if choice == 1:
-                    formats_to_export = ['csv']
-                elif choice == 2:
-                    formats_to_export = ['ical']
-                elif choice == 3:
-                    formats_to_export = ['markdown']
-                elif choice == 4:
-                    formats_to_export = ['csv', 'ical', 'markdown']
+    elif choice in [1, 2, 3, 4]:
+        # Determine which formats to export
+        formats_to_export = []
+        if choice == 1:
+            formats_to_export = ['csv']
+        elif choice == 2:
+            formats_to_export = ['ical']
+        elif choice == 3:
+            formats_to_export = ['markdown']
+        elif choice == 4:
+            formats_to_export = ['csv', 'ical', 'markdown']
 
-                # Export each format
-                exported_files = []
-                for fmt in formats_to_export:
-                    try:
-                        if fmt == 'csv':
-                            filepath = plan_export.export_to_csv(current_plan)
-                            display_success(f"CSV exported: {filepath}")
-                        elif fmt == 'ical':
-                            filepath = plan_export.export_to_ical(current_plan)
-                            display_success(f"iCal exported: {filepath}")
-                        elif fmt == 'markdown':
-                            filepath = plan_export.export_to_markdown(current_plan)
-                            display_success(f"Markdown exported: {filepath}")
+        # Export each format
+        exported_files = []
+        for fmt in formats_to_export:
+            try:
+                if fmt == 'csv':
+                    filepath = plan_export.export_to_csv(current_plan)
+                    display_success(f"CSV exported: {filepath}")
+                elif fmt == 'ical':
+                    filepath = plan_export.export_to_ical(current_plan)
+                    display_success(f"iCal exported: {filepath}")
+                elif fmt == 'markdown':
+                    filepath = plan_export.export_to_markdown(current_plan)
+                    display_success(f"Markdown exported: {filepath}")
 
-                        exported_files.append(filepath)
-                    except Exception as e:
-                        display_error(f"Error exporting {fmt}: {e}")
+                exported_files.append(filepath)
+            except Exception as e:
+                display_error(f"Error exporting {fmt}: {e}")
 
-                if exported_files:
-                    display_success(f"Exported {len(exported_files)} file(s)")
-                    print(f"  Location: {plan_export.get_exports_directory()}")
+        if exported_files:
+            display_success(f"Exported {len(exported_files)} file(s)")
+            print(f"  Location: {plan_export.get_exports_directory()}")
 
-                input("\nPress Enter to continue...")
-                return
-
-            else:
-                print("Please enter a number between 0 and 4.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        input("\nPress Enter to continue...")
 
 
 # The plan shown by handle_plan_actions, so an interrupt can offer to save it
@@ -1869,15 +1764,7 @@ def configure_weekend_settings(current_plan):
     print("0. Skip weekend configuration")
     print("=" * 50)
 
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (0-3): "))
-            if choice in [0, 1, 2, 3]:
-                break
-            else:
-                print("Please enter a number between 0 and 3.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    choice = get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
 
     if choice == 0:
         # Keep default: same as weekdays
@@ -2004,18 +1891,10 @@ def create_plan_from_template():
     print("=" * 50)
 
     # Get user choice
-    while True:
-        try:
-            choice = int(input(f"\nSelect a template (0-{len(template_list)}): "))
-            if choice == 0:
-                return  # Cancel
-            elif 1 <= choice <= len(template_list):
-                template_key, selected_template = template_list[choice - 1]
-                break
-            else:
-                print(f"Please enter a number between 0 and {len(template_list)}.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+    choice = get_menu_choice(f"\nSelect a template (0-{len(template_list)}): ", 0, len(template_list))
+    if choice == 0:
+        return  # Cancel
+    template_key, selected_template = template_list[choice - 1]
 
     # Show template details
     print("\n" + "=" * 50)
