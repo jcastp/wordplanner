@@ -109,6 +109,24 @@ class TestShownMilestones:
         assert "Nov 07, 2026" in text  # 50%: day 6
         assert "Nov 12, 2026" in text  # 100%: day 11
 
+    def test_calendar_shows_words_written_and_to_go(self, monkeypatch):
+        monkeypatch.setenv("COLUMNS", "120")
+        p = make_plan(total=50000, time=30, preexisting_words=20000)
+        p.calculate_daily()
+        p.record_progress(day(1), 1500)
+        out = io.StringIO()
+
+        with contextlib.redirect_stdout(out):
+            calendar_view.display_milestones(calendar_view.Console(), p, p.start_date, p.end_date)
+
+        text = out.getvalue()
+        assert "Target" in text and "Written" in text
+        # 21,500 written: 25% reached; 25,000 - 21,500 to go for 50%
+        assert text.count("21,500") == 4
+        assert "✓ reached" in text
+        assert "3,500 to go" in text
+        assert "28,500 to go" in text   # 100%
+
     def test_markdown_export(self, tmp_path):
         p = make_plan(total=50000, time=30, preexisting_words=20000)
         p.calculate_daily()

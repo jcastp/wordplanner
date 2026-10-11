@@ -250,18 +250,27 @@ def display_milestones(console, plan_obj, start_date, end_date):
 
     table.add_column("Progress", justify="center", style="cyan")
     table.add_column("Date", justify="center", style="yellow")
-    table.add_column("Words Written", justify="right", style="green")
+    table.add_column("Target", justify="right", style="green")
+    table.add_column("Written", justify="right", style="bold white")
     table.add_column("Plan Day", justify="center", style="white")
     table.add_column("Status", justify="center")
 
+    # Words written so far, pre-existing words included (like the targets)
+    written = plan_obj.get_total_written()
+
     # 25%, 50%, 75%, 100%, following the schedule
     for milestone in plan_obj.milestones():
+        if milestone['reached']:
+            status = "[green]✓ reached[/green]"
+        else:
+            status = f"{milestone['words'] - written:,.0f} to go"
         table.add_row(
             f"{int(milestone['fraction'] * 100)}%",
             format_milestone_date(milestone),
             f"{milestone['words']:,.0f}",
+            f"{written:,.0f}",
             str(milestone['day']) if milestone['day'] else "-",
-            "[green]✓ reached[/green]" if milestone['reached'] else ""
+            status
         )
 
     console.print(table)
