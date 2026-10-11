@@ -10,6 +10,7 @@ import csv
 import io
 import pytest
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 import plan
 import planea
 import plan_export
@@ -147,6 +148,7 @@ class TestSpareDaysOutsideThePlan:
         assert ten_day_plan.recalculate_total_from_daily_goals() == pytest.approx(10000)
 
 
+@freeze_time("2026-10-01")  # before the plan: quick actions skip past days
 class TestMarkWeekdaysAsSpare:
     """P5: quick actions only mark days inside the (growing) plan window."""
 

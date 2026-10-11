@@ -195,18 +195,27 @@ def plan_actions_menu():
     return get_menu_choice("\nEnter your choice (0-7): ", 0, 7)
 
 
+def today_midnight():
+    """Today's date at midnight, the boundary between locked and open days."""
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+LOCKED_DAYS_MESSAGE = "Days before today are locked: their goals can't change."
+
+
 def mark_weekdays_as_spare(current_plan, weekdays):
     """
     Mark every day of the given weekdays (Mon=0) inside the plan as spare.
 
     Each spare day pushes the end date out by one day, so the window is
     re-evaluated as days are added; days after the final end date are left alone.
+    Days before today are locked and never marked.
 
     Returns:
         Number of spare days added
     """
     added_count = 0
-    current = current_plan.start_date
+    current = max(current_plan.start_date, today_midnight())
     while current <= current_plan.end_date:
         if current.weekday() in weekdays and not current_plan.is_spare_day(current):
             current_plan.spare_days_dates.append(current)
@@ -344,6 +353,10 @@ def manage_spare_days(current_plan):
                             print(f"  ... and {len(invalid_dates) - 5} more")
                         continue
 
+                    if any(d < today_midnight() for d in new_spare_dates):
+                        display_error(LOCKED_DAYS_MESSAGE)
+                        continue
+
                     # Add to spare days (avoid duplicates)
                     added_count = 0
                     for new_date in new_spare_dates:
@@ -406,6 +419,10 @@ def manage_spare_days(current_plan):
                             if date_str:
                                 dates_to_remove.append(dt.strptime(date_str, "%Y-%m-%d"))
 
+                    if any(d < today_midnight() for d in dates_to_remove):
+                        display_error(LOCKED_DAYS_MESSAGE)
+                        continue
+
                     # Remove from spare days
                     removed_count = 0
                     for remove_date in dates_to_remove:
@@ -424,14 +441,16 @@ def manage_spare_days(current_plan):
                     display_error(f"Invalid date format: {e}")
 
             elif choice == 3:
-                # Clear all spare days
-                if not current_plan.spare_days_dates:
-                    display_error("No spare days to clear")
+                # Clear all spare days from today on (past ones are locked)
+                today = today_midnight()
+                clearable = [d for d in current_plan.spare_days_dates if d >= today]
+                if not clearable:
+                    display_error("No spare days from today on to clear")
                     continue
 
-                if get_yes_no(f"Clear all {len(current_plan.spare_days_dates)} spare days?", default='n'):
-                    current_plan.spare_days_dates.clear()
-                    display_success("All spare days cleared")
+                if get_yes_no(f"Clear all {len(clearable)} spare days from today on?", default='n'):
+                    current_plan.spare_days_dates = [d for d in current_plan.spare_days_dates if d < today]
+                    display_success("Spare days from today on cleared")
 
             elif choice == 4:
                 added_count = mark_weekdays_as_spare(current_plan, [5])
@@ -503,11 +522,15 @@ def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
             print("\nNo adjustment needed - total remains the same")
             return
 
-        # Count adjustable days (non-custom, non-spare, non-weekend-with-custom-goal)
+        # Count adjustable days (non-locked, non-custom, non-spare, non-weekend-with-custom-goal)
         adjustable_days = 0
 
         for current_date in current_plan.plan_days():
             date_key = current_date.strftime('%Y-%m-%d')
+
+            # Skip past days: their goals are locked
+            if current_plan.is_locked(current_date):
+                continue
 
             # Skip spare days
             if current_plan.is_spare_day(current_date):
@@ -525,7 +548,7 @@ def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
 
         if adjustable_days == 0:
             print("\nWarning: No adjustable days remaining!")
-            print("All days have custom goals, weekend settings, or are spare days.")
+            print("All days are past, have custom goals, weekend settings, or are spare days.")
             print(f"Total will be: {calculated_total:,.0f} words")
             current_plan.total = calculated_total
             return
@@ -592,6 +615,10 @@ def edit_individual_day_goal(current_plan):
                 try:
                     target_date = dt.strptime(date_input, "%Y-%m-%d")
 
+                    if target_date < today_midnight():
+                        display_error(LOCKED_DAYS_MESSAGE)
+                        continue
+
                     # Show current goal for this day
                     current_goal = current_plan.get_daily_goal(date=target_date)
                     print(f"\nCurrent goal for {target_date.strftime('%A, %Y-%m-%d')}: {current_goal:,.0f} words")
@@ -632,6 +659,10 @@ def edit_individual_day_goal(current_plan):
                 try:
                     target_date = dt.strptime(date_input, "%Y-%m-%d")
                     date_key = target_date.strftime('%Y-%m-%d')
+
+                    if target_date < today_midnight():
+                        display_error(LOCKED_DAYS_MESSAGE)
+                        continue
 
                     if date_key in current_plan.custom_daily_goals:
                         old_total = current_plan.total
@@ -1549,6 +1580,8 @@ def export_plan_menu(current_plan):
 def handle_plan_actions(current_plan):
     """Handle the plan actions menu loop."""
     while True:
+        # Every modification starts from this menu: freeze days that are now past
+        current_plan.lock_past_goals()
         display_results(current_plan)
         action = plan_actions_menu()
 

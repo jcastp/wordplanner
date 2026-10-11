@@ -33,7 +33,7 @@ def whole_days(value):
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -67,6 +67,7 @@ class Plan():
         self.weekend_daily = weekend_daily  # Daily goal for weekends (if mode is "different")
         self.weekend_days = weekend_days or [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
         self.custom_daily_goals = custom_daily_goals or {}  # Date string -> custom word count
+        self.locked_goals = locked_goals or {}  # Date string -> goal frozen once the day is past
 
         # Multiple plans management fields
         self.status = status  # "active", "archived", "completed"
@@ -196,6 +197,35 @@ class Plan():
     def show(self):
         """Shows basic data."""
         print(self.total, self.time, self.daily)
+
+    def lock_past_goals(self, as_of_date=None):
+        """
+        Freeze the goal of every plan day before as_of_date (default: today).
+
+        Once locked, a day's goal never changes again, whatever is modified
+        later (daily, pattern, weekends, custom goals, spare days, start date).
+        Today is not locked: it isn't over yet. Already locked days are kept.
+
+        Returns:
+            Number of days newly locked
+        """
+        if as_of_date is None:
+            as_of_date = datetime.datetime.now()
+        as_of_date = to_midnight(as_of_date)
+
+        newly_locked = 0
+        for day in self.plan_days():
+            if day >= as_of_date:
+                break
+            date_key = day.strftime('%Y-%m-%d')
+            if date_key not in self.locked_goals:
+                self.locked_goals[date_key] = self.get_daily_goal(date=day)
+                newly_locked += 1
+        return newly_locked
+
+    def is_locked(self, date):
+        """Check whether a day's goal is locked (the day is past)."""
+        return date.strftime('%Y-%m-%d') in self.locked_goals
 
     def invalidate_daily_goals_cache(self):
         """Invalidate the cached daily goals when plan changes."""
@@ -392,12 +422,16 @@ class Plan():
             Daily word goal for that day, or 0 if it's a spare day
         """
         if date is not None:
-            # Check if it's a spare day first
+            # Past days keep the goal they had; nothing overrides a lock
+            date_key = date.strftime('%Y-%m-%d')
+            if date_key in self.locked_goals:
+                return self.locked_goals[date_key]
+
+            # Check if it's a spare day
             if self.is_spare_day(date):
                 return 0
 
             # Check for custom daily goal for this specific date
-            date_key = date.strftime('%Y-%m-%d')
             if date_key in self.custom_daily_goals:
                 return self.custom_daily_goals[date_key]
 
@@ -723,20 +757,8 @@ class Plan():
         old_daily = self.daily
         new_daily = words_remaining / remaining_writing_days
 
-        # IMPORTANT: Preserve past daily goals before changing base daily
-        # Set custom goals for all past days (before as_of_date) to maintain historical accuracy
-        current_date = self.start_date
-        past_goals_preserved = 0
-
-        while current_date < as_of_date:
-            date_str = current_date.strftime('%Y-%m-%d')
-            # Only set custom goal if one doesn't already exist for this date
-            if date_str not in self.custom_daily_goals:
-                # Get the current daily goal for this date (with pattern, weekend logic, etc.)
-                past_goal = self.get_daily_goal(date=current_date)
-                self.custom_daily_goals[date_str] = past_goal
-                past_goals_preserved += 1
-            current_date += timedelta(days=1)
+        # Lock the goals of days before as_of_date so the changes below can't touch them
+        past_goals_preserved = self.lock_past_goals(as_of_date)
 
         # Update the plan
         self.daily = new_daily
@@ -747,7 +769,7 @@ class Plan():
         self.pattern_config = None
 
         # Clear custom daily goals for future dates only (they don't make sense after recalculation)
-        # Keep past custom goals (including the ones we just set) for historical record
+        # Keep past custom goals for the record
         future_custom_goals = {}
         for date_str, goal in self.custom_daily_goals.items():
             goal_date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
@@ -808,6 +830,7 @@ class Plan():
             'is_active': self.is_active,
             'last_modified': self.last_modified.isoformat() if self.last_modified else None,
             'preexisting_words': self.preexisting_words,
+            'locked_goals': self.locked_goals,
         }
 
     @classmethod
@@ -896,6 +919,7 @@ class Plan():
             is_active=data.get('is_active', False),
             last_modified=last_modified,
             preexisting_words=preexisting_words,
+            locked_goals=data.get('locked_goals', {}),
         )
 
     def to_json(self):
