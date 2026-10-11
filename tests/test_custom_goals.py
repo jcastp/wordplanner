@@ -138,11 +138,12 @@ class TestRemoveAndClear:
 
         edit_goals(ten_day_plan, ["2", key(day(4)), CHANGE_TOTAL], scripted_input)
 
-        # Day 4 is ordinary again at the same daily goal: 10 x 777.78
+        # Day 4 is ordinary again at the same daily goal: 10 x 777.78,
+        # rounded to whole words (P21)
         assert ten_day_plan.custom_daily_goals == {}
-        assert ten_day_plan.daily == pytest.approx(7000 / 9)
-        assert ten_day_plan.total == pytest.approx(70000 / 9)
-        assert schedule_sum(ten_day_plan) == pytest.approx(70000 / 9)
+        assert ten_day_plan.total == 7778
+        assert ten_day_plan.daily == pytest.approx(777.8)
+        assert schedule_sum(ten_day_plan) == pytest.approx(7778)
 
     @freeze_time(day(6) + timedelta(hours=10))
     def test_clear_keeps_past_goals(self, ten_day_plan, scripted_input):

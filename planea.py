@@ -272,13 +272,13 @@ def apply_plan_adjustment(current_plan, before, adjustment, drop_after_end=()):
         current_plan.keep_end_date(old_end)
     elif adjustment == 'change_total':
         current_plan.keep_end_date(old_end)
-        current_plan.total = current_plan.total_for_daily(old_daily)
+        current_plan.total = round(current_plan.total_for_daily(old_daily))
         current_plan.sync_daily()
     else:
         raise ValueError(f"Unknown plan adjustment: {adjustment}")
 
     if current_plan.build_schedule()['adjustable_weight'] == 0:
-        current_plan.total = current_plan.total_for_daily(0)
+        current_plan.total = round(current_plan.total_for_daily(0))
 
 
 def offer_plan_adjustment(current_plan, before, drop_after_end=(),
@@ -345,6 +345,7 @@ def manage_spare_days(current_plan):
         print("  Please view a calendar first to set a start date.")
         return False
 
+    fingerprint = current_plan.fingerprint()
     while True:
         plan_end_date = current_plan.end_date or current_plan.start_date
         print("\n" + "=" * 50)
@@ -401,7 +402,7 @@ def manage_spare_days(current_plan):
             choice = int(input("\nEnter your choice (0-6): "))
 
             if choice == 0:
-                return len(current_plan.spare_days_dates) > 0  # Return True if modified
+                return current_plan.fingerprint() != fingerprint  # True if the plan changed
 
             elif choice == 1:
                 # Add spare days by date
@@ -642,12 +643,13 @@ def edit_individual_day_goal(current_plan):
     print("0. Done")
     print("=" * 50)
 
+    fingerprint = current_plan.fingerprint()
     while True:
         try:
             choice = int(input("\nEnter your choice (0-3): "))
 
             if choice == 0:
-                return len(current_plan.custom_daily_goals) > 0
+                return current_plan.fingerprint() != fingerprint  # True if the plan changed
 
             elif choice == 1:
                 # Set custom goal
@@ -1126,9 +1128,7 @@ def modify_plan(current_plan):
 
             elif choice == 4:
                 # Manage spare days
-                modified = manage_spare_days(current_plan)
-                if modified:
-                    return True
+                return manage_spare_days(current_plan)
 
             elif choice == 5:
                 # Change writing pattern
@@ -1819,9 +1819,10 @@ def handle_plan_actions(current_plan):
             progress_analytics.show_analytics_menu(current_plan)
 
         elif action == 4:
-            # Modify plan
-            modified = modify_plan(current_plan)
-            if modified:
+            # Modify plan; only say so if something really changed
+            fingerprint = current_plan.fingerprint()
+            modify_plan(current_plan)
+            if current_plan.fingerprint() != fingerprint:
                 display_success("Plan modified successfully!")
             # Loop continues to show updated results
 

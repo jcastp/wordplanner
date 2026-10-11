@@ -9,6 +9,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import plan
+import config
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage(tmp_path_factory, monkeypatch):
+    """
+    Keep every test away from the real ~/.wordplanner.
+
+    Plans, exports and preferences all live under config.SAVE_DIRECTORY;
+    an absolute path is used as is. Tests that set it themselves still can.
+    """
+    monkeypatch.setattr(config, 'SAVE_DIRECTORY', str(tmp_path_factory.mktemp('wordplanner')))
 
 
 @pytest.fixture

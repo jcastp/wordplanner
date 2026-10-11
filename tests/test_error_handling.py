@@ -51,7 +51,6 @@ def test_negative_numbers():
         ("daily", {"daily": -1000}),
         ("total", {"total": -50000}),
         ("time", {"time": -30}),
-        ("words", {"words": -100}),
         ("weekend_daily", {"weekend_daily": -500}),
     ]
 

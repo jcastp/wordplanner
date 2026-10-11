@@ -24,6 +24,12 @@ def to_midnight(value):
     return value
 
 
+def whole_if_integral(value):
+    """A number from a plan file: an int when it is whole (50000, not 50000.0), else a float."""
+    number = float(value)
+    return int(number) if number.is_integer() else number
+
+
 def whole_days(value):
     """
     Round a number of writing days up to a whole day.
@@ -35,7 +41,7 @@ def whole_days(value):
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None, schedule_adjustment=0):
+    def __init__(self, daily=0, total=0, time=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None, schedule_adjustment=0):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -44,8 +50,6 @@ class Plan():
             raise ValueError(f"Total word count cannot be negative: {total}")
         if time < 0:
             raise ValueError(f"Time (days) cannot be negative: {time}")
-        if words < 0:
-            raise ValueError(f"Words count cannot be negative: {words}")
         if weekend_daily < 0:
             raise ValueError(f"Weekend daily word count cannot be negative: {weekend_daily}")
         if preexisting_words < 0:
@@ -55,7 +59,6 @@ class Plan():
         self.total = total  # Full project goal, including pre-existing words
         self.preexisting_words = preexisting_words  # Words written before the plan; not scheduled
         self.time = time  # Writing days (not including spare days), always whole
-        self.words = words # this is the amount of words in the current plan
         self.name = name  # Name/title of the writing project
         self.start_date = start_date  # When the writing plan starts
         self.created_date = created_date or datetime.datetime.now()  # When this plan was created
@@ -67,7 +70,8 @@ class Plan():
         self.progress = progress or {}  # Dictionary mapping date strings (YYYY-MM-DD) to actual word counts
         self.weekend_mode = weekend_mode  # "same", "different", "spare"
         self.weekend_daily = weekend_daily  # Daily goal for weekends (if mode is "different")
-        self.weekend_days = weekend_days or [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
+        # Saturday=5, Sunday=6 (0-indexed from Monday); an empty list means no weekend days
+        self.weekend_days = list(weekend_days) if weekend_days is not None else [5, 6]
         self.custom_daily_goals = custom_daily_goals or {}  # Date string -> custom word count
         self.locked_goals = locked_goals or {}  # Date string -> goal frozen once the day is past
         # Words added to the future schedule by "recalculate from progress" so it covers
@@ -235,12 +239,12 @@ class Plan():
             self.sync_daily()
 
     def calculate_words(self):
-        """Calculate the total from the daily goal and time (keeps the daily goal)."""
+        """Calculate the total from the daily goal and time (keeps the daily goal), in whole words."""
         if self.daily < 0:
             raise ValueError(f"Cannot calculate total words: daily cannot be negative (got {self.daily})")
         if self.time < 0:
             raise ValueError(f"Cannot calculate total words: time cannot be negative (got {self.time})")
-        self.total = self.total_for_daily(self.daily)
+        self.total = round(self.total_for_daily(self.daily))
 
     def show(self):
         """Shows basic data."""
@@ -518,13 +522,13 @@ class Plan():
         custom goal or weekend setting.
 
         Returns:
-            float: The new total word count
+            The new total word count, in whole words
         """
         if not self.start_date:
             # Can't recalculate without a start date
             return self.total
 
-        self.total = self.total_for_daily(self.daily)
+        self.total = round(self.total_for_daily(self.daily))
         return self.total
 
     MILESTONES = (0.25, 0.50, 0.75, 1.0)
@@ -1017,7 +1021,12 @@ class Plan():
     # the next visit) or change without the user doing anything
     _DERIVED_FIELDS = ('daily', 'locked_goals', 'last_modified')
 
-    def _comparable_state(self):
+    def fingerprint(self):
+        """
+        The plan's user-visible state as a string, to tell whether something changed.
+
+        Derived fields (_DERIVED_FIELDS) are left out.
+        """
         data = self.to_dict()
         for field in self._DERIVED_FIELDS:
             data.pop(field, None)
@@ -1025,11 +1034,11 @@ class Plan():
 
     def mark_saved(self):
         """Remember the current state as saved (called after loading or saving)."""
-        self._saved_state = self._comparable_state()
+        self._saved_state = self.fingerprint()
 
     def has_unsaved_changes(self):
         """True if the plan changed since it was loaded or saved, or was never saved."""
-        return self._saved_state is None or self._comparable_state() != self._saved_state
+        return self._saved_state is None or self.fingerprint() != self._saved_state
 
     def to_dict(self):
         """Convert plan to dictionary for serialization."""
@@ -1038,7 +1047,6 @@ class Plan():
             'daily': self.daily,
             'total': self.total,
             'time': self.time,
-            'words': self.words,
             'spare_days_dates': [d.isoformat() if hasattr(d, 'isoformat') else d for d in self.spare_days_dates],
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'created_date': self.created_date.isoformat() if self.created_date else None,
@@ -1107,11 +1115,10 @@ class Plan():
 
         # Validate numeric values
         try:
-            daily = float(data.get('daily', 0))
-            total = float(data.get('total', 0))
-            time = float(data.get('time', 0))
-            words = float(data.get('words', 0))
-            weekend_daily = float(data.get('weekend_daily', 0))
+            daily = whole_if_integral(data.get('daily', 0))
+            total = whole_if_integral(data.get('total', 0))
+            time = whole_if_integral(data.get('time', 0))
+            weekend_daily = whole_if_integral(data.get('weekend_daily', 0))
             preexisting_words = int(data.get('preexisting_words', 0))
             schedule_adjustment = float(data.get('schedule_adjustment', 0))
         except (ValueError, TypeError) as e:
@@ -1129,7 +1136,6 @@ class Plan():
             daily=daily,
             total=total,
             time=time,
-            words=words,
             spare_days_dates=spare_days_dates,
             start_date=start_date,
             created_date=created_date,
@@ -1138,7 +1144,7 @@ class Plan():
             progress=progress,
             weekend_mode=data.get('weekend_mode', 'same'),
             weekend_daily=weekend_daily,
-            weekend_days=data.get('weekend_days', [5, 6]),
+            weekend_days=data.get('weekend_days'),
             custom_daily_goals=data.get('custom_daily_goals', {}),
             # Multiple plans management fields (with defaults for old plans)
             status=data.get('status', 'active'),
