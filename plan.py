@@ -2,6 +2,8 @@ import datetime
 from datetime import timedelta
 import math
 import json
+import random
+import config
 
 """class for the Plan."""
 
@@ -33,7 +35,7 @@ def whole_days(value):
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None, schedule_adjustment=0):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -61,13 +63,16 @@ class Plan():
         self.source_file = source_file  # Path to the file this plan was loaded from (None for new plans)
         self.pattern = pattern  # Pattern type: flat, valley, mountain, rising, declining, random
         self.pattern_config = pattern_config or {}  # Pattern-specific configuration
-        self._daily_goals_cache = None  # Cache for calculated daily goals
+        self._schedule_cache = None  # (inputs, schedule) from build_schedule()
         self.progress = progress or {}  # Dictionary mapping date strings (YYYY-MM-DD) to actual word counts
         self.weekend_mode = weekend_mode  # "same", "different", "spare"
         self.weekend_daily = weekend_daily  # Daily goal for weekends (if mode is "different")
         self.weekend_days = weekend_days or [5, 6]  # Saturday=5, Sunday=6 (0-indexed from Monday)
         self.custom_daily_goals = custom_daily_goals or {}  # Date string -> custom word count
         self.locked_goals = locked_goals or {}  # Date string -> goal frozen once the day is past
+        # Words added to the future schedule by "recalculate from progress" so it covers
+        # what is actually left (negative when ahead). See build_schedule().
+        self.schedule_adjustment = schedule_adjustment
 
         # Multiple plans management fields
         self.status = status  # "active", "archived", "completed"
@@ -164,35 +169,55 @@ class Plan():
         return date.weekday() in self.weekend_days
 
     def calculate_daily(self):
-        """calculate the daily amount of words needed, based on time
-        and total words desired."""
+        """
+        Calculate the daily goal from the total and time (keeps the total).
+
+        `daily` is the goal of an ordinary open day once fixed days (locked,
+        spare, custom, weekend) are taken out of the words left.
+        """
         if self.time <= 0:
             raise ValueError(f"Cannot calculate daily words: time must be greater than 0 (got {self.time})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate daily words: total cannot be negative (got {self.total})")
-        self.daily = self.words_to_schedule / self.time
-        self.invalidate_daily_goals_cache()
+        self.sync_daily()
 
     def calculate_time(self):
-        """Calculate the time needed to complete your work."""
+        """
+        Calculate how many writing days are needed at the current daily goal (keeps the total).
+
+        Finds the fewest whole days whose schedule fits the words at `daily`,
+        then lowers `daily` slightly so the schedule adds up to exactly the total.
+        Never shrinks the plan below its locked (past) writing days.
+        """
         if self.daily <= 0:
             raise ValueError(f"Cannot calculate time: daily words must be greater than 0 (got {self.daily})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate time: total cannot be negative (got {self.total})")
-        # Round up to whole days, then spread the words evenly over them
-        self.time = self.words_to_schedule / self.daily
+
+        daily = self.daily
+        min_days = self.min_writing_days()
+
+        def fits(days):
+            self.time = days
+            return self.total_for_daily(daily) >= self.total - 1e-6
+
+        days = max(min_days, whole_days(self.words_to_schedule / daily))
+        while not fits(days) and days < config.MAX_DAYS:
+            days += 1
+        while days > min_days and fits(days - 1):
+            days -= 1
+
+        self.time = days
         if self.time > 0:
-            self.daily = self.words_to_schedule / self.time
-        self.invalidate_daily_goals_cache()
+            self.sync_daily()
 
     def calculate_words(self):
-        """calculate the number or words."""
+        """Calculate the total from the daily goal and time (keeps the daily goal)."""
         if self.daily < 0:
             raise ValueError(f"Cannot calculate total words: daily cannot be negative (got {self.daily})")
         if self.time < 0:
             raise ValueError(f"Cannot calculate total words: time cannot be negative (got {self.time})")
-        self.total = self.daily * self.time + self.preexisting_words
-        self.invalidate_daily_goals_cache()
+        self.total = self.total_for_daily(self.daily)
 
     def show(self):
         """Shows basic data."""
@@ -227,240 +252,218 @@ class Plan():
         """Check whether a day's goal is locked (the day is past)."""
         return date.strftime('%Y-%m-%d') in self.locked_goals
 
+    def min_writing_days(self):
+        """Fewest writing days the plan can have without dropping locked (past) days."""
+        if not self.start_date:
+            return 0
+        spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}
+        locked_days = (datetime.datetime.strptime(k, '%Y-%m-%d') for k in self.locked_goals)
+        return sum(1 for d in locked_days if d >= self.start_date and d.date() not in spare)
+
+    def _locked_words(self):
+        """Sum of the locked goals inside the plan window."""
+        goals = self.build_schedule()['goals']
+        return sum(goals[k] for k in self.locked_goals if k in goals)
+
+    # ------------------------------------------------------------------
+    # The schedule: one pass that decides every day's goal
+    # ------------------------------------------------------------------
+
     def invalidate_daily_goals_cache(self):
-        """Invalidate the cached daily goals when plan changes."""
-        self._daily_goals_cache = None
+        """Drop the cached schedule. Not required (the cache checks its inputs), kept for callers."""
+        self._schedule_cache = None
+
+    def _schedule_key(self):
+        """Everything the schedule depends on; any change rebuilds it."""
+        return (
+            self.total, self.preexisting_words, self.schedule_adjustment, self.time, self.start_date,
+            tuple(sorted(d for d in self.spare_days_dates if not isinstance(d, int))),
+            self.weekend_mode, self.weekend_daily, tuple(self.weekend_days),
+            tuple(sorted(self.custom_daily_goals.items())),
+            tuple(sorted(self.locked_goals.items())),
+            self.pattern, json.dumps(self.pattern_config or {}, sort_keys=True, default=str),
+        )
+
+    def _random_seed(self):
+        """Seed for the random pattern, stored on first use so goals don't change between runs."""
+        if self.pattern_config is None:
+            self.pattern_config = {}
+        if 'seed' not in self.pattern_config:
+            self.pattern_config['seed'] = random.randint(1, 1000000)
+        return self.pattern_config['seed']
+
+    def _pattern_weights(self, num_positions):
+        """
+        Relative weight of each writing-day position for the current pattern.
+
+        Weights average 1: a flat pattern gives 1 for every day, and `daily`
+        is the goal of a day with weight 1.
+        """
+        n = int(num_positions)
+        if n <= 0:
+            return []
+        config_ = self.pattern_config or {}
+
+        if self.pattern == "valley":
+            # Start high, ease in the middle, finish high
+            peak = config_.get('peak_multiplier', 1.5)
+            valley = config_.get('valley_multiplier', 0.7)
+            raw = [valley + (peak - valley) * (math.cos(p / n * 2 * math.pi) + 1) / 2 for p in range(n)]
+        elif self.pattern == "mountain":
+            # Start low, peak in the middle, ease at the end
+            peak = config_.get('peak_multiplier', 1.5)
+            valley = config_.get('valley_multiplier', 0.7)
+            raw = [valley + (peak - valley) * math.sin(p / n * math.pi) for p in range(n)]
+        elif self.pattern in ("rising", "declining"):
+            default_start, default_end = (0.5, 1.5) if self.pattern == "rising" else (1.5, 0.5)
+            start = config_.get('start_multiplier', default_start)
+            end = config_.get('end_multiplier', default_end)
+            raw = [start + (end - start) * (p / (n - 1) if n > 1 else 0) for p in range(n)]
+        elif self.pattern == "random":
+            rng = random.Random(self._random_seed())
+            low = config_.get('min_multiplier', 0.5)
+            high = config_.get('max_multiplier', 1.5)
+            raw = [rng.uniform(low, high) for _ in range(n)]
+        else:
+            raw = [1.0] * n
+
+        raw_sum = sum(raw)
+        if raw_sum <= 0:
+            return [1.0] * n
+        return [w * n / raw_sum for w in raw]
+
+    def build_schedule(self):
+        """
+        Decide the goal of every calendar day of the plan, in one pass.
+
+        Days fall into two groups:
+        - fixed: locked past days; spare days and weekend-spare days (0);
+          custom goals; weekend days in "different" mode (weekend_daily);
+        - adjustable: every other writing day.
+
+        The adjustable days share the words left after the fixed days, weighted
+        by the pattern. Pattern weights follow writing-day position (spare and
+        weekend-spare days don't take a position), so the shape doesn't shift.
+        The schedule adds up to words_to_schedule + schedule_adjustment, unless
+        the fixed days alone are more than that.
+
+        Without a start date there are no dates yet: `time` abstract writing
+        days, all adjustable.
+
+        Returns:
+            dict with 'goals' ({date string: goal}, in date order), 'level' (goal
+            of a weight-1 adjustable day), 'adjustable_weight', 'adjustable_days'
+            and 'fixed_words'.
+        """
+        if self.pattern == "random":
+            self._random_seed()
+        key = self._schedule_key()
+        if self._schedule_cache is not None and self._schedule_cache[0] == key:
+            return self._schedule_cache[1]
+
+        goals = {}
+        fixed = {}
+        adjustable = {}
+
+        if self.start_date:
+            days = list(self.plan_days())
+            spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}
+
+            def is_rest_day(day):
+                return day.date() in spare or (self.weekend_mode == "spare" and self.is_weekend(day))
+
+            positions = [day.strftime('%Y-%m-%d') for day in days if not is_rest_day(day)]
+            weight_of = dict(zip(positions, self._pattern_weights(len(positions))))
+
+            for day in days:
+                date_key = day.strftime('%Y-%m-%d')
+                if date_key in self.locked_goals:
+                    fixed[date_key] = self.locked_goals[date_key]
+                elif is_rest_day(day):
+                    fixed[date_key] = 0
+                elif date_key in self.custom_daily_goals:
+                    fixed[date_key] = self.custom_daily_goals[date_key]
+                elif self.weekend_mode == "different" and self.is_weekend(day):
+                    fixed[date_key] = self.weekend_daily
+                else:
+                    adjustable[date_key] = weight_of[date_key]
+            adjustable_weight = sum(adjustable.values())
+            adjustable_days = len(adjustable)
+        else:
+            days = []
+            adjustable_weight = sum(self._pattern_weights(self.time))
+            adjustable_days = self.time
+
+        fixed_words = sum(fixed.values())
+        target = self.words_to_schedule + self.schedule_adjustment - fixed_words
+        level = max(0.0, target / adjustable_weight) if adjustable_weight > 0 else 0.0
+
+        for day in days:
+            date_key = day.strftime('%Y-%m-%d')
+            goals[date_key] = fixed[date_key] if date_key in fixed else level * adjustable[date_key]
+
+        schedule = {
+            'goals': goals,
+            'level': level,
+            'adjustable_weight': adjustable_weight,
+            'adjustable_days': adjustable_days,
+            'fixed_words': fixed_words,
+        }
+        self._schedule_cache = (key, schedule)
+        return schedule
+
+    def sync_daily(self):
+        """Set `daily` to the goal of an ordinary open day in the current schedule."""
+        schedule = self.build_schedule()
+        if schedule['adjustable_weight'] > 0:
+            self.daily = schedule['level']
+
+    def total_for_daily(self, daily):
+        """
+        The total that gives ordinary open days a goal of `daily`, fixed days unchanged.
+
+        Used to "keep the daily goal" when something else changes.
+        """
+        schedule = self.build_schedule()
+        return (self.preexisting_words + schedule['fixed_words']
+                + daily * schedule['adjustable_weight'] - self.schedule_adjustment)
 
     def calculate_pattern_goals(self):
         """
-        Generate daily goals based on pattern.
-        Returns a list of daily goals for each writing day.
+        Pattern goals for `time` writing days, ignoring dates and overrides.
+
+        Kept for callers that only need the pattern shape; the real per-day
+        goals come from build_schedule().
         """
-        # Use cache if available
-        if self._daily_goals_cache is not None:
-            return self._daily_goals_cache
-
-        num_days = self.time
-        if num_days <= 0:
-            return []
-
-        if self.pattern == "flat":
-            # Same daily goal every day
-            goals = [self.daily] * num_days
-
-        elif self.pattern == "valley":
-            # Start high, decrease to middle, increase at end
-            goals = self._calculate_valley_pattern(num_days)
-
-        elif self.pattern == "mountain":
-            # Start low, increase to middle, decrease at end
-            goals = self._calculate_mountain_pattern(num_days)
-
-        elif self.pattern == "rising":
-            # Gradually increase daily goals over time
-            goals = self._calculate_rising_pattern(num_days)
-
-        elif self.pattern == "declining":
-            # Gradually decrease daily goals over time
-            goals = self._calculate_declining_pattern(num_days)
-
-        elif self.pattern == "random":
-            # Randomized daily goals within constraints
-            goals = self._calculate_random_pattern(num_days)
-
-        else:
-            # Default to flat if unknown pattern
-            goals = [self.daily] * num_days
-
-        # Cache the result
-        self._daily_goals_cache = goals
-        return goals
-
-    def _calculate_valley_pattern(self, num_days):
-        """Start high, decrease to middle, increase at end."""
-        import math
-        goals = []
-        mid_point = num_days / 2
-
-        # Configuration
-        peak_multiplier = self.pattern_config.get('peak_multiplier', 1.5)
-        valley_multiplier = self.pattern_config.get('valley_multiplier', 0.7)
-
-        for day in range(num_days):
-            # Create a valley curve using cosine
-            # cos(0) = 1, cos(pi) = -1, cos(2pi) = 1
-            progress = day / num_days
-            curve = math.cos(progress * 2 * math.pi) # Goes from 1 to -1 to 1
-
-            # Map curve to multiplier range
-            # curve: 1 to -1, map to: peak_multiplier to valley_multiplier
-            multiplier = valley_multiplier + (peak_multiplier - valley_multiplier) * (curve + 1) / 2
-
-            goals.append(self.daily * multiplier)
-
-        # Adjust to maintain total
-        current_total = sum(goals)
-        if current_total == 0:
-            # Avoid division by zero - return flat goals if pattern calculation fails
-            return [self.daily] * num_days
-        adjustment = self.words_to_schedule / current_total
-        goals = [g * adjustment for g in goals]
-
-        return goals
-
-    def _calculate_mountain_pattern(self, num_days):
-        """Start low, increase to middle, decrease at end."""
-        import math
-        goals = []
-
-        # Configuration
-        peak_multiplier = self.pattern_config.get('peak_multiplier', 1.5)
-        valley_multiplier = self.pattern_config.get('valley_multiplier', 0.7)
-
-        for day in range(num_days):
-            # Create a mountain curve using sine
-            progress = day / num_days
-            curve = math.sin(progress * math.pi)  # Goes from 0 to 1 to 0
-
-            # Map curve to multiplier range
-            multiplier = valley_multiplier + (peak_multiplier - valley_multiplier) * curve
-
-            goals.append(self.daily * multiplier)
-
-        # Adjust to maintain total
-        current_total = sum(goals)
-        if current_total == 0:
-            # Avoid division by zero - return flat goals if pattern calculation fails
-            return [self.daily] * num_days
-        adjustment = self.words_to_schedule / current_total
-        goals = [g * adjustment for g in goals]
-
-        return goals
-
-    def _calculate_rising_pattern(self, num_days):
-        """Gradually increase daily goals over time."""
-        goals = []
-
-        # Configuration
-        start_multiplier = self.pattern_config.get('start_multiplier', 0.5)
-        end_multiplier = self.pattern_config.get('end_multiplier', 1.5)
-
-        for day in range(num_days):
-            progress = day / (num_days - 1) if num_days > 1 else 0
-            multiplier = start_multiplier + (end_multiplier - start_multiplier) * progress
-            goals.append(self.daily * multiplier)
-
-        # Adjust to maintain total
-        current_total = sum(goals)
-        if current_total == 0:
-            # Avoid division by zero - return flat goals if pattern calculation fails
-            return [self.daily] * num_days
-        adjustment = self.words_to_schedule / current_total
-        goals = [g * adjustment for g in goals]
-
-        return goals
-
-    def _calculate_declining_pattern(self, num_days):
-        """Gradually decrease daily goals over time."""
-        goals = []
-
-        # Configuration
-        start_multiplier = self.pattern_config.get('start_multiplier', 1.5)
-        end_multiplier = self.pattern_config.get('end_multiplier', 0.5)
-
-        for day in range(num_days):
-            progress = day / (num_days - 1) if num_days > 1 else 0
-            multiplier = start_multiplier + (end_multiplier - start_multiplier) * progress
-            goals.append(self.daily * multiplier)
-
-        # Adjust to maintain total
-        current_total = sum(goals)
-        if current_total == 0:
-            # Avoid division by zero - return flat goals if pattern calculation fails
-            return [self.daily] * num_days
-        adjustment = self.words_to_schedule / current_total
-        goals = [g * adjustment for g in goals]
-
-        return goals
-
-    def _calculate_random_pattern(self, num_days):
-        """Randomized daily goals within constraints."""
-        import random
-
-        # Configuration
-        min_multiplier = self.pattern_config.get('min_multiplier', 0.5)
-        max_multiplier = self.pattern_config.get('max_multiplier', 1.5)
-        seed = self.pattern_config.get('seed', None)
-
-        if seed is not None:
-            random.seed(seed)
-
-        goals = []
-        for _ in range(num_days):
-            multiplier = random.uniform(min_multiplier, max_multiplier)
-            goals.append(self.daily * multiplier)
-
-        # Adjust to maintain total
-        current_total = sum(goals)
-        if current_total == 0:
-            # Avoid division by zero - return flat goals if pattern calculation fails
-            return [self.daily] * num_days
-        adjustment = self.words_to_schedule / current_total
-        goals = [g * adjustment for g in goals]
-
-        return goals
+        weights = self._pattern_weights(self.time)
+        per_weight = self.words_to_schedule / self.time if self.time > 0 else 0
+        return [per_weight * w for w in weights]
 
     def get_daily_goal(self, day_index=None, date=None):
         """
-        Get the daily goal for a specific day.
+        Get the goal for a day.
 
         Args:
-            day_index: 0-based index of the writing day
-            date: datetime object (will calculate day_index from start_date)
+            day_index: 0-based writing day, for plans without a start date
+            date: datetime of the day (preferred)
 
         Returns:
-            Daily word goal for that day, or 0 if it's a spare day
+            The day's goal from the schedule. Locked goals are returned even
+            outside the plan window (e.g. after a start date change); other
+            days outside the window have no goal (0).
         """
         if date is not None:
-            # Past days keep the goal they had; nothing overrides a lock
             date_key = date.strftime('%Y-%m-%d')
             if date_key in self.locked_goals:
                 return self.locked_goals[date_key]
-
-            # Check if it's a spare day
-            if self.is_spare_day(date):
-                return 0
-
-            # Check for custom daily goal for this specific date
-            if date_key in self.custom_daily_goals:
-                return self.custom_daily_goals[date_key]
-
-            # Check weekend mode
-            if self.is_weekend(date):
-                if self.weekend_mode == "spare":
-                    return 0
-                elif self.weekend_mode == "different":
-                    return self.weekend_daily
-
-            # Calculate day index from start_date for pattern-based goals
-            if self.start_date:
-                delta = date - self.start_date
-                day_index = delta.days
-            else:
-                # Can't determine day index without start_date
+            if not self.start_date:
                 return self.daily
+            return self.build_schedule()['goals'].get(date_key, 0)
 
-        if day_index is None or day_index < 0:
-            return self.daily
-
-        # Get pattern-based goals
         goals = self.calculate_pattern_goals()
-
-        if day_index < len(goals):
-            return goals[day_index]
-        else:
-            # Beyond plan duration
+        if day_index is None or not 0 <= day_index < len(goals):
             return self.daily
+        return goals[day_index]
 
     def set_custom_daily_goal(self, date, word_count):
         """
@@ -472,7 +475,6 @@ class Plan():
         """
         date_key = date.strftime('%Y-%m-%d')
         self.custom_daily_goals[date_key] = int(word_count)
-        self.invalidate_daily_goals_cache()
 
     def remove_custom_daily_goal(self, date):
         """
@@ -484,15 +486,13 @@ class Plan():
         date_key = date.strftime('%Y-%m-%d')
         if date_key in self.custom_daily_goals:
             del self.custom_daily_goals[date_key]
-            self.invalidate_daily_goals_cache()
 
     def recalculate_total_from_daily_goals(self):
         """
-        Recalculate the total word count based on current daily goals.
+        Set the total so ordinary open days keep the current daily goal.
 
-        This method iterates through all calendar days in the plan and sums up
-        the daily goals (considering patterns, weekends, custom goals, and spare days).
-        It then updates self.total to match the calculated sum.
+        Used for "keep days constant, adjust total" after a change such as a
+        custom goal or weekend setting.
 
         Returns:
             float: The new total word count
@@ -501,13 +501,7 @@ class Plan():
             # Can't recalculate without a start date
             return self.total
 
-        # Sum up all daily goals
-        total_words = sum(self.get_daily_goal(date=day) for day in self.plan_days())
-
-        # Update the plan's total (the schedule plus words written before the plan)
-        self.total = total_words + self.preexisting_words
-        self.invalidate_daily_goals_cache()
-
+        self.total = self.total_for_daily(self.daily)
         return self.total
 
     def record_progress(self, date, word_count):
@@ -606,21 +600,21 @@ class Plan():
             as_of_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Calculate expected progress up to this date
-        current_date = self.start_date
+        goals = self.build_schedule()['goals']
         expected_words = 0
         days_elapsed = 0
 
-        while current_date <= as_of_date:
-            # Don't count future days beyond the plan
-            if days_elapsed >= self.time:
+        for day in self.plan_days():
+            if day > as_of_date:
                 break
-
-            if not self.is_spare_day(current_date):
-                daily_goal = self.get_daily_goal(date=current_date)
-                expected_words += daily_goal
+            expected_words += goals[day.strftime('%Y-%m-%d')]
+            if not self.is_spare_day(day):
                 days_elapsed += 1
 
-            current_date += timedelta(days=1)
+        # After a recalculation from progress, "on track" means following the
+        # new baseline: expected words start from what had been written then
+        if days_elapsed > 0:
+            expected_words = max(0, expected_words - self.schedule_adjustment)
 
         actual_words = self.get_plan_written()
         difference = actual_words - expected_words
@@ -683,16 +677,61 @@ class Plan():
         else:
             return 'partial'
 
+    def _rebase_on_progress(self, as_of_date):
+        """
+        Lock days before as_of_date and point the open days at the words actually left.
+
+        Locked days keep their planned goals (decision 2), so without an
+        adjustment the open days would cover total - planned past, not what
+        is really left. schedule_adjustment bridges the two.
+
+        Each locked day is credited with what was written on it, except days
+        from today on (as_of_date can be tomorrow): today isn't over, so it is
+        credited with at least its goal. Progress on other days counts as written.
+
+        Returns:
+            Number of days newly locked
+        """
+        newly_locked = self.lock_past_goals(as_of_date)
+
+        today = to_midnight(datetime.datetime.now())
+        goals = self.build_schedule()['goals']
+        locked_keys = [k for k in self.locked_goals if k in goals]
+
+        credited = 0
+        for date_key in locked_keys:
+            written = self.progress.get(date_key, 0)
+            if datetime.datetime.strptime(date_key, '%Y-%m-%d') < today:
+                credited += written
+            else:
+                credited += max(self.locked_goals[date_key], written)
+        written_elsewhere = sum(w for k, w in self.progress.items() if k not in locked_keys)
+
+        locked_words = sum(self.locked_goals[k] for k in locked_keys)
+        self.schedule_adjustment = locked_words - credited - written_elsewhere
+        return newly_locked
+
+    def _open_words(self):
+        """Words the open (not locked) days of the schedule have to cover."""
+        return self.words_to_schedule + self.schedule_adjustment - self._locked_words()
+
+    def _remaining_writing_days(self, as_of_date):
+        """Writing days from as_of_date to the end date (not spare, not weekend-spare)."""
+        return sum(
+            1 for day in self.plan_days()
+            if day >= as_of_date
+            and not self.is_spare_day(day)
+            and not (self.weekend_mode == "spare" and self.is_weekend(day))
+        )
+
     def recalculate_from_progress(self, as_of_date=None):
         """
         Recalculate the plan based on actual progress, redistributing remaining words
         across remaining days while keeping the end date fixed.
 
-        Algorithm:
-        - Words Remaining = Total Words - Words Completed So Far
-        - New Daily Target = Words Remaining / Remaining Writing Days
-
-        This keeps the deadline fixed and evenly distributes remaining work.
+        Days before as_of_date are locked. From as_of_date on, the pattern is
+        reset to flat, future custom goals are cleared, and the words actually
+        left (total - written) are spread evenly over the remaining writing days.
 
         Args:
             as_of_date: Date to calculate from (defaults to today)
@@ -704,12 +743,10 @@ class Plan():
             return None
 
         if as_of_date is None:
-            as_of_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            as_of_date = datetime.datetime.now()
+        as_of_date = to_midnight(as_of_date)
 
-        # Calculate total words written so far
         words_completed = self.get_total_written()
-
-        # Calculate remaining words
         words_remaining = self.total - words_completed
 
         # If we've already completed the goal, no recalculation needed
@@ -734,17 +771,7 @@ class Plan():
                 'end_date': end_date
             }
 
-        # Count remaining writing days (excluding spare days and past days)
-        remaining_writing_days = 0
-        current_date = as_of_date
-
-        while current_date <= end_date:
-            # Check if this is a spare day
-            if not self.is_spare_day(current_date):
-                remaining_writing_days += 1
-            current_date += timedelta(days=1)
-
-        # If no remaining writing days, can't recalculate
+        remaining_writing_days = self._remaining_writing_days(as_of_date)
         if remaining_writing_days == 0:
             return {
                 'success': False,
@@ -753,42 +780,28 @@ class Plan():
                 'words_remaining': words_remaining
             }
 
-        # Calculate new daily target
         old_daily = self.daily
-        new_daily = words_remaining / remaining_writing_days
-
-        # Lock the goals of days before as_of_date so the changes below can't touch them
-        past_goals_preserved = self.lock_past_goals(as_of_date)
-
-        # Update the plan
-        self.daily = new_daily
-
-        # Reset pattern to flat (since we're redistributing evenly going forward)
         old_pattern = self.pattern
+
+        past_goals_preserved = self._rebase_on_progress(as_of_date)
+        new_daily = max(0, self._open_words()) / remaining_writing_days
+
+        # Spread evenly from now on: flat pattern, no future custom goals
         self.pattern = "flat"
-        self.pattern_config = None
+        self.pattern_config = {}
+        kept_custom_goals = {
+            date_str: goal for date_str, goal in self.custom_daily_goals.items()
+            if datetime.datetime.strptime(date_str, '%Y-%m-%d') < as_of_date
+        }
+        cleared_goals_count = len(self.custom_daily_goals) - len(kept_custom_goals)
+        self.custom_daily_goals = kept_custom_goals
 
-        # Clear custom daily goals for future dates only (they don't make sense after recalculation)
-        # Keep past custom goals for the record
-        future_custom_goals = {}
-        for date_str, goal in self.custom_daily_goals.items():
-            goal_date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-            if goal_date < as_of_date:
-                future_custom_goals[date_str] = goal
-
-        cleared_goals_count = len(self.custom_daily_goals) - len(future_custom_goals)
-        self.custom_daily_goals = future_custom_goals
-
-        # Update weekend daily if weekend mode is 'different'
+        # Weekends in "different" mode get the same goal as weekdays
+        # User can adjust manually if they want different weekend goals
         if self.weekend_mode == 'different':
-            # Set weekend daily to the same as regular daily for simplicity
-            # User can adjust manually if they want different weekend goals
             self.weekend_daily = new_daily
 
-        # Invalidate cache
-        self.invalidate_daily_goals_cache()
-
-        # Update last modified timestamp
+        self.sync_daily()
         self.last_modified = datetime.datetime.now()
 
         return {
@@ -797,12 +810,44 @@ class Plan():
             'words_remaining': words_remaining,
             'remaining_writing_days': remaining_writing_days,
             'old_daily': old_daily,
-            'new_daily': new_daily,
+            'new_daily': self.daily,
             'old_pattern': old_pattern,
             'new_pattern': self.pattern,
             'cleared_custom_goals': cleared_goals_count,
             'past_goals_preserved': past_goals_preserved,
             'end_date': end_date
+        }
+
+    def adjust_time_from_progress(self, as_of_date=None):
+        """
+        Keep the daily goal and move the end date so the words actually left fit.
+
+        Finishes early when ahead, extends the deadline when behind. Days
+        before as_of_date (default today) are locked.
+
+        Returns:
+            dict with old/new time and end date, or None without a start date
+        """
+        if not self.start_date:
+            return None
+
+        if as_of_date is None:
+            as_of_date = datetime.datetime.now()
+        as_of_date = to_midnight(as_of_date)
+
+        old_time = self.time
+        old_end_date = self.end_date
+
+        self._rebase_on_progress(as_of_date)
+        self.calculate_time()
+        self.last_modified = datetime.datetime.now()
+
+        return {
+            'old_time': old_time,
+            'new_time': self.time,
+            'old_end_date': old_end_date,
+            'new_end_date': self.end_date,
+            'daily': self.daily,
         }
 
     def to_dict(self):
@@ -831,6 +876,7 @@ class Plan():
             'last_modified': self.last_modified.isoformat() if self.last_modified else None,
             'preexisting_words': self.preexisting_words,
             'locked_goals': self.locked_goals,
+            'schedule_adjustment': self.schedule_adjustment,
         }
 
     @classmethod
@@ -886,6 +932,7 @@ class Plan():
             words = float(data.get('words', 0))
             weekend_daily = float(data.get('weekend_daily', 0))
             preexisting_words = int(data.get('preexisting_words', 0))
+            schedule_adjustment = float(data.get('schedule_adjustment', 0))
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid numeric value in plan data: {e}")
 
@@ -896,7 +943,7 @@ class Plan():
             pre_start_key = (start_date - timedelta(days=1)).strftime('%Y-%m-%d')
             preexisting_words = progress.pop(pre_start_key, 0)
 
-        return cls(
+        loaded = cls(
             name=data.get('name'),
             daily=daily,
             total=total,
@@ -920,7 +967,21 @@ class Plan():
             last_modified=last_modified,
             preexisting_words=preexisting_words,
             locked_goals=data.get('locked_goals', {}),
+            schedule_adjustment=schedule_adjustment,
         )
+
+        # Files saved by the old "recalculate from progress" set a new daily goal
+        # without matching the total (pattern reset to flat, pattern_config null).
+        # Keep that baseline: adjust the schedule so open days keep that daily goal.
+        recalculated_before = (
+            'schedule_adjustment' not in data
+            and 'pattern_config' in data and data['pattern_config'] is None
+            and loaded.pattern == 'flat' and loaded.start_date is not None
+        )
+        if recalculated_before:
+            loaded.schedule_adjustment = loaded.total_for_daily(loaded.daily) - loaded.total
+
+        return loaded
 
     def to_json(self):
         """Convert plan to JSON string."""

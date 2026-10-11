@@ -3,6 +3,7 @@
 """This is an intended clone for the pacemaker.press site.
 It intends to get a plan for daily work on words per day."""
 
+import copy
 from datetime import datetime, timedelta
 import readline
 from pathlib import Path
@@ -495,76 +496,51 @@ def ask_recalculation_preference():
             print("Invalid input. Please enter a number.")
 
 
-def recalculate_plan_with_choice(current_plan, old_total, choice_mode):
+def recalculate_plan_with_choice(current_plan, old_total, choice_mode, old_daily=None):
     """
-    Recalculate plan based on user's choice of what to keep constant.
+    Rebalance the plan after a change (custom goal, weekend settings), as the user chose.
 
     Args:
         current_plan: The Plan object to recalculate
         old_total: The total before changes
-        choice_mode: 'total' or 'days'
+        choice_mode: 'total' to keep the total (open days absorb the change),
+            'days' to keep the daily goal of open days (the total changes)
+        old_daily: The daily goal before changes (default: current_plan.daily,
+            which callers haven't synced yet)
     """
+    if old_daily is None:
+        old_daily = current_plan.daily
+
     if choice_mode == 'days':
-        # Keep days constant, adjust total
-        new_total = current_plan.recalculate_total_from_daily_goals()
+        # Keep open days at the old daily goal, adjust total
+        new_total = current_plan.total_for_daily(old_daily)
+        current_plan.total = new_total
+        current_plan.sync_daily()
         if abs(new_total - old_total) > 0.01:
             print(f"\nPlan total adjusted: {old_total:,.0f} -> {new_total:,.0f} words")
 
     elif choice_mode == 'total':
-        # Keep total constant, adjust daily goals for non-customized days
-        # Calculate the new total based on current settings
-        calculated_total = current_plan.recalculate_total_from_daily_goals()
+        # Keep total constant; the schedule spreads the difference over open days
+        current_plan.total = old_total
+        schedule = current_plan.build_schedule()
 
-        # Calculate how many words need to be redistributed
-        words_to_redistribute = old_total - calculated_total
+        if schedule['adjustable_weight'] == 0:
+            new_total = current_plan.total_for_daily(0)
+            print("\nWarning: No adjustable days remaining!")
+            print("All days are past, have custom goals, weekend settings, or are spare days.")
+            print(f"Total will be: {new_total:,.0f} words")
+            current_plan.total = new_total
+            return
 
-        if abs(words_to_redistribute) < 0.01:
+        current_plan.sync_daily()
+        new_daily = current_plan.daily
+        if abs(new_daily - old_daily) < 0.01:
             print("\nNo adjustment needed - total remains the same")
             return
 
-        # Count adjustable days (non-locked, non-custom, non-spare, non-weekend-with-custom-goal)
-        adjustable_days = 0
-
-        for current_date in current_plan.plan_days():
-            date_key = current_date.strftime('%Y-%m-%d')
-
-            # Skip past days: their goals are locked
-            if current_plan.is_locked(current_date):
-                continue
-
-            # Skip spare days
-            if current_plan.is_spare_day(current_date):
-                continue
-
-            # Skip days with custom goals
-            if date_key in current_plan.custom_daily_goals:
-                continue
-
-            # Skip weekends if they have a specific different goal
-            if current_plan.is_weekend(current_date) and current_plan.weekend_mode == "different":
-                continue
-
-            adjustable_days += 1
-
-        if adjustable_days == 0:
-            print("\nWarning: No adjustable days remaining!")
-            print("All days are past, have custom goals, weekend settings, or are spare days.")
-            print(f"Total will be: {calculated_total:,.0f} words")
-            current_plan.total = calculated_total
-            return
-
-        # Calculate adjustment per adjustable day
-        adjustment_per_day = words_to_redistribute / adjustable_days
-        new_daily = current_plan.daily + adjustment_per_day
-
-        print(f"\nAdjusting {adjustable_days} days to maintain total of {old_total:,.0f} words")
-        print(f"  Base daily goal: {current_plan.daily:,.0f} -> {new_daily:,.0f} words/day")
-        print(f"  Change: {adjustment_per_day:+.0f} words/day")
-
-        # Update the base daily goal
-        current_plan.daily = new_daily
-        current_plan.total = old_total
-        current_plan.invalidate_daily_goals_cache()
+        print(f"\nAdjusting {schedule['adjustable_days']} days to maintain total of {old_total:,.0f} words")
+        print(f"  Base daily goal: {old_daily:,.0f} -> {new_daily:,.0f} words/day")
+        print(f"  Change: {new_daily - old_daily:+.0f} words/day")
 
 
 def edit_individual_day_goal(current_plan):
@@ -817,6 +793,16 @@ def recalculate_plan_from_progress(current_plan):
     return True
 
 
+def get_writing_days(prompt, current_plan):
+    """Ask for a number of writing days, not fewer than the plan's locked (past) days."""
+    min_days = current_plan.min_writing_days()
+    while True:
+        days = get_positive_number(prompt)
+        if days >= min_days:
+            return days
+        display_error(f"The plan already has {min_days} past writing days; enter at least {min_days}.")
+
+
 def modify_plan(current_plan):
     """Allow user to modify plan values and recalculate."""
     print("\n" + "=" * 50)
@@ -903,7 +889,7 @@ def modify_plan(current_plan):
 
             elif choice == 3:
                 # Modify time, ask what to keep constant
-                new_time = get_positive_number("\nEnter new time (days): ")
+                new_time = get_writing_days("\nEnter new time (days): ", current_plan)
                 print("\nKeep constant:")
                 print("1. Total words (recalculate daily words)")
                 print("2. Daily words (recalculate total words)")
@@ -966,14 +952,14 @@ def modify_plan(current_plan):
                         calc_choice = int(input("Enter your choice (1-3): "))
                         if calc_choice == 1:
                             daily = get_positive_number("Enter daily words: ")
-                            time = get_positive_number("Enter writing days: ")
+                            time = get_writing_days("Enter writing days: ", current_plan)
                             current_plan.daily = daily
                             current_plan.time = time
                             current_plan.calculate_words()
                             return True
                         elif calc_choice == 2:
                             total = get_positive_number("Enter total words: ")
-                            time = get_positive_number("Enter writing days: ")
+                            time = get_writing_days("Enter writing days: ", current_plan)
                             current_plan.total = total
                             current_plan.time = time
                             current_plan.calculate_daily()
@@ -1298,6 +1284,38 @@ def check_and_offer_recalculation(current_plan):
             offer_behind_recalculation(current_plan, info)
 
 
+def offer_deadline_adjustment(current_plan):
+    """
+    Keep the daily goal and move the end date to fit the words actually left.
+
+    Today keeps its goal; the change applies from tomorrow. The result is
+    previewed on a copy and applied only if the user agrees.
+    """
+    tomorrow = today_midnight() + timedelta(days=1)
+    preview = copy.deepcopy(current_plan)
+    result = preview.adjust_time_from_progress(as_of_date=tomorrow)
+
+    if result is None or result['new_end_date'] is None or result['old_end_date'] is None:
+        display_error("Could not adjust the deadline.")
+        return
+
+    day_change = (result['new_end_date'] - result['old_end_date']).days
+    print(f"\nProposed adjustment:")
+    print(f"  Daily goal: {result['daily']:,.0f} words/day")
+    print(f"  Writing days: {result['old_time']} -> {result['new_time']}")
+    print(f"  End date: {result['old_end_date'].strftime('%Y-%m-%d')} -> {result['new_end_date'].strftime('%Y-%m-%d')}")
+    if day_change < 0:
+        print(f"  Finishing early by: {-day_change} days")
+    elif day_change > 0:
+        print(f"  Extension: {day_change} days")
+    else:
+        print("  End date unchanged")
+
+    if get_yes_no("Apply this adjustment?", default='y'):
+        current_plan.adjust_time_from_progress(as_of_date=tomorrow)
+        display_success("Plan adjusted!")
+
+
 def offer_ahead_recalculation(current_plan, info):
     """Offer recalculation options when ahead of schedule."""
     print("\n" + "=" * 50)
@@ -1353,19 +1371,7 @@ def offer_ahead_recalculation(current_plan, info):
 
             elif choice == 2:
                 # Finish early
-                remaining_words = current_plan.get_remaining_words()
-                new_days_needed = remaining_words / current_plan.daily
-
-                print(f"\nProposed adjustment:")
-                print(f"  Current plan: {current_plan.time:.0f} days")
-                print(f"  New plan: {info['days_elapsed'] + new_days_needed:.0f} days")
-                print(f"  Finishing early by: {current_plan.time - (info['days_elapsed'] + new_days_needed):.0f} days")
-
-                if get_yes_no("Apply this adjustment?", default='y'):
-                    current_plan.time = info['days_elapsed'] + new_days_needed
-                    current_plan.invalidate_daily_goals_cache()
-                    display_success("Plan adjusted!")
-
+                offer_deadline_adjustment(current_plan)
                 return
 
             else:
@@ -1429,19 +1435,7 @@ def offer_behind_recalculation(current_plan, info):
 
             elif choice == 2:
                 # Extend deadline
-                remaining_words = current_plan.get_remaining_words()
-                additional_days_needed = remaining_words / current_plan.daily
-
-                print(f"\nProposed adjustment:")
-                print(f"  Current plan: {current_plan.time:.0f} days")
-                print(f"  New plan: {info['days_elapsed'] + additional_days_needed:.0f} days")
-                print(f"  Extension: {additional_days_needed:.0f} days")
-
-                if get_yes_no("Apply this adjustment?", default='y'):
-                    current_plan.time = info['days_elapsed'] + additional_days_needed
-                    current_plan.invalidate_daily_goals_cache()
-                    display_success("Plan adjusted!")
-
+                offer_deadline_adjustment(current_plan)
                 return
 
             else:
@@ -1581,7 +1575,9 @@ def handle_plan_actions(current_plan):
     """Handle the plan actions menu loop."""
     while True:
         # Every modification starts from this menu: freeze days that are now past
+        # and keep the displayed daily goal in line with the schedule
         current_plan.lock_past_goals()
+        current_plan.sync_daily()
         display_results(current_plan)
         action = plan_actions_menu()
 
