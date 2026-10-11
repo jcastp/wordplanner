@@ -111,9 +111,18 @@ def display_results(newplan):
     print("-" * 50)
 
 
-def save_plan_prompt(newplan):
-    """Ask user if they want to save the plan."""
-    if get_yes_no("\nWould you like to save this plan?", default='y'):
+def save_plan_prompt(newplan, ask=True):
+    """
+    Save the plan, asking where (overwrite or new file) and for a name if needed.
+
+    Args:
+        newplan: The plan to save
+        ask: First ask whether to save at all (False when the caller already asked)
+
+    Returns:
+        True if the plan was saved
+    """
+    if not ask or get_yes_no("\nWould you like to save this plan?", default='y'):
         # Check if this plan was loaded from a file
         if newplan.source_file:
             print(f"\nThis plan was loaded from: {newplan.source_file.name}")
@@ -1224,7 +1233,7 @@ def update_progress(current_plan):
                 # Prompt to save if progress was updated
                 if progress_updated:
                     if get_yes_no("\nProgress was updated. Save the plan?", default='y'):
-                        save_plan_prompt(current_plan)
+                        save_plan_prompt(current_plan, ask=False)
                 return
 
             elif choice == 1:
@@ -1623,8 +1632,34 @@ def export_plan_menu(current_plan):
             print("Invalid input. Please enter a number.")
 
 
+# The plan shown by handle_plan_actions, so an interrupt can offer to save it
+_open_plan = None
+
+
+def confirm_leave_plan(current_plan):
+    """
+    Before going back to the main menu, offer to save unsaved changes.
+
+    Returns:
+        True to leave, False to stay in the plan
+    """
+    if not current_plan.has_unsaved_changes():
+        return True
+
+    print("\nThis plan has unsaved changes.")
+    print("1. Save and go back")
+    print("2. Go back without saving (the changes are lost)")
+    print("0. Stay in this plan")
+    choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
+    if choice == 1:
+        return save_plan_prompt(current_plan, ask=False)
+    return choice == 2
+
+
 def handle_plan_actions(current_plan):
     """Handle the plan actions menu loop."""
+    global _open_plan
+    _open_plan = current_plan
     while True:
         # Every modification starts from this menu: freeze days that are now past
         # and keep the displayed daily goal in line with the schedule
@@ -1635,7 +1670,9 @@ def handle_plan_actions(current_plan):
 
         if action == 0:
             # Go back to main menu
-            break
+            if confirm_leave_plan(current_plan):
+                _open_plan = None
+                break
 
         elif action == 1:
             # Update progress
@@ -2148,9 +2185,42 @@ def settings_menu():
             configure_save_directory()
 
 
+def save_after_interrupt(current_plan):
+    """
+    Ctrl+C or end of input: don't lose unsaved changes.
+
+    Asks whether to save. If asking isn't possible (end of input, or a second
+    Ctrl+C), a copy is saved as a new "(recovered)" plan instead, so the
+    original file is never overwritten without confirmation.
+    """
+    if current_plan is None or not current_plan.has_unsaved_changes():
+        return
+    try:
+        print("\nThe open plan has unsaved changes.")
+        if get_yes_no("Save them before quitting?", default='y'):
+            save_plan_prompt(current_plan, ask=False)
+    except (KeyboardInterrupt, EOFError):
+        recovered = copy.deepcopy(current_plan)
+        recovered.name = f"{current_plan.name or 'plan'} (recovered)"
+        try:
+            filepath = plan_storage.save_plan(recovered, overwrite_source=False)
+            print(f"\nUnsaved changes kept in a new plan: {filepath}")
+        except Exception as e:
+            print(f"\nCould not save the unsaved changes: {e}")
+
+
 def main():
     """Main function to run the interactive word planner."""
+    try:
+        main_menu_loop()
+    except (KeyboardInterrupt, EOFError):
+        print()
+        save_after_interrupt(_open_plan)
+        print("\nThank you for using Word Count Planner. Happy writing!")
 
+
+def main_menu_loop():
+    """The main menu, until the user exits."""
     while True:
         choice = initial_menu()
 

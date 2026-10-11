@@ -8,6 +8,7 @@ from typing import List, Optional
 import plan
 import config
 import user_preferences
+from file_utils import write_atomically, backup_path
 
 
 def plan_to_dict(plan_obj: plan.Plan) -> dict:
@@ -121,10 +122,9 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
         # Update source_file since we're creating a new file
         plan_obj.source_file = filepath
 
-    # Save to file
+    # Save to file: atomically, keeping the previous version as <file>.bak
     try:
-        with open(filepath, 'w') as f:
-            f.write(plan_obj.to_json())
+        write_atomically(filepath, plan_obj.to_json(), backup=True)
     except PermissionError:
         raise PermissionError(f"Permission denied: Cannot write to {filepath}")
     except OSError as e:
@@ -132,6 +132,7 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
     except Exception as e:
         raise RuntimeError(f"Unexpected error saving plan: {e}")
 
+    plan_obj.mark_saved()
     return filepath
 
 
@@ -174,10 +175,14 @@ def load_plan(filepath: Path) -> plan.Plan:
         loaded_plan = plan.Plan.from_json(json_str)
     except ValueError as e:
         # Re-raise with more context about which file failed
-        raise ValueError(f"Failed to load plan from {filepath}: {e}")
+        message = f"Failed to load plan from {filepath}: {e}"
+        if backup_path(filepath).exists():
+            message += f" (the previous version is in {backup_path(filepath).name})"
+        raise ValueError(message)
 
     # Track the source file so we can overwrite it later
     loaded_plan.source_file = filepath
+    loaded_plan.mark_saved()
     return loaded_plan
 
 
@@ -256,6 +261,7 @@ def delete_plan(filepath: Path) -> bool:
 
     try:
         filepath.unlink()
+        backup_path(filepath).unlink(missing_ok=True)
         return True
     except PermissionError:
         raise PermissionError(f"Permission denied: Cannot delete {filepath}")

@@ -71,7 +71,7 @@ def get_positive_number(prompt, max_value=None):
             return value
         except ValueError as e:
             print(f"Error: Invalid input '{user_input}'. Please enter a valid number.")
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("\nInput cancelled by user.")
             raise
         except Exception as e:
@@ -142,7 +142,7 @@ def get_menu_choice(prompt, min_value, max_value):
                 print(f"Error: Invalid choice. Please enter a number between {min_value} and {max_value}.")
         except ValueError:
             print(f"Error: Invalid input '{user_input}'. Please enter a valid number.")
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("\nInput cancelled by user.")
             raise
         except Exception as e:
@@ -242,7 +242,7 @@ def get_integer_input(prompt, min_value=None, max_value=None, allow_negative=Fal
             return value
         except ValueError:
             print(f"Error: Invalid input '{user_input}'. Please enter a valid integer.")
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("\nInput cancelled by user.")
             raise
         except Exception as e:

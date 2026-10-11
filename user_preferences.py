@@ -5,6 +5,7 @@ Stores user-configurable settings like custom save directory.
 """
 
 import json
+from file_utils import write_atomically
 from pathlib import Path
 from typing import Optional, Dict, Any
 import config
@@ -58,8 +59,7 @@ def save_preferences(preferences: Dict[str, Any]):
     ensure_preferences_directory()
     prefs_file = get_preferences_file()
 
-    with open(prefs_file, 'w') as f:
-        json.dump(preferences, f, indent=2)
+    write_atomically(prefs_file, json.dumps(preferences, indent=2))
 
 
 def get_custom_save_directory() -> Optional[str]:

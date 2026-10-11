@@ -80,6 +80,7 @@ class Plan():
         self.category = category  # Category string (e.g., "novel", "blog", "academic")
         self.is_active = is_active  # Boolean flag for the currently active plan
         self.last_modified = last_modified or datetime.datetime.now()  # When this plan was last modified
+        self._saved_state = None  # What was last loaded or saved (see has_unsaved_changes)
 
     @property
     def start_date(self):
@@ -902,6 +903,25 @@ class Plan():
             'new_end_date': self.end_date,
             'daily': self.daily,
         }
+
+    # Fields left out when checking for unsaved changes: they follow from the
+    # rest (daily is synced from the schedule, past days are locked again on
+    # the next visit) or change without the user doing anything
+    _DERIVED_FIELDS = ('daily', 'locked_goals', 'last_modified')
+
+    def _comparable_state(self):
+        data = self.to_dict()
+        for field in self._DERIVED_FIELDS:
+            data.pop(field, None)
+        return json.dumps(data, sort_keys=True, default=str)
+
+    def mark_saved(self):
+        """Remember the current state as saved (called after loading or saving)."""
+        self._saved_state = self._comparable_state()
+
+    def has_unsaved_changes(self):
+        """True if the plan changed since it was loaded or saved, or was never saved."""
+        return self._saved_state is None or self._comparable_state() != self._saved_state
 
     def to_dict(self):
         """Convert plan to dictionary for serialization."""

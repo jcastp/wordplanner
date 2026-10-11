@@ -196,7 +196,7 @@ class TestUserInterface:
     """planea.py refuses changes to past days and locks on entry."""
 
     def test_plan_actions_menu_locks_past_days(self, ten_day_plan, scripted_input):
-        scripted_input(["0"])  # go straight back to the main menu
+        scripted_input(["0", "2"])  # back to the main menu, without saving
 
         quiet(planea.handle_plan_actions, ten_day_plan)
 
