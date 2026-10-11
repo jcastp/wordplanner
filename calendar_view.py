@@ -6,6 +6,35 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+import plan
+
+# Width of a day column in the monthly calendar
+DAY_CELL_WIDTH = 12
+
+
+def running_total(plan_obj, day_date, width=DAY_CELL_WIDTH):
+    """
+    The words written by the end of day_date against the total, for a calendar cell.
+
+    Counts pre-existing words and every entry up to that day, so the last
+    logged day matches the plan summary. Days still to come (after today,
+    or today with nothing logged) have none, nor does a plan with no progress.
+
+    Returns:
+        ("2,100/80,000", "2.63%"), or None. A fraction wider than the cell
+        is shortened to thousands ("102.3k/150k").
+    """
+    if not plan_obj.progress:
+        return None
+    today = plan.today()
+    if day_date > today or (day_date == today and plan_obj.get_progress_for_date(today) is None):
+        return None
+
+    written = plan_obj.get_total_written(through=day_date)
+    fraction = f"{written:,.0f}/{plan_obj.total:,.0f}"
+    if len(fraction) > width:
+        fraction = f"{written / 1000:,.1f}k/{plan_obj.total / 1000:,.0f}k"
+    return fraction, f"{plan_obj.get_completion_percentage(through=day_date):.2f}%"
 
 
 def display_calendar_view(plan_obj, start_date):
@@ -89,13 +118,13 @@ def display_calendar_view(plan_obj, start_date):
 
         # Add columns for days of the week
         table.add_column("Week", style="cyan", justify="center", width=6)
-        table.add_column("Mon", justify="center", width=12)
-        table.add_column("Tue", justify="center", width=12)
-        table.add_column("Wed", justify="center", width=12)
-        table.add_column("Thu", justify="center", width=12)
-        table.add_column("Fri", justify="center", width=12)
-        table.add_column("Sat", justify="center", width=12, style="yellow")
-        table.add_column("Sun", justify="center", width=12, style="yellow")
+        table.add_column("Mon", justify="center", width=DAY_CELL_WIDTH)
+        table.add_column("Tue", justify="center", width=DAY_CELL_WIDTH)
+        table.add_column("Wed", justify="center", width=DAY_CELL_WIDTH)
+        table.add_column("Thu", justify="center", width=DAY_CELL_WIDTH)
+        table.add_column("Fri", justify="center", width=DAY_CELL_WIDTH)
+        table.add_column("Sat", justify="center", width=DAY_CELL_WIDTH, style="yellow")
+        table.add_column("Sun", justify="center", width=DAY_CELL_WIDTH, style="yellow")
 
         # Get calendar for this month
         cal = calendar.monthcalendar(current_date.year, current_date.month)
@@ -162,6 +191,11 @@ def display_calendar_view(plan_obj, start_date):
                             else:
                                 # No goal or other status
                                 cell_text.append(f"{daily_goal:,.0f}w", style="green")
+
+                        running = running_total(plan_obj, day_date)
+                        if running:
+                            written, percent = running
+                            cell_text.append(f"\n{written}\n{percent}", style="cyan")
 
                         row.append(cell_text)
 

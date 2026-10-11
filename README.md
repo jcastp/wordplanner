@@ -187,6 +187,7 @@ Beautiful terminal-based calendar views powered by Rich:
     - ~ Yellow - Partial progress
     - ✗ Red - Missed day
     - Blue - Future days
+  - **Running total** on each day up to today - words written so far against the total, and the completion percentage (e.g. `2,100/80,000` and `2.62%`); pre-existing words count, and wide totals are shortened (`102.0k/150k`)
   - Spare days marked in orange
   - Weekend highlighting
   - Week numbers

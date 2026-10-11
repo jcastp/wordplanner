@@ -719,23 +719,31 @@ class Plan():
         date_key = date.strftime('%Y-%m-%d')
         return self.progress.get(date_key)
 
-    def get_total_written(self):
-        """Get total words written for the project, including pre-existing words."""
-        return self.preexisting_words + self.get_plan_written()
+    def get_total_written(self, through=None):
+        """
+        Get total words written for the project, including pre-existing words.
 
-    def get_plan_written(self):
-        """Get words logged as daily progress (excludes pre-existing words)."""
-        return sum(self.progress.values())
+        With through (a date), only progress logged on or before that day counts:
+        the running total as it stood at the end of that day.
+        """
+        return self.preexisting_words + self.get_plan_written(through=through)
+
+    def get_plan_written(self, through=None):
+        """Get words logged as daily progress (excludes pre-existing words), up to through if given."""
+        if through is None:
+            return sum(self.progress.values())
+        last_key = through.strftime('%Y-%m-%d')
+        return sum(words for key, words in self.progress.items() if key <= last_key)
 
     def get_remaining_words(self):
         """Calculate remaining words to write."""
         return max(0, self.total - self.get_total_written())
 
-    def get_completion_percentage(self):
-        """Get percentage of goal completed."""
+    def get_completion_percentage(self, through=None):
+        """Get percentage of goal completed (as of the end of through, if given)."""
         if self.total == 0:
             return 0
-        return (self.get_total_written() / self.total) * 100
+        return (self.get_total_written(through=through) / self.total) * 100
 
     def get_days_with_progress(self):
         """Get count of days with progress recorded."""
