@@ -384,3 +384,99 @@ class TestAnalyticsMenu:
 
         assert "AHEAD by 3.0 writing days" in output
         assert "Estimated Completion" in output
+
+
+class TestWordsForRunningTotal:
+
+    def test_counts_preexisting_words_and_earlier_entries_only(self):
+        p = with_progress(1000, 1000, 1000, total=15000, preexisting_words=5000)   # 1,000 a day
+
+        assert p.words_for_running_total(9200, MON + timedelta(days=3)) == 1200
+        # A past day: later entries don't count
+        assert p.words_for_running_total(7500, MON + timedelta(days=1)) == 1500
+        assert p.words_for_running_total(7900, MON + timedelta(days=3)) == -100
+
+
+@freeze_time(TODAY)
+class TestRunningTotalEntry:
+    """Option 4: the day's words come from the manuscript's total."""
+
+    @pytest.fixture
+    def p(self):
+        return with_progress(1000, 1000, 1000, total=15000, preexisting_words=5000)   # 1,000 a day
+
+    @pytest.mark.parametrize("answer", ["9200", "9,200", " 9,200 "])
+    def test_today(self, p, scripted_input, answer):
+        scripted_input(["", answer])
+
+        logged, output = run(ui_progress.log_running_total, p)
+
+        assert logged is True
+        assert p.get_progress_for_date(TODAY) == 1200
+        assert "Logged before this day: 8,000 words" in output
+        assert "Progress recorded: 1,200 words on 2026-11-05 (running total 9,200)" in output
+        assert "You met your daily goal!" in output
+        assert p.get_total_written() == 9200
+
+    def test_replaces_the_days_entry(self, p, scripted_input):
+        p.record_progress(TODAY, 300)
+        scripted_input(["", "8500"])
+
+        _, output = run(ui_progress.log_running_total, p)
+
+        assert "already has 300 words logged; they will be replaced" in output
+        assert p.get_progress_for_date(TODAY) == 500
+        assert "(500 words short of goal)" in output
+
+    def test_past_day(self, p, scripted_input):
+        scripted_input(["2026-11-03", "7500"])
+
+        run(ui_progress.log_running_total, p)
+
+        assert p.get_progress_for_date(MON + timedelta(days=1)) == 1500
+        assert p.get_progress_for_date(MON + timedelta(days=2)) == 1000
+
+    def test_lower_total_is_refused(self, p, scripted_input):
+        scripted_input(["", "7,500"])
+
+        logged, output = run(ui_progress.log_running_total, p)
+
+        assert logged is False
+        assert "That's 500 below the 8,000 already logged" in output
+        assert "Enter for a specific date" in output
+        assert p.get_progress_for_date(TODAY) is None
+
+    def test_same_total_logs_zero(self, p, scripted_input):
+        scripted_input(["", "8000"])
+
+        run(ui_progress.log_running_total, p)
+
+        assert p.get_progress_for_date(TODAY) == 0
+
+    @pytest.mark.parametrize("answers, message", [
+        (["tomorrow"], "Invalid date 'tomorrow'"),
+        (["2026-11-20"], "You can't log progress for a future date."),
+        (["", "lots"], "Invalid number 'lots'"),
+        (["", ""], None),   # Enter cancels
+    ])
+    def test_nothing_logged(self, p, scripted_input, answers, message):
+        before = dict(p.progress)
+        scripted_input(answers)
+
+        logged, output = run(ui_progress.log_running_total, p)
+
+        assert logged is False
+        assert p.progress == before
+        if message:
+            assert message in output
+
+    def test_from_the_progress_menu(self, p, scripted_input):
+        # Option 4, today, 9,200 -> ahead (4,200 logged vs 3,000 due): no; done; save: no
+        scripted_input(["4", "", "9200", "n", "0", "n"])
+
+        _, output = run(ui_progress.update_progress, p)
+
+        assert "4. Enter your running total" in output
+        assert "You're AHEAD of schedule!" in output
+        assert p.get_progress_for_date(TODAY) == 1200
+        assert p.source_file is None   # declined the save offer

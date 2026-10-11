@@ -42,6 +42,7 @@ Distribute your writing goals with different patterns to match your energy and s
 - **Track Your Progress** - Record actual words written each day
   - Quick entry for today
   - Enter/edit progress for any past date
+  - Or enter your manuscript's running total, and the day's words are worked out for you (pre-existing words included; a total below what's already logged is refused)
   - View all progress entries
   - Progress dashboard with stats
   - Streak tracking indicator
@@ -416,6 +417,15 @@ Goal: Track daily writing progress and adjust plan if behind schedule
            (400 words short of goal)
 
    Status: ⚠ BEHIND by 400 words
+   ```
+
+3. Log From Your Manuscript's Word Count
+   ```
+   Choose: "Update progress" → "Enter your running total (manuscript word count)"
+   Date: (Enter for today)
+   Logged before this day: 23,000 words (pre-existing words included)
+   Enter: 24,150
+   Result: ✓ Progress recorded: 1,150 words on 2025-10-28 (running total 24,150)
    ```
 
 3. Adjust Plan (Behind Schedule)
@@ -1224,7 +1234,7 @@ Exports are named with the plan name and timestamp in the appropriate format:
 
 ## Roadmap
 
-See future-improvements.md for the comprehensive roadmap with 30+ planned features.
+See future-improvements.md for the roadmap.
 
 ### Recently Completed ✅
 - ✅ Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.) [v1.6]

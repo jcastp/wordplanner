@@ -706,6 +706,16 @@ class Plan():
         date_key = date.strftime('%Y-%m-%d')
         self.progress[date_key] = int(word_count)
 
+    def words_for_running_total(self, running_total, date):
+        """
+        The words to log on date so the running total at the end of it is running_total.
+
+        The running total is the whole project's word count (pre-existing
+        words included), as a writer reads it off the manuscript. The result
+        is negative when running_total is below what was logged before date.
+        """
+        return running_total - self.get_total_written(through=date - timedelta(days=1))
+
     def get_progress_for_date(self, date):
         """
         Get the actual words written on a specific date.

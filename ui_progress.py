@@ -5,7 +5,7 @@ Split out of planea.py (issues-program.org Q3).
 """
 
 import copy
-from datetime import datetime
+from datetime import datetime, timedelta
 import plan
 from ui_utils import (
     get_yes_no,
@@ -170,6 +170,68 @@ def confirm_progress_date(current_plan, entry_date):
     return get_yes_no("Log them anyway?", default='y')
 
 
+def log_running_total(current_plan):
+    """
+    Log a day's words from the manuscript's running total.
+
+    The day's words are the total minus everything logged before that day
+    (pre-existing words included). A total below that is refused: logged
+    days never go negative.
+
+    Returns:
+        True if progress was recorded
+    """
+    print("\nEnter the date (YYYY-MM-DD), or press Enter for today:")
+    date_input = input("Date: ").strip()
+    if date_input:
+        try:
+            entry_date = datetime.strptime(date_input, "%Y-%m-%d")
+        except ValueError:
+            display_error(f"Invalid date '{date_input}'. Use YYYY-MM-DD.")
+            return False
+    else:
+        entry_date = plan.today()
+
+    if not confirm_progress_date(current_plan, entry_date):
+        return False
+
+    day_label = entry_date.strftime('%Y-%m-%d (%A)')
+    logged_before = current_plan.get_total_written(through=entry_date - timedelta(days=1))
+    print(f"\nRunning total for: {day_label}")
+    print(f"Logged before this day: {logged_before:,.0f} words (pre-existing words included)")
+    existing = current_plan.get_progress_for_date(entry_date)
+    if existing is not None:
+        print(f"This day already has {existing:,.0f} words logged; they will be replaced")
+
+    total_input = input("\nYour manuscript's total word count (or press Enter to cancel): ").strip()
+    if total_input == "":
+        return False
+    try:
+        running_total = int(total_input.replace(",", ""))
+    except ValueError:
+        display_error(f"Invalid number '{total_input}'.")
+        return False
+
+    word_count = current_plan.words_for_running_total(running_total, entry_date)
+    if word_count < 0:
+        display_error(f"That's {-word_count:,.0f} below the {logged_before:,.0f} already logged "
+                      "(pre-existing words included).")
+        print("  Logged days can't go negative. If an earlier entry was too high, correct it")
+        print("  with \"Enter for a specific date\".")
+        return False
+
+    current_plan.record_progress(entry_date, word_count)
+    display_success(f"Progress recorded: {word_count:,.0f} words on {entry_date.strftime('%Y-%m-%d')} "
+                    f"(running total {running_total:,.0f})")
+
+    daily_goal = current_plan.get_daily_goal(date=entry_date)
+    if daily_goal > 0 and word_count >= daily_goal:
+        print("🎉 You met your daily goal!")
+    elif daily_goal > 0 and word_count > 0:
+        print(f"   ({daily_goal - word_count:,.0f} words short of goal)")
+    return True
+
+
 def update_progress(current_plan):
     """Update progress for the writing plan."""
     if not current_plan.start_date:
@@ -190,11 +252,12 @@ def update_progress(current_plan):
         print("1. Quick entry (today's words)")
         print("2. Enter for a specific date")
         print("3. View all progress entries")
+        print("4. Enter your running total (manuscript word count)")
         print("0. Done")
         print("=" * 50)
 
         try:
-            choice = get_menu_choice("\nEnter your choice (0-3): ", 0, 3)
+            choice = get_menu_choice("\nEnter your choice (0-4): ", 0, 4)
 
             if choice == 0:
                 # Prompt to save if progress was updated
@@ -325,6 +388,13 @@ def update_progress(current_plan):
                     print(f"{status_icon} {entry_date.strftime('%Y-%m-%d (%A)')}: {word_count:,.0f} words (goal: {daily_goal:,.0f})")
 
                 input("\nPress Enter to continue...")
+
+            elif choice == 4:
+                # Running total: the day's words are worked out from it
+                if log_running_total(current_plan):
+                    progress_updated = True
+                    if not adjustment_offered:
+                        adjustment_offered = check_and_offer_recalculation(current_plan)
 
         except ValueError as e:
             # Menu choices are validated by get_menu_choice; this catches the rest
