@@ -396,16 +396,15 @@ def export_to_markdown(plan_obj, filepath=None):
     lines.append("## Milestones")
     lines.append("")
 
-    milestones = [0.25, 0.50, 0.75, 1.0]
-    lines.append("| Progress | Date | Words | Days |")
-    lines.append("|----------|------|-------|------|")
+    lines.append("| Progress | Date | Words | Plan Day | Status |")
+    lines.append("|----------|------|-------|----------|--------|")
 
-    for milestone in milestones:
-        days_to_milestone = int(plan_obj.time * milestone)
-        words_at_milestone = int(plan_obj.total * milestone)
-        date_at_milestone = plan_obj.start_date + timedelta(days=days_to_milestone - 1)
-
-        lines.append(f"| {int(milestone * 100)}% | {date_at_milestone.strftime('%b %d, %Y')} | {words_at_milestone:,} | {days_to_milestone} |")
+    for milestone in plan_obj.milestones():
+        date_text = milestone['date'].strftime('%b %d, %Y') if milestone['date'] else "before the start"
+        day_text = str(milestone['day']) if milestone['day'] else "-"
+        status = "✅ reached" if milestone['reached'] else ""
+        lines.append(f"| {int(milestone['fraction'] * 100)}% | {date_text} | "
+                     f"{milestone['words']:,} | {day_text} | {status} |")
 
     lines.append("")
 

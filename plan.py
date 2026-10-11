@@ -527,6 +527,50 @@ class Plan():
         self.total = self.total_for_daily(self.daily)
         return self.total
 
+    MILESTONES = (0.25, 0.50, 0.75, 1.0)
+
+    def milestones(self, fractions=MILESTONES):
+        """
+        When the schedule reaches each share of the goal (P18).
+
+        Walks the schedule day by day (spare days, weekends, patterns, custom
+        and locked goals included). A milestone's words are a share of the full
+        goal, pre-existing words included, like the completion percentage.
+        Pre-existing words count from the start; schedule_adjustment is taken
+        out so that 100% falls on the end date after a recalculation.
+
+        Returns:
+            List of dicts, one per fraction: 'fraction', 'words' (rounded),
+            'date' (None if pre-existing words already reach it), 'day'
+            (calendar day of the plan, 1-based, 0 if already reached) and
+            'reached' (words written so far are enough)
+        """
+        days = list(self.plan_days())
+        goals = self.build_schedule()['goals']
+        written = self.get_total_written()
+
+        result = []
+        for fraction in fractions:
+            target = fraction * self.total
+            cumulative = self.preexisting_words - self.schedule_adjustment
+            date, day_number = None, 0
+            if cumulative < target - 0.5:
+                # Rounding never leaves the last milestone unreached
+                date, day_number = (days[-1], len(days)) if days else (None, 0)
+                for number, day in enumerate(days, 1):
+                    cumulative += goals[day.strftime('%Y-%m-%d')]
+                    if cumulative >= target - 0.5:
+                        date, day_number = day, number
+                        break
+            result.append({
+                'fraction': fraction,
+                'words': round(target),
+                'date': date,
+                'day': day_number,
+                'reached': written >= target - 0.5,
+            })
+        return result
+
     def record_progress(self, date, word_count):
         """
         Record actual words written on a specific date.

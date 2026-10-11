@@ -214,6 +214,13 @@ def display_calendar_view(plan_obj, start_date):
     display_milestones(console, plan_obj, start_date, final_end_date)
 
 
+def format_milestone_date(milestone):
+    """A milestone's date, or a note when pre-existing words already reach it."""
+    if milestone['date'] is None:
+        return "before the start"
+    return milestone['date'].strftime("%b %d, %Y")
+
+
 def display_milestones(console, plan_obj, start_date, end_date):
     """Display milestone information."""
     table = Table(title="[bold cyan]Milestones[/bold cyan]",
@@ -224,21 +231,17 @@ def display_milestones(console, plan_obj, start_date, end_date):
     table.add_column("Progress", justify="center", style="cyan")
     table.add_column("Date", justify="center", style="yellow")
     table.add_column("Words Written", justify="right", style="green")
-    table.add_column("Days Elapsed", justify="center", style="white")
+    table.add_column("Plan Day", justify="center", style="white")
+    table.add_column("Status", justify="center")
 
-    # Calculate milestones at 25%, 50%, 75%, 100%
-    milestones = [0.25, 0.50, 0.75, 1.0]
-
-    for milestone in milestones:
-        days_to_milestone = int(plan_obj.time * milestone)
-        words_at_milestone = int(plan_obj.total * milestone)
-        date_at_milestone = start_date + timedelta(days=days_to_milestone - 1)
-
+    # 25%, 50%, 75%, 100%, following the schedule
+    for milestone in plan_obj.milestones():
         table.add_row(
-            f"{int(milestone * 100)}%",
-            date_at_milestone.strftime("%b %d, %Y"),
-            f"{words_at_milestone:,}",
-            f"{days_to_milestone}"
+            f"{int(milestone['fraction'] * 100)}%",
+            format_milestone_date(milestone),
+            f"{milestone['words']:,}",
+            str(milestone['day']) if milestone['day'] else "-",
+            "[green]✓ reached[/green]" if milestone['reached'] else ""
         )
 
     console.print(table)
