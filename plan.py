@@ -755,6 +755,70 @@ class Plan():
             return today + timedelta(days=1)
         return today
 
+    def move_start_date(self, new_start, shift_dated_days=False, as_of_date=None):
+        """
+        Move the plan to a new start date (decisions 7 and 10).
+
+        - Spare days and custom goals stay on their calendar dates; outside
+          the new window they are ignored. With shift_dated_days, the ones from
+          today (as_of_date) on move by the same offset; past ones are history.
+        - Progress never moves. Locked goals stay on their dates: inside the
+          new window they keep their goals, outside it they are ignored.
+        - Pre-existing words always follow the plan (they aren't dated).
+        - The number of writing days is kept, so the end date moves too.
+        - If the plan has started (locked days or progress), the open days are
+          rebased to cover the words actually left, as recalculate_from_progress
+          does: progress outside the new window still counts as written.
+
+        Returns:
+            dict with 'offset' (days), 'old_start', 'new_start', 'old_end',
+            'new_end' and 'rebased'
+        """
+        new_start = to_midnight(new_start)
+        old_start = self.start_date
+        old_end = self.end_date
+        offset = (new_start - old_start).days if old_start else 0
+
+        if shift_dated_days and offset:
+            today = to_midnight(as_of_date or datetime.datetime.now())
+            shift = timedelta(days=offset)
+
+            moved_spare = []
+            for d in self.spare_days_dates:
+                new_date = d + shift if d >= today else d
+                if new_date not in moved_spare:
+                    moved_spare.append(new_date)
+            self.spare_days_dates = moved_spare
+
+            past_goals = {}
+            moved_goals = {}
+            for date_key, goal in self.custom_daily_goals.items():
+                date = datetime.datetime.strptime(date_key, '%Y-%m-%d')
+                if date >= today:
+                    moved_goals[(date + shift).strftime('%Y-%m-%d')] = goal
+                else:
+                    past_goals[date_key] = goal
+            # A past goal is history: a shifted goal never replaces it
+            self.custom_daily_goals = {**moved_goals, **past_goals}
+
+        self.start_date = new_start
+
+        rebased = bool(self.locked_goals or self.progress)
+        if rebased:
+            self._rebase_on_progress(self.default_recalculation_date())
+        if self.time > 0:
+            self.sync_daily()
+        self.last_modified = datetime.datetime.now()
+
+        return {
+            'offset': offset,
+            'old_start': old_start,
+            'new_start': new_start,
+            'old_end': old_end,
+            'new_end': self.end_date,
+            'rebased': rebased,
+        }
+
     def _open_weekend_days(self, as_of_date):
         """Weekend days from as_of_date on whose goal comes from weekend_daily."""
         spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}

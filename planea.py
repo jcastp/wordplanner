@@ -912,6 +912,149 @@ def get_writing_days(prompt, current_plan):
         display_error(f"The plan already has {min_days} past writing days; enter at least {min_days}.")
 
 
+def describe_dated_days(dates_and_labels):
+    """Print '  2026-11-07 (Saturday): spare day' lines, at most 10."""
+    for date, label in dates_and_labels[:10]:
+        print(f"  {date.strftime('%Y-%m-%d (%A)')}: {label}")
+    if len(dates_and_labels) > 10:
+        print(f"  ... and {len(dates_and_labels) - 10} more")
+
+
+def start_date_move_warnings(before, moved):
+    """
+    What the user should know before a start-date move is applied (decision 7).
+
+    Args:
+        before: The plan before the move
+        moved: A preview copy with the move applied
+
+    Returns:
+        List of warning strings
+    """
+    warnings = []
+    start, end = moved.start_date, moved.end_date
+    today = today_midnight()
+
+    outside = [(k, w) for k, w in moved.progress.items()
+               if w and not (start <= datetime.strptime(k, '%Y-%m-%d') <= end)]
+    if outside:
+        words = sum(w for _, w in outside)
+        warnings.append(
+            f"{len(outside)} day(s) with progress ({words:,.0f} words) are outside the new plan. "
+            "Progress never moves: those words still count as written, but not toward any day's goal.")
+
+    before_days = set(before.plan_days())
+    joining = [d for d in moved.plan_days() if d < today and d not in before_days
+               and not before.is_locked(d)]
+    if joining:
+        warnings.append(
+            f"{len(joining)} day(s) before today join the plan. They are past, so their "
+            "goals are locked as they are now.")
+
+    if moved.locked_goals and any(before.is_locked(d) for d in before_days if not start <= d <= end):
+        warnings.append("Some past (locked) days are now outside the plan; their goals no longer count.")
+    return warnings
+
+
+def change_start_date(current_plan, new_start):
+    """
+    Move the plan to a new start date, as decision 7 describes.
+
+    Shows the new window, lists the spare days and custom goals that would
+    end up outside it, offers to keep them on their dates (default) or shift
+    them all by the same offset, warns about progress outside the new plan,
+    and applies the move only after confirmation. Each option is previewed
+    on a copy.
+
+    Returns:
+        True if the start date changed
+    """
+    new_start = plan.to_midnight(new_start)
+
+    if not current_plan.start_date:
+        current_plan.start_date = new_start
+        display_success(f"Start date set to: {new_start.strftime('%Y-%m-%d')}")
+        return True
+
+    if current_plan.time <= 0:
+        current_plan.start_date = new_start
+        display_success(f"Start date changed to: {new_start.strftime('%Y-%m-%d')}")
+        return True
+
+    offset = (new_start - current_plan.start_date).days
+    if offset == 0:
+        print("\nThat is already the start date. Nothing changed.")
+        return False
+
+    today = today_midnight()
+    movable = [(d, "spare day") for d in current_plan.spare_days_dates if d >= today]
+    movable += [(datetime.strptime(k, '%Y-%m-%d'), f"custom goal of {g:,.0f} words")
+                for k, g in current_plan.custom_daily_goals.items()
+                if datetime.strptime(k, '%Y-%m-%d') >= today]
+    movable.sort(key=lambda item: item[0])
+
+    def preview(shift):
+        moved = copy.deepcopy(current_plan)
+        moved.move_start_date(new_start, shift_dated_days=shift)
+        return moved
+
+    def outcome(p):
+        return (f"{p.start_date.strftime('%Y-%m-%d')} to {p.end_date.strftime('%Y-%m-%d')}, "
+                f"{p.daily:,.0f} words/day")
+
+    keep = preview(False)
+    direction = "later" if offset > 0 else "earlier"
+    print(f"\nMoving the start {abs(offset)} day(s) {direction}.")
+    print(f"   Now: {outcome(current_plan)}")
+
+    shift = False
+    if movable:
+        def is_outside(d):
+            return not keep.start_date <= d <= keep.end_date
+        outside = [(d, label) for d, label in movable if is_outside(d)]
+
+        print("\nYour spare days and custom goals from today on:")
+        if outside:
+            print("These would fall outside the new plan (and be ignored) if kept on their dates:")
+            describe_dated_days(outside)
+        else:
+            print("All of them stay inside the new plan if kept on their dates.")
+
+        shifted = preview(True)
+        print("\n1. Keep them on their dates (recommended)")
+        print(f"   -> {outcome(keep)}")
+        weekday_note = "" if offset % 7 == 0 else " (they land on other weekdays)"
+        print(f"2. Shift all of them {abs(offset)} day(s) {direction}{weekday_note}")
+        print(f"   -> {outcome(shifted)}")
+        print("0. Cancel")
+        choice = get_menu_choice("\nEnter your choice (0-2): ", 0, 2)
+        if choice == 0:
+            print("Start date not changed.")
+            return False
+        shift = choice == 2
+        chosen = shifted if shift else keep
+    else:
+        chosen = keep
+        print(f"   New: {outcome(chosen)}")
+
+    warnings = start_date_move_warnings(current_plan, chosen)
+    if chosen.locked_goals or chosen.progress:
+        left = chosen.total - chosen.get_total_written()
+        warnings.append(f"The plan has started: the open days are recalculated to cover the "
+                        f"{max(0, left):,.0f} words left.")
+    for warning in warnings:
+        display_warning(warning)
+
+    if not get_yes_no("\nApply the new start date?", default='y'):
+        print("Start date not changed.")
+        return False
+
+    current_plan.move_start_date(new_start, shift_dated_days=shift)
+    display_success(f"Start date changed to: {new_start.strftime('%Y-%m-%d')} "
+                    f"(plan ends {current_plan.end_date.strftime('%Y-%m-%d')})")
+    return True
+
+
 def modify_plan(current_plan):
     """Allow user to modify plan values and recalculate."""
     print("\n" + "=" * 50)
@@ -1045,9 +1188,7 @@ def modify_plan(current_plan):
                 print("\nEnter new start date (YYYY-MM-DD, e.g., 2025-10-28)")
                 print("Or press Enter for today's date")
                 new_start_date = get_date_input("Start date: ")
-                current_plan.start_date = new_start_date
-                display_success(f"Start date changed to: {new_start_date.strftime('%Y-%m-%d')}")
-                return True
+                return change_start_date(current_plan, new_start_date)
 
             elif choice == 7:
                 # Modify two values, calculate the third
