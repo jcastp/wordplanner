@@ -5,6 +5,7 @@ change may alter it. Today is not locked (decision 4: it isn't over yet).
 """
 
 import contextlib
+import copy
 import io
 import pytest
 from datetime import datetime, timedelta
@@ -165,15 +166,15 @@ class TestRecalculateFromProgressUsesLocks:
 
 
 class TestKeepTotalSkipsLockedDays:
-    """recalculate_plan_with_choice('total') only adjusts open days."""
+    """Keeping the total (and end date) only adjusts open days."""
 
     def test_custom_goal_redistributed_over_future_only(self, locked_plan):
         # Day 8 gets 2,000 (+1,000). Days 6, 7, 9, 10 must absorb -1,000:
         # 750 each. Past days used to be counted as adjustable too.
-        old_total = locked_plan.total
+        before = copy.deepcopy(locked_plan)
         locked_plan.set_custom_daily_goal(day(8), 2000)
 
-        quiet(planea.recalculate_plan_with_choice, locked_plan, old_total, 'total')
+        planea.apply_plan_adjustment(locked_plan, before, 'keep_end')
 
         assert goals(locked_plan, range(1, 6)) == [1000] * 5
         assert goals(locked_plan, [6, 7, 9, 10]) == [pytest.approx(750)] * 4

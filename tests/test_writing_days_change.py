@@ -1,7 +1,7 @@
 """Tests for decision 1: adding or removing writing days asks how the plan adjusts.
 
 Spare days (added, removed, cleared, quick actions) and weekend settings
-(menu and template flow) all go through planea.rebalance_after_writing_days_change(),
+(menu and template flow) all go through planea.offer_plan_adjustment(),
 which offers: move the end date (keep daily), keep the end date (change daily),
 or keep the end date and daily (change the total). Issues-program.org P4 and P5.
 """
@@ -261,7 +261,7 @@ class TestRebalanceHelper:
         ten_day_plan.weekend_mode = 'spare'
         scripted_input([KEEP_END])
 
-        choice = quiet(planea.rebalance_after_writing_days_change, ten_day_plan, before)
+        choice = quiet(planea.offer_plan_adjustment, ten_day_plan, before)
 
         assert choice == 'keep_end'
         assert schedule_sum(ten_day_plan) == pytest.approx(10000)
@@ -271,4 +271,4 @@ class TestRebalanceHelper:
         before = copy.deepcopy(p)
         p.weekend_mode = 'spare'
 
-        assert planea.rebalance_after_writing_days_change(p, before) is None
+        assert planea.offer_plan_adjustment(p, before) is None

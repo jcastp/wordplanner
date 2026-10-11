@@ -5,6 +5,7 @@
 """
 
 import contextlib
+import copy
 import io
 import pytest
 from datetime import datetime, timedelta
@@ -110,10 +111,11 @@ class TestScheduleCoversOnlyWordsToWrite:
 
     def test_keep_total_does_not_add_pre_existing_to_daily_work(self, novel_plan):
         # Was: daily 1,333 -> 1,788 after configuring weekends during creation
+        before = copy.deepcopy(novel_plan)
         novel_plan.weekend_mode = "different"
         novel_plan.weekend_daily = novel_plan.daily
 
-        quiet(planea.recalculate_plan_with_choice, novel_plan, novel_plan.total, 'total')
+        planea.apply_plan_adjustment(novel_plan, before, 'keep_end')
 
         assert novel_plan.daily == pytest.approx(40000 / 30)
         assert novel_plan.total == 50000
@@ -121,7 +123,7 @@ class TestScheduleCoversOnlyWordsToWrite:
 
     def test_keep_days_keeps_pre_existing_in_total(self, novel_plan):
         # Was: total dropped to 40,000 and completion showed 25% instead of 20%
-        quiet(planea.recalculate_plan_with_choice, novel_plan, novel_plan.total, 'days')
+        planea.apply_plan_adjustment(novel_plan, copy.deepcopy(novel_plan), 'change_total')
 
         assert novel_plan.total == pytest.approx(50000)
         assert novel_plan.get_completion_percentage() == pytest.approx(20.0)

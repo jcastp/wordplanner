@@ -16,7 +16,7 @@ import plan_templates
 import config
 import user_preferences
 from ui_utils import (
-    get_yes_no, get_positive_number, get_date_input, get_menu_choice,
+    get_yes_no, get_positive_number, get_date_input, get_menu_choice, get_integer_input,
     display_header, display_section, display_success, display_error, display_warning
 )
 from pattern_utils import choose_writing_pattern, get_pattern_description, get_pattern_intensity_config
@@ -234,25 +234,70 @@ def mark_weekdays_as_spare(current_plan, weekdays):
     return added_count
 
 
-def rebalance_after_writing_days_change(current_plan, before, drop_after_end=()):
-    """
-    Ask how the plan absorbs writing days that were added or removed (decision 1).
+PLAN_ADJUSTMENTS = ('move_end', 'keep_end', 'change_total')
 
-    Called after spare days or the weekend mode changed. Each option is
-    previewed on a copy of the plan and only the chosen one is applied:
+
+def apply_plan_adjustment(current_plan, before, adjustment, drop_after_end=()):
+    """
+    Rebalance a changed plan in one of three ways (decision 1).
+
     - 'move_end': keep the daily goal and the total, move the end date;
     - 'keep_end': keep the end date and the total, change the daily goal;
     - 'change_total': keep the end date and the daily goal, change the total.
 
+    If no adjustable day is left (every day is past, spare, custom or a
+    weekend with its own goal), the total becomes what the fixed days add up to.
+
     Args:
         current_plan: The plan, already changed
         before: A copy of the plan taken before the change
+        adjustment: One of PLAN_ADJUSTMENTS
         drop_after_end: Spare days just added that are dropped when the end date
             is kept and they fall after it (quick actions mark days up to the
             end date, which only grows if the end date moves)
+    """
+    old_end = before.end_date
+    old_daily = before.daily
+
+    if adjustment != 'move_end':
+        current_plan.spare_days_dates = [d for d in current_plan.spare_days_dates
+                                         if not (d > old_end and d in drop_after_end)]
+
+    if adjustment == 'move_end':
+        current_plan.total = before.total
+        current_plan.daily = old_daily
+        current_plan.calculate_time()
+    elif adjustment == 'keep_end':
+        current_plan.total = before.total
+        current_plan.keep_end_date(old_end)
+    elif adjustment == 'change_total':
+        current_plan.keep_end_date(old_end)
+        current_plan.total = current_plan.total_for_daily(old_daily)
+        current_plan.sync_daily()
+    else:
+        raise ValueError(f"Unknown plan adjustment: {adjustment}")
+
+    if current_plan.build_schedule()['adjustable_weight'] == 0:
+        current_plan.total = current_plan.total_for_daily(0)
+
+
+def offer_plan_adjustment(current_plan, before, drop_after_end=(),
+                          question="This changes the plan's writing days. How should the plan adjust?"):
+    """
+    Ask how the plan absorbs a change (decision 1) and apply the answer.
+
+    Called after spare days, the weekend mode or a custom day goal changed.
+    Each option of apply_plan_adjustment() is previewed on a copy of the
+    plan, and only the chosen one is applied.
+
+    Args:
+        current_plan: The plan, already changed
+        before: A copy of the plan taken before the change
+        drop_after_end: See apply_plan_adjustment()
+        question: The question shown above the options
 
     Returns:
-        The chosen option, or None if the change didn't affect the plan
+        The chosen adjustment, or None if the change didn't affect the plan
     """
     old_end = before.end_date
     if not current_plan.start_date or old_end is None:
@@ -260,60 +305,34 @@ def rebalance_after_writing_days_change(current_plan, before, drop_after_end=())
     if current_plan.build_schedule()['goals'] == before.build_schedule()['goals']:
         return None
 
-    old_total = before.total
     old_daily = before.daily
+    labels = {
+        'move_end': f"Move the end date (keep {old_daily:,.0f} words/day)",
+        'keep_end': "Keep the end date (change the daily goal)",
+        'change_total': "Keep the end date and the daily goal (change the total)",
+    }
+    options = [a for a in PLAN_ADJUSTMENTS if a != 'move_end' or old_daily > 0]
 
-    def drop_spare_days_after_end(p):
-        p.spare_days_dates = [d for d in p.spare_days_dates
-                              if not (d > old_end and d in drop_after_end)]
-
-    def move_end(p):
-        p.total = old_total
-        p.daily = old_daily
-        p.calculate_time()
-
-    def keep_end(p):
-        drop_spare_days_after_end(p)
-        p.total = old_total
-        p.keep_end_date(old_end)
-
-    def change_total(p):
-        drop_spare_days_after_end(p)
-        p.keep_end_date(old_end)
-        p.total = p.total_for_daily(old_daily)
-        p.sync_daily()
-
-    options = []
-    if old_daily > 0:
-        options.append(('move_end', f"Move the end date (keep {old_daily:,.0f} words/day)", move_end))
-    options.append(('keep_end', f"Keep the end date (change the daily goal)", keep_end))
-    options.append(('change_total', "Keep the end date and the daily goal (change the total)", change_total))
+    def apply(p, adjustment):
+        apply_plan_adjustment(p, before, adjustment, drop_after_end)
 
     def outcome(p):
         end = p.end_date.strftime('%Y-%m-%d') if p.end_date else "-"
         return f"ends {end}, {p.daily:,.0f} words/day, total {p.total:,.0f} words"
 
-    print("\nThis changes the plan's writing days. How should the plan adjust?")
+    print(f"\n{question}")
     print(f"   Before: {outcome(before)}")
-    for number, (_, label, apply) in enumerate(options, 1):
+    for number, adjustment in enumerate(options, 1):
         preview = copy.deepcopy(current_plan)
-        apply(preview)
-        print(f"{number}. {label}")
+        apply(preview, adjustment)
+        print(f"{number}. {labels[adjustment]}")
         print(f"   -> {outcome(preview)}")
 
-    while True:
-        try:
-            choice = int(input(f"\nEnter your choice (1-{len(options)}): "))
-            if 1 <= choice <= len(options):
-                break
-            print(f"Please enter a number between 1 and {len(options)}.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-    key, _, apply = options[choice - 1]
-    apply(current_plan)
+    choice = get_menu_choice(f"\nEnter your choice (1-{len(options)}): ", 1, len(options))
+    adjustment = options[choice - 1]
+    apply(current_plan, adjustment)
     display_success(f"Plan {outcome(current_plan)}")
-    return key
+    return adjustment
 
 
 def manage_spare_days(current_plan):
@@ -468,7 +487,7 @@ def manage_spare_days(current_plan):
                     display_success(f"Added {added_count} spare day(s)")
                     if added_count < len(new_spare_dates):
                         print(f"  ({len(new_spare_dates) - added_count} were already marked as spare)")
-                    rebalance_after_writing_days_change(current_plan, before)
+                    offer_plan_adjustment(current_plan, before)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -530,7 +549,7 @@ def manage_spare_days(current_plan):
                     display_success(f"Removed {removed_count} spare day(s)")
                     if removed_count < len(dates_to_remove):
                         print(f"  ({len(dates_to_remove) - removed_count} were not spare days)")
-                    rebalance_after_writing_days_change(current_plan, before)
+                    offer_plan_adjustment(current_plan, before)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -546,7 +565,7 @@ def manage_spare_days(current_plan):
                 if get_yes_no(f"Clear all {len(clearable)} spare days from today on?", default='n'):
                     current_plan.spare_days_dates = [d for d in current_plan.spare_days_dates if d < today]
                     display_success("Spare days from today on cleared")
-                    rebalance_after_writing_days_change(current_plan, before)
+                    offer_plan_adjustment(current_plan, before)
 
             elif choice in (4, 5, 6):
                 weekdays, label = {
@@ -556,7 +575,7 @@ def manage_spare_days(current_plan):
                 }[choice]
                 mark_weekdays_as_spare(current_plan, weekdays)
                 added = [d for d in current_plan.spare_days_dates if d not in before.spare_days_dates]
-                rebalance_after_writing_days_change(current_plan, before, drop_after_end=added)
+                offer_plan_adjustment(current_plan, before, drop_after_end=added)
                 added_count = sum(1 for d in added if d in current_plan.spare_days_dates)
                 display_success(f"Marked {added_count} {label} as spare days")
 
@@ -567,75 +586,30 @@ def manage_spare_days(current_plan):
             print("Invalid input. Please enter a number.")
 
 
-def ask_recalculation_preference():
+CUSTOM_GOAL_QUESTION = "This changes the day's goal. How should the rest of the plan adjust?"
+
+
+def custom_goal_date_problem(current_plan, target_date):
     """
-    Ask user what they want to keep constant after changing daily goals.
+    Why a custom goal can't be set on target_date, or None if it can (P17).
 
-    Returns:
-        str: 'total' to keep total words constant, 'days' to keep days constant
+    Past days are locked; days outside the plan have no goal; spare days and
+    weekend rest days are 0 whatever their custom goal says.
     """
-    print("\nHow would you like to adjust the plan?")
-    print("1. Keep total word count constant (adjust other days' goals)")
-    print("2. Keep days constant (adjust total word count)")
-
-    while True:
-        try:
-            choice = int(input("\nEnter your choice (1-2): "))
-            if choice == 1:
-                return 'total'
-            elif choice == 2:
-                return 'days'
-            else:
-                print("Please enter 1 or 2.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-
-def recalculate_plan_with_choice(current_plan, old_total, choice_mode, old_daily=None):
-    """
-    Rebalance the plan after a change (custom goal, weekend settings), as the user chose.
-
-    Args:
-        current_plan: The Plan object to recalculate
-        old_total: The total before changes
-        choice_mode: 'total' to keep the total (open days absorb the change),
-            'days' to keep the daily goal of open days (the total changes)
-        old_daily: The daily goal before changes (default: current_plan.daily,
-            which callers haven't synced yet)
-    """
-    if old_daily is None:
-        old_daily = current_plan.daily
-
-    if choice_mode == 'days':
-        # Keep open days at the old daily goal, adjust total
-        new_total = current_plan.total_for_daily(old_daily)
-        current_plan.total = new_total
-        current_plan.sync_daily()
-        if abs(new_total - old_total) > 0.01:
-            print(f"\nPlan total adjusted: {old_total:,.0f} -> {new_total:,.0f} words")
-
-    elif choice_mode == 'total':
-        # Keep total constant; the schedule spreads the difference over open days
-        current_plan.total = old_total
-        schedule = current_plan.build_schedule()
-
-        if schedule['adjustable_weight'] == 0:
-            new_total = current_plan.total_for_daily(0)
-            print("\nWarning: No adjustable days remaining!")
-            print("All days are past, have custom goals, weekend settings, or are spare days.")
-            print(f"Total will be: {new_total:,.0f} words")
-            current_plan.total = new_total
-            return
-
-        current_plan.sync_daily()
-        new_daily = current_plan.daily
-        if abs(new_daily - old_daily) < 0.01:
-            print("\nNo adjustment needed - total remains the same")
-            return
-
-        print(f"\nAdjusting {schedule['adjustable_days']} days to maintain total of {old_total:,.0f} words")
-        print(f"  Base daily goal: {old_daily:,.0f} -> {new_daily:,.0f} words/day")
-        print(f"  Change: {new_daily - old_daily:+.0f} words/day")
+    if target_date < today_midnight():
+        return LOCKED_DAYS_MESSAGE
+    start, end = current_plan.start_date, current_plan.end_date
+    if end is None or not start <= target_date <= end:
+        end_text = end.strftime('%Y-%m-%d') if end else start.strftime('%Y-%m-%d')
+        return (f"{target_date.strftime('%Y-%m-%d')} is outside the plan "
+                f"({start.strftime('%Y-%m-%d')} to {end_text}).")
+    if current_plan.is_spare_day(target_date):
+        return (f"{target_date.strftime('%Y-%m-%d')} is a spare day. "
+                "Remove it in 'Manage spare days' first.")
+    if current_plan.weekend_mode == "spare" and current_plan.is_weekend(target_date):
+        return (f"{target_date.strftime('%A')}s are rest days in this plan. "
+                "Change the weekend settings first.")
+    return None
 
 
 def edit_individual_day_goal(current_plan):
@@ -686,30 +660,26 @@ def edit_individual_day_goal(current_plan):
                 try:
                     target_date = dt.strptime(date_input, "%Y-%m-%d")
 
-                    if target_date < today_midnight():
-                        display_error(LOCKED_DAYS_MESSAGE)
+                    problem = custom_goal_date_problem(current_plan, target_date)
+                    if problem:
+                        display_error(problem)
                         continue
 
                     # Show current goal for this day
                     current_goal = current_plan.get_daily_goal(date=target_date)
                     print(f"\nCurrent goal for {target_date.strftime('%A, %Y-%m-%d')}: {current_goal:,.0f} words")
 
-                    if current_plan.is_spare_day(target_date):
-                        print("  (This is currently a spare day)")
-
                     # Get new goal
                     print("\nEnter new word goal for this day:")
                     print("  (Enter 0 to make it a rest day, or any positive number)")
-                    new_goal = get_positive_number("New goal: ")
+                    new_goal = get_integer_input("New goal: ", min_value=0,
+                                                 max_value=config.MAX_DAILY_WORDS)
 
-                    old_total = current_plan.total
+                    before = copy.deepcopy(current_plan)
                     current_plan.set_custom_daily_goal(target_date, new_goal)
 
                     display_success(f"Set custom goal of {new_goal:,.0f} words for {target_date.strftime('%Y-%m-%d')}")
-
-                    # Ask user how to adjust the plan
-                    choice = ask_recalculation_preference()
-                    recalculate_plan_with_choice(current_plan, old_total, choice)
+                    offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
 
                 except ValueError as e:
                     display_error(f"Invalid date format: {e}")
@@ -736,18 +706,11 @@ def edit_individual_day_goal(current_plan):
                         continue
 
                     if date_key in current_plan.custom_daily_goals:
-                        old_total = current_plan.total
+                        before = copy.deepcopy(current_plan)
                         current_plan.remove_custom_daily_goal(target_date)
 
                         display_success(f"Removed custom goal for {target_date.strftime('%Y-%m-%d')}")
-
-                        # Show what the goal will revert to (before recalculation)
-                        reverted_goal = current_plan.get_daily_goal(date=target_date)
-                        print(f"  Goal reverted to: {reverted_goal:,.0f} words")
-
-                        # Ask user how to adjust the plan
-                        choice = ask_recalculation_preference()
-                        recalculate_plan_with_choice(current_plan, old_total, choice)
+                        offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
                     else:
                         display_error(f"No custom goal found for {target_date.strftime('%Y-%m-%d')}")
 
@@ -755,21 +718,20 @@ def edit_individual_day_goal(current_plan):
                     display_error(f"Invalid date format: {e}")
 
             elif choice == 3:
-                # Clear all custom goals
-                if not current_plan.custom_daily_goals:
-                    display_error("No custom day goals to clear")
+                # Clear all custom goals from today on (past ones are locked)
+                today_key = today_midnight().strftime('%Y-%m-%d')
+                clearable = [k for k in current_plan.custom_daily_goals if k >= today_key]
+                if not clearable:
+                    display_error("No custom day goals from today on to clear")
                     continue
 
-                if get_yes_no(f"Clear all {len(current_plan.custom_daily_goals)} custom day goals?", default='n'):
-                    old_total = current_plan.total
-                    current_plan.custom_daily_goals.clear()
-                    current_plan.invalidate_daily_goals_cache()
+                if get_yes_no(f"Clear all {len(clearable)} custom day goals from today on?", default='n'):
+                    before = copy.deepcopy(current_plan)
+                    for date_key in clearable:
+                        del current_plan.custom_daily_goals[date_key]
 
-                    display_success("All custom day goals cleared")
-
-                    # Ask user how to adjust the plan
-                    choice = ask_recalculation_preference()
-                    recalculate_plan_with_choice(current_plan, old_total, choice)
+                    display_success("Custom day goals from today on cleared")
+                    offer_plan_adjustment(current_plan, before, question=CUSTOM_GOAL_QUESTION)
 
             else:
                 print("Please enter a number between 0 and 3.")
@@ -1911,7 +1873,7 @@ def configure_weekend_settings(current_plan):
                 display_warning("Invalid input, using default weekend days (Sat, Sun)")
 
     # Decision 1: ask how the plan absorbs the change
-    rebalance_after_writing_days_change(current_plan, before)
+    offer_plan_adjustment(current_plan, before)
 
 
 def ask_for_pre_existing_words_count(total_goal=None):
@@ -2097,7 +2059,7 @@ def create_plan_from_template():
             elif selected_template.suggested_weekend_mode == 'spare':
                 newplan.weekend_mode = 'spare'
                 print("✓ Weekend mode: spare (no writing on weekends)")
-            rebalance_after_writing_days_change(newplan, before)
+            offer_plan_adjustment(newplan, before)
 
     # Handle plan actions
     handle_plan_actions(newplan)

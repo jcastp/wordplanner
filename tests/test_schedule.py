@@ -6,6 +6,7 @@ calculator on a started plan), plus the bugs they fix: P1, P2, P3, P12 (items
 """
 
 import contextlib
+import copy
 import io
 import itertools
 import json
@@ -258,8 +259,9 @@ class TestRecalculateFromProgressBaseline:
             p.record_progress(day(n), 1500)
         p.recalculate_from_progress(as_of_date=day(6))
 
+        before = copy.deepcopy(p)
         p.set_custom_daily_goal(day(8), 1000)
-        quiet(planea.recalculate_plan_with_choice, p, p.total, 'total')
+        planea.apply_plan_adjustment(p, before, 'keep_end')
 
         # Still covers exactly the 2,500 words left
         future = sum(goals(p, range(6, 11)))
@@ -318,13 +320,13 @@ class TestAdjustTimeFromProgress:
 
 
 class TestKeepTotalOrDays:
-    """recalculate_plan_with_choice() on top of the schedule (P3)."""
+    """apply_plan_adjustment() on top of the schedule (P3)."""
 
     def test_weekend_spare_keep_total(self):
         # P3: used to give daily 1,200 and a 9,600 schedule
         p = make_plan(weekend_mode="spare")
 
-        quiet(planea.recalculate_plan_with_choice, p, 10000, 'total', 1000)
+        planea.apply_plan_adjustment(p, make_plan(), 'keep_end')
 
         assert p.daily == pytest.approx(1250)
         assert schedule_sum(p) == pytest.approx(10000)
@@ -332,7 +334,7 @@ class TestKeepTotalOrDays:
     def test_weekend_spare_keep_days(self):
         p = make_plan(weekend_mode="spare")
 
-        quiet(planea.recalculate_plan_with_choice, p, 10000, 'days', 1000)
+        planea.apply_plan_adjustment(p, make_plan(), 'change_total')
 
         assert p.total == pytest.approx(8000)
         assert p.daily == pytest.approx(1000)
@@ -340,18 +342,20 @@ class TestKeepTotalOrDays:
     def test_pattern_keep_total_with_custom_goal(self):
         # P3: daily changes used to have no effect on non-flat patterns
         p = make_plan(pattern="rising", pattern_config=dict(PATTERNS["rising"]))
+        before = copy.deepcopy(p)
         p.set_custom_daily_goal(day(5), 4000)
 
-        quiet(planea.recalculate_plan_with_choice, p, 10000, 'total')
+        planea.apply_plan_adjustment(p, before, 'keep_end')
 
         assert schedule_sum(p) == pytest.approx(10000)
 
     def test_no_open_days_sets_total_to_fixed_words(self):
         p = make_plan(time=2)
+        before = copy.deepcopy(p)
         p.set_custom_daily_goal(day(1), 700)
         p.set_custom_daily_goal(day(2), 800)
 
-        quiet(planea.recalculate_plan_with_choice, p, 10000, 'total')
+        planea.apply_plan_adjustment(p, before, 'keep_end')
 
         assert p.total == pytest.approx(1500)
 
