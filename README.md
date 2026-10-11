@@ -132,6 +132,7 @@ Distribute your writing goals with different patterns to match your energy and s
   - Change start date
   - Configure weekend settings
   - Edit individual day goals
+  - Rename the plan
 - Plan Actions Menu - Streamlined workflow for managing plans
   - Update progress
   - View progress summary

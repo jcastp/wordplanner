@@ -68,12 +68,12 @@ class TestMenusReask:
 
     def test_out_of_range_and_text_are_asked_again(self, scripted_input):
         p = make_plan()
-        scripted_input(["11", "abc", "", "0"])   # modify menu: three bad answers, then Cancel
+        scripted_input(["12", "abc", "", "0"])   # modify menu: three bad answers, then Cancel
 
         result, output = run(ui_modify.modify_plan, p)
 
         assert result is False
-        assert "between 0 and 10" in output
+        assert "between 0 and 11" in output
         assert "Invalid input 'abc'" in output
 
     def test_sub_menu_choice(self, scripted_input):
@@ -122,3 +122,43 @@ class TestMenusReask:
 
         assert "between 0 and 3" in output
         assert p.weekend_mode == "same"
+
+
+class TestRenamePlan:
+
+    def test_rename_from_modify_menu(self, scripted_input):
+        p = make_plan()
+        p.mark_saved()
+        schedule = p.build_schedule()
+        scripted_input(["11", "  Second Draft  "])
+
+        result, output = run(ui_modify.modify_plan, p)
+
+        assert result is True
+        assert p.name == "Second Draft"
+        assert "Plan renamed to: Second Draft" in output
+        assert p.has_unsaved_changes()
+        assert p.build_schedule() == schedule
+
+    @pytest.mark.parametrize("answer", ["", "   ", "Novel"])
+    def test_empty_or_same_name_keeps_it(self, scripted_input, answer):
+        p = make_plan()
+        p.mark_saved()
+        scripted_input(["11", answer])
+
+        result, output = run(ui_modify.modify_plan, p)
+
+        assert result is False
+        assert p.name == "Novel"
+        assert "Name unchanged" in output
+        assert not p.has_unsaved_changes()
+
+    def test_unnamed_plan_can_be_named(self, scripted_input):
+        p = make_plan(name=None)
+        scripted_input(["Novel"])
+
+        result, output = run(ui_modify.rename_plan, p)
+
+        assert result is True
+        assert "Current name: Unnamed" in output
+        assert p.name == "Novel"

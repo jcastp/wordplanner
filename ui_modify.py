@@ -586,12 +586,25 @@ def change_start_date(current_plan, new_start):
     return True
 
 
+def rename_plan(current_plan):
+    """Change the plan's name. Returns True if it changed."""
+    print(f"\nCurrent name: {current_plan.name or 'Unnamed'}")
+    new_name = input("Enter a new name (or press Enter to keep it): ").strip()
+    if not new_name or new_name == current_plan.name:
+        print("Name unchanged.")
+        return False
+    current_plan.name = new_name
+    display_success(f"Plan renamed to: {new_name}")
+    return True
+
+
 def modify_plan(current_plan):
     """Allow user to modify plan values and recalculate."""
     print("\n" + "=" * 50)
     print("MODIFY PLAN")
     print("=" * 50)
     print("\nCurrent values:")
+    print(f"  Name: {current_plan.name or 'Unnamed'}")
     print(f"  Total words: {current_plan.total:,.0f}")
     print(f"  Daily words: {current_plan.daily:,.0f}")
     print(f"  Writing days: {current_plan.time:.0f}")
@@ -615,12 +628,13 @@ def modify_plan(current_plan):
     print("8. Weekend settings")
     print("9. Edit individual day goals")
     print("10. Recalculate from progress (redistribute remaining words)")
+    print("11. Plan name")
     print("0. Cancel")
     print("=" * 50)
 
     while True:
         try:
-            choice = get_menu_choice("\nEnter your choice (0-10): ", 0, 10)
+            choice = get_menu_choice("\nEnter your choice (0-11): ", 0, 11)
             if choice == 0:
                 return False  # No changes made
 
@@ -745,6 +759,9 @@ def modify_plan(current_plan):
                 # Recalculate from progress
                 modified = ui_progress.recalculate_plan_from_progress(current_plan)
                 return modified
+
+            elif choice == 11:
+                return rename_plan(current_plan)
         except ValueError as e:
             # Menu choices are validated by get_menu_choice; this catches the rest
             display_error(f"Invalid input: {e}")
