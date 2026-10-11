@@ -4,9 +4,11 @@
 It intends to get a plan for daily work on words per day."""
 
 import copy
+import sys
 import readline  # noqa: F401 (line editing at prompts)
 import plan_storage
 import plan_manager
+import cli
 from ui_utils import get_yes_no, get_menu_choice, display_header
 import ui_create
 import ui_files
@@ -62,14 +64,25 @@ def save_after_interrupt(current_plan):
             print(f"\nCould not save the unsaved changes: {e}")
 
 
-def main():
-    """Main function to run the interactive word planner."""
+def main(argv=()):
+    """
+    Run the word planner: the interactive menus, or a command (see cli.py).
+
+    Args:
+        argv: Command-line arguments (none: the menus)
+
+    Returns:
+        The exit code (0 for the menus)
+    """
+    if argv:
+        return cli.run(argv)
     try:
         main_menu_loop()
     except (KeyboardInterrupt, EOFError):
         print()
         save_after_interrupt(ui_plan_actions._open_plan)
         print("\nThank you for using Word Count Planner. Happy writing!")
+    return 0
 
 
 def main_menu_loop():
@@ -111,4 +124,4 @@ def main_menu_loop():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv[1:]))

@@ -298,6 +298,26 @@ Navigation:
 - Follow prompts for input
 - Ctrl+C to exit at any time
 
+### Commands (without the menus)
+
+Quick commands work on the current plan (★, set in "Manage multiple plans"). They save the plan and print where it stands:
+
+```bash
+python planea.py log 1200                    # words written today (replaces today's entry)
+python planea.py log --total 23,450          # your manuscript's running total; today's words are worked out
+python planea.py log 800 --date 2026-11-03   # an earlier day
+python planea.py status                      # today's goal, words written, ahead/behind
+```
+
+```
+★ My Novel (Oct 08, 2026 - Nov 26, 2026)
+Today (Sun Oct 11): 1,200 / 960 words ✓
+Written: 6,200 / 50,000 words (12.4%), 43,800 to go
+Status: ✓ ahead by 1,320 words
+```
+
+They exit with code 0 when done and 1 when refused (no current plan, a future date, a running total below what's logged), so they work in shell aliases and scripts. For a daily reminder, run `planea.py status` from your shell's startup file or a cron job, or use the iCal export.
+
 ## Workflow Examples
 
 ### Example 1: Planning a Novel (NaNoWriMo Style)
@@ -944,7 +964,7 @@ Goal: Visualize your progress and analyze your writing patterns
 
 ### Running Tests
 
-The project includes a test suite of 848 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
+The project includes a test suite of 917 tests covering the planning logic, storage, exports, analytics and the interactive screens (driven with scripted answers). Tests never touch your real `~/.wordplanner`: every test saves into a temporary directory.
 
 #### Prerequisites
 
@@ -1007,6 +1027,7 @@ Additional test scripts:
 ```
 wordplanner/
 ├── planea.py                     # Entry point: main menu, Ctrl+C / end-of-input handling
+├── cli.py                        # Command-line commands (log, status) on the current plan
 ├── ui_create.py                  # Creating plans (from scratch, from templates)
 ├── ui_plan_actions.py            # Plan actions menu, results, calendar, leaving a plan
 ├── ui_modify.py                  # Modify plan, spare days, custom goals, weekends, start date
@@ -1235,31 +1256,6 @@ Exports are named with the plan name and timestamp in the appropriate format:
 ## Roadmap
 
 See future-improvements.md for the roadmap.
-
-### Recently Completed ✅
-- ✅ Plan Templates - Pre-configured plans (NaNoWriMo, Short Story, etc.) [v1.6]
-- ✅ Multiple Plans Management - Organize and manage multiple projects [v1.7]
-- ✅ Better Error Handling - Comprehensive validation and recovery [v1.7]
-- ✅ Enhanced Input Validation - Clear error messages and better UX [v1.7]
-
-### Next Up (High Priority)
-- Holiday Templates - Quick marking of common holidays
-- Writing Session Timer - Integrated pomodoro-style timer
-- Comprehensive testing suite expansion
-- Web interface prototype
-
-### Coming Soon (Medium Priority)
-- Notifications and reminders
-- Advanced calendar features
-- Plan groups/folders for hierarchical organization
-- Bulk operations (multi-select plans)
-
-### Future Possibilities
-- Web interface
-- Mobile apps
-- AI-powered suggestions
-- Collaboration features
-- Integration with writing tools (Scrivener, Word, etc.)
 
 ## Tips & Best Practices
 
