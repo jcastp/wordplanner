@@ -617,34 +617,33 @@ class Plan():
         """Get count of days with progress recorded."""
         return len(self.progress)
 
+    def is_rest_day(self, date):
+        """A plan day with a goal of 0: spare day, weekend rest day, custom or locked 0."""
+        end = self.end_date
+        if not self.start_date or end is None or not self.start_date <= date <= end:
+            return False
+        return self.get_daily_goal(date=date) == 0
+
     def get_current_streak(self):
         """
-        Get the current consecutive days streak.
-        Only counts days up to today, not future days.
+        Number of consecutive days with words written, counting back from today.
+
+        Rest days (goal 0) don't break the streak; writing on one still
+        counts. Today only counts once words are logged: until then the
+        streak runs up to yesterday (decision 4: today isn't over yet).
         """
         if not self.start_date or not self.progress:
             return 0
 
-        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = to_midnight(datetime.datetime.now())
         current_date = today
         streak = 0
 
-        # Count backwards from today
         while current_date >= self.start_date:
-            date_key = current_date.strftime('%Y-%m-%d')
-
-            # Check if this is a spare day - spare days don't break the streak
-            if self.is_spare_day(current_date):
-                current_date -= timedelta(days=1)
-                continue
-
-            # Check if progress was recorded for this day
-            if date_key in self.progress and self.progress[date_key] > 0:
+            if self.progress.get(current_date.strftime('%Y-%m-%d'), 0) > 0:
                 streak += 1
-            else:
-                # Streak is broken
+            elif current_date != today and not self.is_rest_day(current_date):
                 break
-
             current_date -= timedelta(days=1)
 
         return streak
@@ -716,38 +715,39 @@ class Plan():
         """
         Get the progress status for a specific date.
 
-        Returns:
-            'exceeded', 'met', 'partial', 'missed', 'future', 'spare', or 'no_goal'
+        - 'no_goal': outside the plan (or no start date);
+        - 'spare': a rest day (goal 0) with nothing written; writing on it is 'exceeded';
+        - 'future': after today, or today with nothing logged yet (decision 4);
+        - 'exceeded', 'met', 'partial': words written against the goal;
+        - 'missed': a past day with a goal and no words.
         """
         if not self.start_date:
             return 'no_goal'
 
-        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        date = to_midnight(date)
+        today = to_midnight(datetime.datetime.now())
+        end = self.end_date
 
-        # Check if it's a future date
+        # Days outside the plan have no goal
+        if date < self.start_date or end is None or date > end:
+            return 'no_goal'
+
+        daily_goal = self.get_daily_goal(date=date)
+        actual = self.get_progress_for_date(date) or 0
+
+        # Rest days (spare, weekend rest, goal 0) are never missed
+        if daily_goal == 0:
+            return 'exceeded' if actual > 0 else 'spare'
+
         if date > today:
             return 'future'
 
-        # Check if it's a spare day
-        if self.is_spare_day(date):
-            return 'spare'
-
-        # Check if it's before start date
-        if date < self.start_date:
-            return 'no_goal'
-
-        # Get goal and actual for this date
-        daily_goal = self.get_daily_goal(date=date)
-        actual = self.get_progress_for_date(date)
-
-        if actual is None:
-            return 'missed'
-        elif actual == 0:
-            return 'missed'
-        elif actual >= daily_goal:
+        if actual >= daily_goal:
             return 'exceeded' if actual > daily_goal else 'met'
-        else:
+        if actual > 0:
             return 'partial'
+        # Today isn't over: nothing logged yet isn't a miss (decision 4)
+        return 'future' if date == today else 'missed'
 
     def _rebase_on_progress(self, as_of_date):
         """

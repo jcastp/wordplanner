@@ -173,6 +173,9 @@ def display_calendar_view(plan_obj, start_date):
                             elif progress_status == 'future':
                                 style = "blue"
                                 cell_text.append(f"{daily_goal:,.0f}w", style=style)
+                            elif progress_status == 'spare':
+                                # Rest day: weekend rest or a goal of 0
+                                cell_text.append("REST", style="orange1 italic")
                             else:
                                 # No goal or other status
                                 cell_text.append(f"{daily_goal:,.0f}w", style="green")
