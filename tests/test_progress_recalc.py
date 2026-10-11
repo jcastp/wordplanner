@@ -75,10 +75,10 @@ class TestRecalculateFromTomorrow:
         assert behind_plan.last_modified >= before
 
 
-class TestRecalculatePatternsAndCustomGoals:
-    """Patterns and custom goals are handled as the confirmation screen describes."""
+class TestRecalculateKeepsPlanShape:
+    """P12 item 1: the pattern, future custom goals and weekend ratio survive a recalculation."""
 
-    def test_pattern_past_goals_kept_and_future_flattened(self):
+    def test_pattern_kept(self):
         p = plan.Plan(total=10000, daily=1000, time=10, start_date=START, pattern="rising",
                       pattern_config={'start_multiplier': 0.5, 'end_multiplier': 1.5})
         past_goals = [p.get_daily_goal(date=day(n)) for n in range(1, 4)]
@@ -87,13 +87,14 @@ class TestRecalculatePatternsAndCustomGoals:
 
         result = p.recalculate_from_progress(as_of_date=day(4))
 
-        assert result['old_pattern'] == 'rising'
-        assert p.pattern == 'flat'
+        assert result['pattern'] == 'rising'
+        assert p.pattern == 'rising'
         assert [p.get_daily_goal(date=day(n)) for n in range(1, 4)] == pytest.approx(past_goals)
-        for n in range(4, 11):
-            assert p.get_daily_goal(date=day(n)) == pytest.approx(result['new_daily'])
+        future = [p.get_daily_goal(date=day(n)) for n in range(4, 11)]
+        assert future == sorted(future)
+        assert sum(future) == pytest.approx(10000 - 2100)
 
-    def test_future_custom_goals_cleared_past_kept(self):
+    def test_future_custom_goals_kept(self):
         p = plan.Plan(total=10000, daily=1000, time=10, start_date=START)
         p.set_custom_daily_goal(day(2), 1500)
         p.set_custom_daily_goal(day(8), 3000)
@@ -102,7 +103,19 @@ class TestRecalculatePatternsAndCustomGoals:
 
         result = p.recalculate_from_progress(as_of_date=day(3))
 
-        assert result['cleared_custom_goals'] == 1
-        assert p.custom_daily_goals[day(2).strftime('%Y-%m-%d')] == 1500
-        assert day(8).strftime('%Y-%m-%d') not in p.custom_daily_goals
-        assert p.get_daily_goal(date=day(8)) == pytest.approx(result['new_daily'])
+        assert result['kept_custom_goals'] == 1
+        assert p.get_daily_goal(date=day(8)) == 3000
+        future = [p.get_daily_goal(date=day(n)) for n in range(3, 11)]
+        assert sum(future) == pytest.approx(7500)
+        # The other 7 open days share what day 8 doesn't take
+        assert result['new_daily'] == pytest.approx(4500 / 7)
+
+    def test_start_before_plan_counts_only_plan_days(self):
+        # P12 item 5: days before the start used to count as remaining
+        p = plan.Plan(total=10000, daily=1000, time=10, start_date=START)
+        p.record_progress(START - timedelta(days=3), 1000)
+
+        result = p.recalculate_from_progress(as_of_date=START - timedelta(days=5))
+
+        assert result['remaining_writing_days'] == 10
+        assert result['new_daily'] == pytest.approx(900)

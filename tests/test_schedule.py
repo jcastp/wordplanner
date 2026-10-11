@@ -241,13 +241,15 @@ class TestRecalculateFromProgressBaseline:
         assert result['remaining_writing_days'] == 9
         assert result['new_daily'] == pytest.approx(1000)
 
-    def test_weekend_different_gets_weekday_goal(self):
+    def test_weekend_different_keeps_its_ratio(self):
+        # P12 item 1: weekends used to be reset to the weekday goal
         p = make_plan(time=14, weekend_mode="different", weekend_daily=2000)
         p.record_progress(day(1), 1000)
 
         result = p.recalculate_from_progress(as_of_date=day(2))
 
-        assert p.weekend_daily == pytest.approx(result['new_daily'])
+        assert p.weekend_daily == pytest.approx(2 * result['new_daily'])
+        assert result['weekend_daily'] == pytest.approx(p.weekend_daily)
         assert sum(p.get_daily_goal(date=d) for d in p.plan_days() if d >= day(2)) == pytest.approx(9000)
 
     def test_later_changes_keep_the_baseline(self):
@@ -399,3 +401,87 @@ class TestWritingDaysGuard:
 
         assert days == 6
         assert "at least 5" in output.getvalue()
+
+
+@freeze_time("2026-11-07 10:00")  # Saturday, day 6
+class TestTodayRule:
+    """P12 item 6 and P13 item 2 / decision 4: how "today" is treated."""
+
+    def test_recalculation_starts_today_without_progress_today(self):
+        p = make_plan()
+
+        assert p.default_recalculation_date() == day(6)
+
+    def test_recalculation_starts_tomorrow_after_logging_today(self):
+        p = make_plan()
+        p.record_progress(day(6), 200)
+
+        assert p.default_recalculation_date() == day(7)
+
+    def test_today_not_expected_yet(self):
+        # Logging part of today's words used to show "behind"
+        p = make_plan()
+        for n in range(1, 6):
+            p.record_progress(day(n), 1000)
+        p.record_progress(day(6), 300)
+
+        _, info = p.is_on_track()
+
+        assert info['expected_words'] == pytest.approx(5000)
+        assert info['status'] == 'ahead'
+
+    def test_explicit_date_still_inclusive(self):
+        p = make_plan()
+        for n in range(1, 6):
+            p.record_progress(day(n), 1000)
+
+        _, info = p.is_on_track(as_of_date=day(6))
+
+        assert info['expected_words'] == pytest.approx(6000)
+
+
+@freeze_time("2026-11-07 10:00")  # Saturday, day 6
+class TestAheadBehindOffer:
+    """P13 items 1 and 2: preview before applying, offer once per visit."""
+
+    @pytest.fixture
+    def behind_plan(self):
+        p = make_plan()
+        for n in range(1, 6):
+            p.record_progress(day(n), 500)
+        return p
+
+    def test_daily_recalculation_declined(self, behind_plan, scripted_input):
+        before = behind_plan.to_dict()
+        scripted_input(["n"])
+
+        assert quiet(planea.offer_daily_recalculation, behind_plan) is False
+        assert behind_plan.to_dict() == before
+
+    def test_daily_recalculation_accepted(self, behind_plan, scripted_input):
+        scripted_input(["y"])
+
+        assert quiet(planea.offer_daily_recalculation, behind_plan) is True
+        # 7,500 left over days 6-10
+        assert goals(behind_plan, range(6, 11)) == [pytest.approx(1500)] * 5
+
+    def test_behind_offer_defaults_to_no(self, behind_plan, scripted_input):
+        before = behind_plan.to_dict()
+        scripted_input([""])  # Enter at "Would you like to adjust your plan?"
+
+        assert quiet(planea.check_and_offer_recalculation, behind_plan) is True
+        assert behind_plan.to_dict() == before
+
+    def test_offer_shown_once_per_visit(self, behind_plan, scripted_input):
+        scripted_input([
+            "1", "100", "",   # quick entry; offer shown, Enter = no
+            "1", "200",       # quick entry again; no offer this time
+            "0", "n",         # done; don't save
+        ])
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            planea.update_progress(behind_plan)
+
+        assert output.getvalue().count("PROGRESS STATUS") == 1
+        assert behind_plan.get_progress_for_date(day(6)) == 200

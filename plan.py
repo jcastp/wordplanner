@@ -586,8 +586,13 @@ class Plan():
         """
         Check if progress is on track based on expected progress.
 
+        Compares the goals up to as_of_date (inclusive) with everything
+        written, including any words already logged after it.
+
         Args:
-            as_of_date: datetime object to check against (default: today)
+            as_of_date: last day whose goal counts as expected (default:
+                yesterday, because today isn't over yet; words written today
+                still count, so they can only help)
 
         Returns:
             Tuple of (bool, dict) where bool is True if on track,
@@ -597,7 +602,7 @@ class Plan():
             return True, {'message': 'No start date set'}
 
         if as_of_date is None:
-            as_of_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            as_of_date = to_midnight(datetime.datetime.now()) - timedelta(days=1)
 
         # Calculate expected progress up to this date
         goals = self.build_schedule()['goals']
@@ -715,6 +720,29 @@ class Plan():
         """Words the open (not locked) days of the schedule have to cover."""
         return self.words_to_schedule + self.schedule_adjustment - self._locked_words()
 
+    def default_recalculation_date(self):
+        """
+        First day a recalculation from progress may change.
+
+        Today is locked if words were already logged for it (the day has
+        started), otherwise it is open and gets a new goal too.
+        """
+        today = to_midnight(datetime.datetime.now())
+        if today.strftime('%Y-%m-%d') in self.progress:
+            return today + timedelta(days=1)
+        return today
+
+    def _open_weekend_days(self, as_of_date):
+        """Weekend days from as_of_date on whose goal comes from weekend_daily."""
+        spare = {d.date() for d in self.spare_days_dates if not isinstance(d, int)}
+        return sum(
+            1 for day in self.plan_days()
+            if day >= as_of_date and self.is_weekend(day)
+            and day.date() not in spare
+            and day.strftime('%Y-%m-%d') not in self.locked_goals
+            and day.strftime('%Y-%m-%d') not in self.custom_daily_goals
+        )
+
     def _remaining_writing_days(self, as_of_date):
         """Writing days from as_of_date to the end date (not spare, not weekend-spare)."""
         return sum(
@@ -729,12 +757,13 @@ class Plan():
         Recalculate the plan based on actual progress, redistributing remaining words
         across remaining days while keeping the end date fixed.
 
-        Days before as_of_date are locked. From as_of_date on, the pattern is
-        reset to flat, future custom goals are cleared, and the words actually
-        left (total - written) are spread evenly over the remaining writing days.
+        Days before as_of_date are locked. From as_of_date on, the words
+        actually left are spread over the open days with the plan's own
+        pattern; future custom goals stay as they are, and weekend goals in
+        "different" mode keep their ratio to the weekday goal.
 
         Args:
-            as_of_date: Date to calculate from (defaults to today)
+            as_of_date: First day to change (default: default_recalculation_date())
 
         Returns:
             dict with recalculation details, or None if recalculation not possible
@@ -743,7 +772,7 @@ class Plan():
             return None
 
         if as_of_date is None:
-            as_of_date = datetime.datetime.now()
+            as_of_date = self.default_recalculation_date()
         as_of_date = to_midnight(as_of_date)
 
         words_completed = self.get_total_written()
@@ -781,39 +810,41 @@ class Plan():
             }
 
         old_daily = self.daily
-        old_pattern = self.pattern
+        weekend_ratio = (self.weekend_daily / old_daily
+                         if self.weekend_mode == 'different' and old_daily > 0 else None)
 
         past_goals_preserved = self._rebase_on_progress(as_of_date)
-        new_daily = max(0, self._open_words()) / remaining_writing_days
 
-        # Spread evenly from now on: flat pattern, no future custom goals
-        self.pattern = "flat"
-        self.pattern_config = {}
-        kept_custom_goals = {
-            date_str: goal for date_str, goal in self.custom_daily_goals.items()
-            if datetime.datetime.strptime(date_str, '%Y-%m-%d') < as_of_date
-        }
-        cleared_goals_count = len(self.custom_daily_goals) - len(kept_custom_goals)
-        self.custom_daily_goals = kept_custom_goals
-
-        # Weekends in "different" mode get the same goal as weekdays
-        # User can adjust manually if they want different weekend goals
-        if self.weekend_mode == 'different':
-            self.weekend_daily = new_daily
+        if weekend_ratio is not None:
+            # Weekend days follow the weekday goal at the same ratio as before:
+            # solve with weekends at 0, then share the open words between both
+            self.weekend_daily = 0
+            schedule = self.build_schedule()
+            open_weekend_days = self._open_weekend_days(as_of_date)
+            weekday_weight = schedule['adjustable_weight']
+            spread = schedule['level'] * weekday_weight
+            denominator = weekday_weight + weekend_ratio * open_weekend_days
+            self.weekend_daily = weekend_ratio * spread / denominator if denominator > 0 else 0
 
         self.sync_daily()
         self.last_modified = datetime.datetime.now()
 
+        future_custom_goals = sum(
+            1 for date_str in self.custom_daily_goals
+            if datetime.datetime.strptime(date_str, '%Y-%m-%d') >= as_of_date
+        )
+
         return {
             'success': True,
+            'as_of_date': as_of_date,
             'words_completed': words_completed,
             'words_remaining': words_remaining,
             'remaining_writing_days': remaining_writing_days,
             'old_daily': old_daily,
             'new_daily': self.daily,
-            'old_pattern': old_pattern,
-            'new_pattern': self.pattern,
-            'cleared_custom_goals': cleared_goals_count,
+            'pattern': self.pattern,
+            'kept_custom_goals': future_custom_goals,
+            'weekend_daily': self.weekend_daily if self.weekend_mode == 'different' else None,
             'past_goals_preserved': past_goals_preserved,
             'end_date': end_date
         }
@@ -823,7 +854,7 @@ class Plan():
         Keep the daily goal and move the end date so the words actually left fit.
 
         Finishes early when ahead, extends the deadline when behind. Days
-        before as_of_date (default today) are locked.
+        before as_of_date (default: default_recalculation_date()) are locked.
 
         Returns:
             dict with old/new time and end date, or None without a start date
@@ -832,7 +863,7 @@ class Plan():
             return None
 
         if as_of_date is None:
-            as_of_date = datetime.datetime.now()
+            as_of_date = self.default_recalculation_date()
         as_of_date = to_midnight(as_of_date)
 
         old_time = self.time
