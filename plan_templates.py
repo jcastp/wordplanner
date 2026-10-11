@@ -1,5 +1,6 @@
 """Plan templates module for common writing goals."""
 
+import copy
 import datetime
 import plan
 
@@ -171,9 +172,10 @@ def get_template(template_key):
         template_key: Template identifier
 
     Returns:
-        PlanTemplate or None if not found
+        A copy of the PlanTemplate (safe to customise), or None if not found
     """
-    return TEMPLATES.get(template_key)
+    template = TEMPLATES.get(template_key)
+    return copy.copy(template) if template else None
 
 
 def get_all_templates():
@@ -181,9 +183,10 @@ def get_all_templates():
     Get all available templates.
 
     Returns:
-        Dictionary of all templates
+        Dictionary of copies of all templates (safe to customise: the
+        shared TEMPLATES are never changed)
     """
-    return TEMPLATES
+    return {key: copy.copy(template) for key, template in TEMPLATES.items()}
 
 
 def list_templates_by_category():

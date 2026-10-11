@@ -19,7 +19,7 @@ from ui_utils import (
     get_yes_no, get_positive_number, get_date_input, get_menu_choice,
     display_header, display_section, display_success, display_error, display_warning
 )
-from pattern_utils import choose_writing_pattern, get_pattern_description
+from pattern_utils import choose_writing_pattern, get_pattern_description, get_pattern_intensity_config
 
 
 # Validation and input functions are now imported from ui_utils module
@@ -2074,29 +2074,8 @@ def create_plan_from_template():
     if selected_template.suggested_pattern:
         if get_yes_no(f"\nApply suggested '{selected_template.suggested_pattern}' pattern?", default='y'):
             newplan.pattern = selected_template.suggested_pattern
-            if selected_template.suggested_pattern != 'flat':
-                # Ask for intensity
-                print("\nPattern intensity:")
-                print("1. Mild")
-                print("2. Moderate (recommended)")
-                print("3. Extreme")
-
-                while True:
-                    try:
-                        intensity_choice = int(input("Select intensity (1-3): "))
-                        if intensity_choice == 1:
-                            newplan.pattern_config = {'intensity': 'mild'}
-                            break
-                        elif intensity_choice == 2:
-                            newplan.pattern_config = {'intensity': 'moderate'}
-                            break
-                        elif intensity_choice == 3:
-                            newplan.pattern_config = {'intensity': 'extreme'}
-                            break
-                        else:
-                            print("Please enter 1, 2, or 3.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+            # Same intensity choices (and random seed) as a pattern chosen by hand
+            newplan.pattern_config = get_pattern_intensity_config(newplan.pattern)
 
             print(f"✓ Applied {newplan.pattern} pattern")
 
