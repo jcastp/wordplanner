@@ -204,51 +204,71 @@ def load_plan(filepath: Path) -> plan.Plan:
     return loaded_plan
 
 
-def list_saved_plans() -> List[dict]:
+# Files already reported as unreadable, as (path, modification time): each
+# broken file is reported once per session, not on every listing (S5)
+_reported_load_errors = set()
+
+
+def _report_load_error(filepath: Path, error: Exception):
+    try:
+        version = filepath.stat().st_mtime_ns
+    except OSError:
+        version = None
+    key = (str(filepath), version)
+    if key in _reported_load_errors:
+        return
+    _reported_load_errors.add(key)
+    if isinstance(error, (PermissionError, ValueError, OSError)):
+        print(f"Warning: Could not load {filepath.name}: {error}")
+    else:
+        print(f"Warning: Unexpected error loading {filepath.name}: {type(error).__name__}: {error}")
+
+
+def load_all_plans() -> List[plan.Plan]:
     """
-    List all saved plans in the default directory.
+    Load every plan in the plans directory, reading each file once.
+
+    Files that can't be loaded are skipped; each is reported once per
+    session (again only if the file changes).
 
     Returns:
-        List of dictionaries with plan metadata (name, path, created_date)
+        List of Plan objects, in file name order
     """
     try:
         ensure_plans_directory()
+        json_files = sorted(get_plans_directory().glob("*.json"))
     except (PermissionError, OSError) as e:
         print(f"Error: Cannot access plans directory: {e}")
         return []
 
     plans = []
-    plans_dir = get_plans_directory()
-
-    try:
-        json_files = list(plans_dir.glob("*.json"))
-    except (PermissionError, OSError) as e:
-        print(f"Error: Cannot list files in plans directory: {e}")
-        return []
-
     for filepath in json_files:
         try:
-            # Load plan to get metadata
-            plan_obj = load_plan(filepath)
-            plans.append({
-                'name': plan_obj.name or filepath.stem,
-                'path': filepath,
-                'created_date': plan_obj.created_date,
-                'total': plan_obj.total,
-                'daily': plan_obj.daily,
-                'time': plan_obj.time,
-            })
+            plans.append(load_plan(filepath))
         except FileNotFoundError:
-            # File was deleted between listing and loading - skip it
-            continue
-        except (PermissionError, ValueError, OSError) as e:
-            # Skip files that can't be loaded but show specific error
-            print(f"Warning: Could not load {filepath.name}: {e}")
+            # Deleted between listing and loading
             continue
         except Exception as e:
-            # Catch-all for unexpected errors
-            print(f"Warning: Unexpected error loading {filepath.name}: {type(e).__name__}: {e}")
-            continue
+            _report_load_error(filepath, e)
+    return plans
+
+
+def list_saved_plans() -> List[dict]:
+    """
+    List all saved plans in the default directory.
+
+    Returns:
+        List of dictionaries with plan metadata (name, path, created_date,
+        total, daily, time), newest first
+    """
+    plans = [{
+        'name': plan_obj.name or plan_obj.source_file.stem,
+        'path': plan_obj.source_file,
+        'created_date': plan_obj.created_date,
+        'total': plan_obj.total,
+        'daily': plan_obj.daily,
+        'time': plan_obj.time,
+    } for plan_obj in load_all_plans()]
 
     # Sort by created date, newest first
     plans.sort(key=lambda p: p['created_date'] if p['created_date'] else datetime.min, reverse=True)

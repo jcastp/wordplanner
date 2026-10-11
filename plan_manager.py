@@ -55,24 +55,19 @@ def filter_plans_by_tag(plans: List[plan.Plan], tag: str) -> List[plan.Plan]:
     return [p for p in plans if tag in p.tags]
 
 
-def get_active_plan() -> Optional[plan.Plan]:
+def get_active_plan(plans: Optional[List[plan.Plan]] = None) -> Optional[plan.Plan]:
     """
-    Get the currently active plan.
+    Get the current plan (★, is_active).
+
+    Args:
+        plans: Already loaded plans (default: load them)
 
     Returns:
         The active Plan object, or None if no plan is marked as active
     """
-    plans_info = plan_storage.list_saved_plans()
-
-    for plan_info in plans_info:
-        try:
-            p = plan_storage.load_plan(plan_info['path'])
-            if p.is_active:
-                return p
-        except Exception:
-            continue
-
-    return None
+    if plans is None:
+        plans = get_all_plans()
+    return next((p for p in plans if p.is_active), None)
 
 
 def set_active_plan(plan_path: Path) -> bool:
@@ -86,23 +81,22 @@ def set_active_plan(plan_path: Path) -> bool:
         True if successful, False otherwise
     """
     try:
-        # First, clear active flag from all plans
-        plans_info = plan_storage.list_saved_plans()
-        for plan_info in plans_info:
-            try:
-                p = plan_storage.load_plan(plan_info['path'])
-                if p.is_active and plan_info['path'] != plan_path:
-                    p.is_active = False
-                    p.last_modified = datetime.now()
-                    plan_storage.save_plan(p, overwrite_source=True)
-            except Exception:
-                continue
+        plan_path = Path(plan_path)
+        plans = get_all_plans()
+
+        # Clear the flag from every other plan (each file loaded once, saved only if it changes)
+        for p in plans:
+            if p.is_active and p.source_file != plan_path:
+                p.is_active = False
+                plan_storage.save_plan(p, overwrite_source=True)
 
         # Set the target plan as active
-        target_plan = plan_storage.load_plan(plan_path)
-        target_plan.is_active = True
-        target_plan.last_modified = datetime.now()
-        plan_storage.save_plan(target_plan, overwrite_source=True)
+        target_plan = next((p for p in plans if p.source_file == plan_path), None)
+        if target_plan is None:
+            target_plan = plan_storage.load_plan(plan_path)
+        if not target_plan.is_active:
+            target_plan.is_active = True
+            plan_storage.save_plan(target_plan, overwrite_source=True)
 
         return True
     except Exception as e:
@@ -118,16 +112,10 @@ def clear_active_plan() -> bool:
         True if successful, False otherwise
     """
     try:
-        plans_info = plan_storage.list_saved_plans()
-        for plan_info in plans_info:
-            try:
-                p = plan_storage.load_plan(plan_info['path'])
-                if p.is_active:
-                    p.is_active = False
-                    p.last_modified = datetime.now()
-                    plan_storage.save_plan(p, overwrite_source=True)
-            except Exception:
-                continue
+        for p in get_all_plans():
+            if p.is_active:
+                p.is_active = False
+                plan_storage.save_plan(p, overwrite_source=True)
         return True
     except Exception:
         return False
@@ -298,60 +286,54 @@ def sort_plans(plans: List[plan.Plan], sort_by: str = "modified", reverse: bool 
         return sorted(plans, key=lambda p: p.last_modified or datetime.min, reverse=reverse)
 
 
-def get_plans_by_status() -> Dict[str, List[plan.Plan]]:
-    """
-    Get all plans organized by status.
-
-    Returns:
-        Dictionary with status as keys and lists of plans as values
-    """
-    plans_info = plan_storage.list_saved_plans()
+def _group_by_status(plans: List[plan.Plan]) -> Dict[str, List[plan.Plan]]:
     plans_by_status = {
         "active": [],
         "archived": [],
         "completed": []
     }
-
-    for plan_info in plans_info:
-        try:
-            p = plan_storage.load_plan(plan_info['path'])
-            status = p.status if p.status in plans_by_status else "active"
-            plans_by_status[status].append(p)
-        except Exception:
-            continue
-
+    for p in plans:
+        status = p.status if p.status in plans_by_status else "active"
+        plans_by_status[status].append(p)
     return plans_by_status
+
+
+def get_plans_by_status(plans: Optional[List[plan.Plan]] = None) -> Dict[str, List[plan.Plan]]:
+    """
+    Get all plans organized by status.
+
+    Args:
+        plans: Already loaded plans (default: load them)
+
+    Returns:
+        Dictionary with status as keys and lists of plans as values
+    """
+    return _group_by_status(get_all_plans() if plans is None else plans)
 
 
 def get_all_plans() -> List[plan.Plan]:
     """
-    Load and return all saved plans.
+    Load and return all saved plans (each file is read once).
 
     Returns:
         List of all Plan objects
     """
-    plans_info = plan_storage.list_saved_plans()
-    plans = []
-
-    for plan_info in plans_info:
-        try:
-            p = plan_storage.load_plan(plan_info['path'])
-            plans.append(p)
-        except Exception:
-            continue
-
-    return plans
+    return plan_storage.load_all_plans()
 
 
-def get_all_tags() -> List[str]:
+def get_all_tags(plans: Optional[List[plan.Plan]] = None) -> List[str]:
     """
     Get all unique tags used across all plans.
+
+    Args:
+        plans: Already loaded plans (default: load them)
 
     Returns:
         Sorted list of unique tags
     """
     all_tags = set()
-    plans = get_all_plans()
+    if plans is None:
+        plans = get_all_plans()
 
     for p in plans:
         all_tags.update(p.tags)
@@ -359,15 +341,19 @@ def get_all_tags() -> List[str]:
     return sorted(list(all_tags))
 
 
-def get_all_categories() -> Dict[str, int]:
+def get_all_categories(plans: Optional[List[plan.Plan]] = None) -> Dict[str, int]:
     """
     Get all categories used with counts.
+
+    Args:
+        plans: Already loaded plans (default: load them)
 
     Returns:
         Dictionary mapping category names to count of plans
     """
     categories = {}
-    plans = get_all_plans()
+    if plans is None:
+        plans = get_all_plans()
 
     for p in plans:
         if p.category:
@@ -469,15 +455,20 @@ def search_plans(query: str, search_in: List[str] = None) -> List[plan.Plan]:
     return matching_plans
 
 
-def get_plan_statistics() -> Dict:
+def get_plan_statistics(plans: Optional[List[plan.Plan]] = None) -> Dict:
     """
     Get overall statistics across all plans.
+
+    Args:
+        plans: Already loaded plans (default: load them)
 
     Returns:
         Dictionary with statistics
     """
-    plans = get_all_plans()
-    plans_by_status = get_plans_by_status()
+    # Load the plans once and derive everything from them
+    if plans is None:
+        plans = get_all_plans()
+    plans_by_status = _group_by_status(plans)
 
     stats = {
         'total_plans': len(plans),
@@ -487,9 +478,9 @@ def get_plan_statistics() -> Dict:
         'total_word_goal': sum(p.total for p in plans),
         'total_words_written': sum(p.get_total_written() for p in plans),
         'plans_with_progress': len([p for p in plans if p.progress]),
-        'categories': get_all_categories(),
-        'tags': get_all_tags(),
-        'active_plan': get_active_plan(),
+        'categories': get_all_categories(plans),
+        'tags': get_all_tags(plans),
+        'active_plan': get_active_plan(plans),
     }
 
     # Calculate average completion for active plans

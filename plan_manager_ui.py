@@ -24,9 +24,10 @@ def display_plans_overview():
     """Display an overview of all plans organized by status."""
     ui_utils.display_header("My Writing Plans", width=70)
 
-    # Get plans organized by status
-    plans_by_status = plan_manager.get_plans_by_status()
-    stats = plan_manager.get_plan_statistics()
+    # Load the plans once for the whole overview
+    plans = plan_manager.get_all_plans()
+    plans_by_status = plan_manager.get_plans_by_status(plans)
+    stats = plan_manager.get_plan_statistics(plans)
 
     # Display summary
     print(f"\nTotal Plans: {stats['total_plans']}")
@@ -720,7 +721,8 @@ def view_all_tags_ui():
     """View all tags used across plans."""
     ui_utils.display_header("All Tags", width=70)
 
-    all_tags = plan_manager.get_all_tags()
+    all_plans = plan_manager.get_all_plans()
+    all_tags = plan_manager.get_all_tags(all_plans)
 
     if not all_tags:
         print("\nNo tags found.")
@@ -729,7 +731,7 @@ def view_all_tags_ui():
         print("=" * 70)
         for idx, tag in enumerate(all_tags, 1):
             # Count how many plans use this tag
-            plans_with_tag = plan_manager.filter_plans_by_tag(plan_manager.get_all_plans(), tag)
+            plans_with_tag = plan_manager.filter_plans_by_tag(all_plans, tag)
             print(f"{idx}. {tag} ({len(plans_with_tag)} plans)")
 
     input("\nPress Enter to continue...")
