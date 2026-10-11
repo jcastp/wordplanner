@@ -63,6 +63,8 @@ def display_results(newplan):
     """Display the plan results in a formatted way."""
     display_section("YOUR WRITING PLAN")
     print(f"Total words: {newplan.total:,.0f} words")
+    if newplan.preexisting_words:
+        print(f"Already written before the plan: {newplan.preexisting_words:,} words")
     print(f"Writing days: {newplan.time:.0f} days")
     print(f"Daily goal: {newplan.daily:,.0f} words per day")
 
@@ -1709,33 +1711,6 @@ def ask_for_pre_existing_words_count(total_goal=None):
             return words_written
 
 
-def record_pre_existing_words(current_plan, word_count):
-    """
-    Record pre-existing words as progress on the day before start date.
-
-    Args:
-        current_plan: The Plan object to update
-        word_count: Number of pre-existing words to record
-
-    Returns:
-        True if recorded successfully, False otherwise
-    """
-    if word_count <= 0:
-        return False
-
-    if not current_plan.start_date:
-        display_error("Cannot record pre-existing words without a start date")
-        return False
-
-    # Record on the day before start date to keep start date clean
-    pre_start_date = current_plan.start_date - timedelta(days=1)
-    current_plan.record_progress(pre_start_date, word_count)
-    display_success(f"Recorded {word_count:,.0f} pre-existing words")
-    print(f"  Recorded on: {pre_start_date.strftime('%Y-%m-%d')} (day before start)")
-
-    return True
-
-
 def create_plan_from_template():
     """Create a plan from a pre-defined template."""
     print("\n" + "=" * 50)
@@ -1815,20 +1790,12 @@ def create_plan_from_template():
     # Ask about pre-existing words before creating the plan
     pre_existing_words = ask_for_pre_existing_words_count(total_goal=selected_template.total)
 
-    # Adjust template for pre-existing words
-    actual_total = selected_template.total  # Save the actual goal
-    if pre_existing_words > 0:
-        remaining_words = actual_total - pre_existing_words
-        if remaining_words <= 0:
-            display_success("You've already met or exceeded this goal!")
-            print(f"  Goal: {actual_total:,.0f} words")
-            print(f"  Already written: {pre_existing_words:,.0f} words")
-            input("\nPress Enter to continue...")
-            return
-
-        # Adjust template values for calculation
-        selected_template.total = remaining_words
-        # This will make the plan calculate correctly with remaining words
+    if pre_existing_words >= selected_template.total:
+        display_success("You've already met or exceeded this goal!")
+        print(f"  Goal: {selected_template.total:,.0f} words")
+        print(f"  Already written: {pre_existing_words:,.0f} words")
+        input("\nPress Enter to continue...")
+        return
 
     # Ask for start date
     print("\n" + "=" * 50)
@@ -1840,10 +1807,9 @@ def create_plan_from_template():
     start_date = get_date_input("Start date: ")
 
     # Create plan from template
-    newplan = selected_template.create_plan(start_date=start_date)
+    newplan = selected_template.create_plan(start_date=start_date,
+                                            preexisting_words=int(pre_existing_words))
     newplan.name = selected_template.name
-    # Restore the actual total goal (including pre-existing words)
-    newplan.total = actual_total
 
     display_success(f"Created plan from template: {selected_template.name}")
     print(f"  Start date: {start_date.strftime('%Y-%m-%d')}")
@@ -1896,10 +1862,6 @@ def create_plan_from_template():
                 newplan.weekend_mode = 'spare'
                 print("✓ Weekend mode: spare (no writing on weekends)")
 
-    # Record pre-existing words (if any)
-    if pre_existing_words > 0:
-        record_pre_existing_words(newplan, pre_existing_words)
-
     # Handle plan actions
     handle_plan_actions(newplan)
 
@@ -1924,20 +1886,16 @@ def create_new_plan():
 
         daily = get_positive_number("Enter how many words you can write daily: ")
 
-        # Calculate time based on remaining words
-        remaining_words = total - pre_existing_words
-        if remaining_words <= 0:
+        if pre_existing_words >= total:
             display_success("You've already met or exceeded your goal!")
             print(f"  Goal: {total:,.0f} words")
             print(f"  Already written: {pre_existing_words:,.0f} words")
             input("\nPress Enter to continue...")
             return
 
-        # Create plan with remaining words to calculate correct time
-        newplan = plan.Plan(total=remaining_words, daily=daily)
+        # Time is calculated for the words still to write
+        newplan = plan.Plan(total=total, daily=daily, preexisting_words=int(pre_existing_words))
         newplan.calculate_time()
-        # But set the actual total goal (including pre-existing)
-        newplan.total = total
 
     elif calc_choice == 2:
         # Know daily words and time → calculate total words
@@ -1948,11 +1906,9 @@ def create_new_plan():
         # Ask about pre-existing words (no total yet to check against)
         pre_existing_words = ask_for_pre_existing_words_count()
 
-        # Calculate total from daily × time, then add pre-existing
-        newplan = plan.Plan(daily=daily, time=time)
+        # Total = daily × time + pre-existing words
+        newplan = plan.Plan(daily=daily, time=time, preexisting_words=int(pre_existing_words))
         newplan.calculate_words()
-        # Add pre-existing words to the calculated total
-        newplan.total = newplan.total + pre_existing_words
 
     elif calc_choice == 3:
         # Know total words and time → calculate daily words
@@ -1964,20 +1920,16 @@ def create_new_plan():
 
         time = get_positive_number("Enter how many days you have available: ")
 
-        # Calculate daily based on remaining words
-        remaining_words = total - pre_existing_words
-        if remaining_words <= 0:
+        if pre_existing_words >= total:
             display_success("You've already met or exceeded your goal!")
             print(f"  Goal: {total:,.0f} words")
             print(f"  Already written: {pre_existing_words:,.0f} words")
             input("\nPress Enter to continue...")
             return
 
-        # Create plan with remaining words to calculate correct daily
-        newplan = plan.Plan(total=remaining_words, time=time)
+        # Daily is calculated for the words still to write
+        newplan = plan.Plan(total=total, time=time, preexisting_words=int(pre_existing_words))
         newplan.calculate_daily()
-        # But set the actual total goal (including pre-existing)
-        newplan.total = total
 
     if newplan:
         # Ask if user wants to use a writing pattern
@@ -2001,10 +1953,6 @@ def create_new_plan():
         # Configure weekend settings
         if get_yes_no("\nWould you like to configure weekend-specific settings?", default='n'):
             configure_weekend_settings(newplan)
-
-        # Record pre-existing words (if any)
-        if pre_existing_words > 0:
-            record_pre_existing_words(newplan, pre_existing_words)
 
         handle_plan_actions(newplan)
 

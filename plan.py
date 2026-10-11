@@ -33,7 +33,7 @@ def whole_days(value):
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None):
+    def __init__(self, daily=0, total=0, time=0, words=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -46,9 +46,12 @@ class Plan():
             raise ValueError(f"Words count cannot be negative: {words}")
         if weekend_daily < 0:
             raise ValueError(f"Weekend daily word count cannot be negative: {weekend_daily}")
+        if preexisting_words < 0:
+            raise ValueError(f"Pre-existing word count cannot be negative: {preexisting_words}")
 
         self.daily = daily
-        self.total = total
+        self.total = total  # Full project goal, including pre-existing words
+        self.preexisting_words = preexisting_words  # Words written before the plan; not scheduled
         self.time = time  # Writing days (not including spare days), always whole
         self.words = words # this is the amount of words in the current plan
         self.name = name  # Name/title of the writing project
@@ -89,6 +92,11 @@ class Plan():
     @time.setter
     def time(self, value):
         self._time = whole_days(value)
+
+    @property
+    def words_to_schedule(self):
+        """Words the schedule has to cover: the goal minus words written before the plan."""
+        return max(0, self.total - self.preexisting_words)
 
     @property
     def spare_days(self):
@@ -161,7 +169,7 @@ class Plan():
             raise ValueError(f"Cannot calculate daily words: time must be greater than 0 (got {self.time})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate daily words: total cannot be negative (got {self.total})")
-        self.daily = self.total / self.time
+        self.daily = self.words_to_schedule / self.time
         self.invalidate_daily_goals_cache()
 
     def calculate_time(self):
@@ -170,10 +178,10 @@ class Plan():
             raise ValueError(f"Cannot calculate time: daily words must be greater than 0 (got {self.daily})")
         if self.total < 0:
             raise ValueError(f"Cannot calculate time: total cannot be negative (got {self.total})")
-        # Round up to whole days, then spread the total evenly over them
-        self.time = self.total / self.daily
+        # Round up to whole days, then spread the words evenly over them
+        self.time = self.words_to_schedule / self.daily
         if self.time > 0:
-            self.daily = self.total / self.time
+            self.daily = self.words_to_schedule / self.time
         self.invalidate_daily_goals_cache()
 
     def calculate_words(self):
@@ -182,7 +190,7 @@ class Plan():
             raise ValueError(f"Cannot calculate total words: daily cannot be negative (got {self.daily})")
         if self.time < 0:
             raise ValueError(f"Cannot calculate total words: time cannot be negative (got {self.time})")
-        self.total = self.daily * self.time
+        self.total = self.daily * self.time + self.preexisting_words
         self.invalidate_daily_goals_cache()
 
     def show(self):
@@ -265,7 +273,7 @@ class Plan():
         if current_total == 0:
             # Avoid division by zero - return flat goals if pattern calculation fails
             return [self.daily] * num_days
-        adjustment = self.total / current_total
+        adjustment = self.words_to_schedule / current_total
         goals = [g * adjustment for g in goals]
 
         return goals
@@ -294,7 +302,7 @@ class Plan():
         if current_total == 0:
             # Avoid division by zero - return flat goals if pattern calculation fails
             return [self.daily] * num_days
-        adjustment = self.total / current_total
+        adjustment = self.words_to_schedule / current_total
         goals = [g * adjustment for g in goals]
 
         return goals
@@ -317,7 +325,7 @@ class Plan():
         if current_total == 0:
             # Avoid division by zero - return flat goals if pattern calculation fails
             return [self.daily] * num_days
-        adjustment = self.total / current_total
+        adjustment = self.words_to_schedule / current_total
         goals = [g * adjustment for g in goals]
 
         return goals
@@ -340,7 +348,7 @@ class Plan():
         if current_total == 0:
             # Avoid division by zero - return flat goals if pattern calculation fails
             return [self.daily] * num_days
-        adjustment = self.total / current_total
+        adjustment = self.words_to_schedule / current_total
         goals = [g * adjustment for g in goals]
 
         return goals
@@ -367,7 +375,7 @@ class Plan():
         if current_total == 0:
             # Avoid division by zero - return flat goals if pattern calculation fails
             return [self.daily] * num_days
-        adjustment = self.total / current_total
+        adjustment = self.words_to_schedule / current_total
         goals = [g * adjustment for g in goals]
 
         return goals
@@ -462,8 +470,8 @@ class Plan():
         # Sum up all daily goals
         total_words = sum(self.get_daily_goal(date=day) for day in self.plan_days())
 
-        # Update the plan's total
-        self.total = total_words
+        # Update the plan's total (the schedule plus words written before the plan)
+        self.total = total_words + self.preexisting_words
         self.invalidate_daily_goals_cache()
 
         return self.total
@@ -493,7 +501,11 @@ class Plan():
         return self.progress.get(date_key)
 
     def get_total_written(self):
-        """Get total words written so far across all days."""
+        """Get total words written for the project, including pre-existing words."""
+        return self.preexisting_words + self.get_plan_written()
+
+    def get_plan_written(self):
+        """Get words logged as daily progress (excludes pre-existing words)."""
         return sum(self.progress.values())
 
     def get_remaining_words(self):
@@ -576,7 +588,7 @@ class Plan():
 
             current_date += timedelta(days=1)
 
-        actual_words = self.get_total_written()
+        actual_words = self.get_plan_written()
         difference = actual_words - expected_words
 
         # Calculate percentage difference
@@ -795,6 +807,7 @@ class Plan():
             'category': self.category,
             'is_active': self.is_active,
             'last_modified': self.last_modified.isoformat() if self.last_modified else None,
+            'preexisting_words': self.preexisting_words,
         }
 
     @classmethod
@@ -849,8 +862,16 @@ class Plan():
             time = float(data.get('time', 0))
             words = float(data.get('words', 0))
             weekend_daily = float(data.get('weekend_daily', 0))
+            preexisting_words = int(data.get('preexisting_words', 0))
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid numeric value in plan data: {e}")
+
+        progress = dict(data.get('progress', {}))
+
+        # Old files stored pre-existing words as progress on the day before the start
+        if 'preexisting_words' not in data and start_date:
+            pre_start_key = (start_date - timedelta(days=1)).strftime('%Y-%m-%d')
+            preexisting_words = progress.pop(pre_start_key, 0)
 
         return cls(
             name=data.get('name'),
@@ -863,7 +884,7 @@ class Plan():
             created_date=created_date,
             pattern=data.get('pattern', 'flat'),
             pattern_config=data.get('pattern_config', {}),
-            progress=data.get('progress', {}),
+            progress=progress,
             weekend_mode=data.get('weekend_mode', 'same'),
             weekend_daily=weekend_daily,
             weekend_days=data.get('weekend_days', [5, 6]),
@@ -874,6 +895,7 @@ class Plan():
             category=data.get('category'),
             is_active=data.get('is_active', False),
             last_modified=last_modified,
+            preexisting_words=preexisting_words,
         )
 
     def to_json(self):

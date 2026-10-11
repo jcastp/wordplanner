@@ -6,7 +6,7 @@ and capture the plan that would be handed to the plan actions menu.
 
 import copy
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 import planea
 import plan_templates
 
@@ -14,7 +14,6 @@ import plan_templates
 # Far-future date so get_date_input() never asks about past dates
 START_STR = "2099-01-05"
 START = datetime(2099, 1, 5)
-PRE_START_KEY = (START - timedelta(days=1)).strftime('%Y-%m-%d')
 
 
 @pytest.fixture
@@ -54,7 +53,8 @@ class TestCreateNewPlanWithPreExistingWords:
         assert p.time == pytest.approx(48)
         assert p.daily == 1000
         assert p.total == 80000
-        assert p.progress == {PRE_START_KEY: 32000}
+        assert p.preexisting_words == 32000
+        assert p.progress == {}
         assert p.get_remaining_words() == 48000
         assert p.get_completion_percentage() == pytest.approx(40.0)
 
@@ -78,7 +78,8 @@ class TestCreateNewPlanWithPreExistingWords:
         assert p.total == 35000
         assert p.daily == 500
         assert p.time == 60
-        assert p.progress == {PRE_START_KEY: 5000}
+        assert p.preexisting_words == 5000
+        assert p.progress == {}
         assert p.get_remaining_words() == 30000
 
     def test_calculate_daily_words(self, scripted_input, created_plans):
@@ -101,7 +102,8 @@ class TestCreateNewPlanWithPreExistingWords:
         assert p.daily == pytest.approx(1000)
         assert p.total == 50000
         assert p.time == 40
-        assert p.progress == {PRE_START_KEY: 10000}
+        assert p.preexisting_words == 10000
+        assert p.progress == {}
 
     def test_no_pre_existing_words(self, scripted_input, created_plans):
         scripted_input([
@@ -159,5 +161,6 @@ class TestCreateFromTemplateWithPreExistingWords:
         assert p.total == 50000
         assert p.time == 30
         assert p.daily == pytest.approx(40000 / 30)
-        assert p.progress == {PRE_START_KEY: 10000}
+        assert p.preexisting_words == 10000
+        assert p.progress == {}
         assert p.get_remaining_words() == 40000

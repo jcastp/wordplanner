@@ -279,6 +279,8 @@ def export_to_markdown(plan_obj, filepath=None):
     lines.append("## Plan Overview")
     lines.append("")
     lines.append(f"- **Total Word Goal**: {plan_obj.total:,} words")
+    if plan_obj.preexisting_words:
+        lines.append(f"- **Written Before the Plan**: {plan_obj.preexisting_words:,} words")
     lines.append(f"- **Average Daily Goal**: {plan_obj.daily:,.0f} words/day")
     lines.append(f"- **Writing Days**: {plan_obj.time} days")
 

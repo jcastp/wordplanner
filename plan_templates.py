@@ -29,13 +29,14 @@ class PlanTemplate:
         self.suggested_pattern = suggested_pattern
         self.suggested_weekend_mode = suggested_weekend_mode
 
-    def create_plan(self, start_date=None, customize=False):
+    def create_plan(self, start_date=None, customize=False, preexisting_words=0):
         """
         Create a plan from this template.
 
         Args:
             start_date: Plan start date (default: today)
             customize: Whether to allow customization
+            preexisting_words: Words already written; the schedule covers the rest
 
         Returns:
             Plan object based on template
@@ -47,7 +48,8 @@ class PlanTemplate:
         new_plan = plan.Plan(
             total=self.total,
             name=self.name,
-            start_date=start_date
+            start_date=start_date,
+            preexisting_words=preexisting_words
         )
 
         # Calculate the missing value

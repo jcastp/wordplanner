@@ -40,8 +40,8 @@ def calculate_statistics(plan_obj) -> Dict:
     total_written = plan_obj.get_total_written()
     days_recorded = plan_obj.get_days_with_progress()
 
-    # Average words per day (only counting days with progress)
-    average_per_day = total_written / days_recorded if days_recorded > 0 else 0
+    # Average words per day (only counting days with progress; pre-existing words excluded)
+    average_per_day = plan_obj.get_plan_written() / days_recorded if days_recorded > 0 else 0
 
     # Best and worst writing days
     best_day = None
@@ -146,7 +146,6 @@ def calculate_completion_eta(plan_obj) -> Optional[datetime.datetime]:
     if not plan_obj.start_date or not plan_obj.progress:
         return None
 
-    total_written = plan_obj.get_total_written()
     remaining = plan_obj.get_remaining_words()
 
     if remaining <= 0:
@@ -156,8 +155,8 @@ def calculate_completion_eta(plan_obj) -> Optional[datetime.datetime]:
     if days_recorded == 0:
         return None
 
-    # Calculate average velocity (words per day)
-    average_per_day = total_written / days_recorded
+    # Calculate average velocity (words per day), excluding pre-existing words
+    average_per_day = plan_obj.get_plan_written() / days_recorded
 
     if average_per_day <= 0:
         return None
