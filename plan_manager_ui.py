@@ -32,8 +32,8 @@ def display_plans_overview():
     # Display summary
     print(f"\nTotal Plans: {stats['total_plans']}")
     print(f"Active: {stats['active_plans']} | Archived: {stats['archived_plans']} | Completed: {stats['completed_plans']}")
-    print(f"Total Word Goal: {stats['total_word_goal']:,} words")
-    print(f"Total Written: {stats['total_words_written']:,} words")
+    print(f"Total Word Goal: {stats['total_word_goal']:,.0f} words")
+    print(f"Total Written: {stats['total_words_written']:,.0f} words")
 
     if stats['active_plan']:
         print(f"\n★ Current plan: {stats['active_plan'].name}")
@@ -896,8 +896,8 @@ def display_plan_statistics():
     print(f"  • Completed: {stats['completed_plans']}")
     print()
     print(f"Writing Goals:")
-    print(f"  • Total word goal: {stats['total_word_goal']:,} words")
-    print(f"  • Total words written: {stats['total_words_written']:,} words")
+    print(f"  • Total word goal: {stats['total_word_goal']:,.0f} words")
+    print(f"  • Total words written: {stats['total_words_written']:,.0f} words")
     print(f"  • Plans with progress: {stats['plans_with_progress']}")
     if stats['active_plans'] > 0:
         print(f"  • Avg completion (active): {stats['avg_completion']:.0f}%")

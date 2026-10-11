@@ -3,6 +3,7 @@ from datetime import timedelta
 import math
 import json
 import random
+import uuid
 import config
 
 """class for the Plan."""
@@ -41,7 +42,7 @@ def whole_days(value):
 
 class Plan():
     """simple class to store a plan and its attributes."""
-    def __init__(self, daily=0, total=0, time=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None, schedule_adjustment=0):
+    def __init__(self, daily=0, total=0, time=0, name=None, start_date=None, created_date=None, spare_days_dates=None, source_file=None, pattern="flat", pattern_config=None, progress=None, weekend_mode="same", weekend_daily=0, weekend_days=None, custom_daily_goals=None, status="active", tags=None, category=None, is_active=False, last_modified=None, preexisting_words=0, locked_goals=None, schedule_adjustment=0, plan_id=None):
         """Initialize the values."""
         # Validate numeric inputs are not negative
         if daily < 0:
@@ -85,6 +86,8 @@ class Plan():
         self.is_active = is_active  # Boolean flag for the currently active plan
         self.last_modified = last_modified or datetime.datetime.now()  # When this plan was last modified
         self._saved_state = None  # What was last loaded or saved (see has_unsaved_changes)
+        # Stable identity that survives renames (e.g. calendar event UIDs)
+        self.plan_id = plan_id or uuid.uuid4().hex
 
     @property
     def start_date(self):
@@ -1066,6 +1069,7 @@ class Plan():
             'preexisting_words': self.preexisting_words,
             'locked_goals': self.locked_goals,
             'schedule_adjustment': self.schedule_adjustment,
+            'plan_id': self.plan_id,
         }
 
     @classmethod
@@ -1155,6 +1159,10 @@ class Plan():
             preexisting_words=preexisting_words,
             locked_goals=data.get('locked_goals', {}),
             schedule_adjustment=schedule_adjustment,
+            # Old files: derived from the creation date, so it is the same on every load
+            plan_id=data.get('plan_id') or (
+                uuid.uuid5(uuid.NAMESPACE_URL, f"wordplanner:{data['created_date']}").hex
+                if data.get('created_date') else None),
         )
 
         # Files saved by the old "recalculate from progress" set a new daily goal

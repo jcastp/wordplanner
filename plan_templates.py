@@ -70,13 +70,13 @@ class PlanTemplate:
     def __str__(self):
         """String representation of template."""
         if self.time and self.daily:
-            return f"{self.name}: {self.total:,} words in {self.time} days ({self.daily:,.0f} words/day)"
+            return f"{self.name}: {self.total:,.0f} words in {self.time} days ({self.daily:,.0f} words/day)"
         elif self.time:
-            return f"{self.name}: {self.total:,} words in {self.time} days"
+            return f"{self.name}: {self.total:,.0f} words in {self.time} days"
         elif self.daily:
-            return f"{self.name}: {self.total:,} words at {self.daily:,.0f} words/day"
+            return f"{self.name}: {self.total:,.0f} words at {self.daily:,.0f} words/day"
         else:
-            return f"{self.name}: {self.total:,} words"
+            return f"{self.name}: {self.total:,.0f} words"
 
 
 # Pre-defined templates

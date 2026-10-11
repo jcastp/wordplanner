@@ -69,8 +69,8 @@ def display_calendar_view(plan_obj, start_date):
         on_track, info = plan_obj.is_on_track()
 
         summary_text += "\n\n[bold white]Progress:[/bold white]\n"
-        summary_text += f"  Written: {total_written:,} words ({completion:.1f}%)\n"
-        summary_text += f"  Remaining: {plan_obj.get_remaining_words():,} words\n"
+        summary_text += f"  Written: {total_written:,.0f} words ({completion:.1f}%)\n"
+        summary_text += f"  Remaining: {plan_obj.get_remaining_words():,.0f} words\n"
 
         if info.get('status'):
             if info['status'] == 'ahead':
@@ -242,7 +242,7 @@ def display_milestones(console, plan_obj, start_date, end_date):
         table.add_row(
             f"{int(milestone['fraction'] * 100)}%",
             format_milestone_date(milestone),
-            f"{milestone['words']:,}",
+            f"{milestone['words']:,.0f}",
             str(milestone['day']) if milestone['day'] else "-",
             "[green]✓ reached[/green]" if milestone['reached'] else ""
         )
@@ -324,8 +324,8 @@ def display_weekly_summary(plan_obj, start_date):
             f"{writing_days_in_week}",
             f"{spare_days_in_week}" if spare_days_in_week > 0 else "-",
             daily_goal_str,
-            f"{int(weekly_words):,}",
-            f"{cumulative_words:,}"
+            f"{int(weekly_words):,.0f}",
+            f"{cumulative_words:,.0f}"
         )
 
         current_date = week_end + timedelta(days=1)

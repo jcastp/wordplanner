@@ -1,6 +1,7 @@
 """Module for saving and loading writing plans to/from disk."""
 
 import shutil
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
@@ -75,6 +76,19 @@ def ensure_plans_directory():
         raise OSError(f"Failed to create plans directory: {e}")
 
 
+def safe_filename_stem(name: Optional[str], default: str = "plan") -> str:
+    """
+    Turn a plan name into something safe to use in a file name.
+
+    Keeps letters (any language), digits, '-' and '_'; spaces become '_';
+    everything else (like '/', ':' or '*') is dropped. Falls back to
+    `default` if nothing is left.
+    """
+    safe_name = "".join(c for c in (name or "") if c.isalnum() or c in (' ', '-', '_')).strip()
+    safe_name = "_".join(safe_name.split())
+    return safe_name or default
+
+
 def get_plan_filename(plan_name: str) -> str:
     """
     Generate a safe filename from a plan name.
@@ -85,10 +99,7 @@ def get_plan_filename(plan_name: str) -> str:
     Returns:
         A sanitized filename with .json extension
     """
-    # Remove invalid filename characters
-    safe_name = "".join(c for c in plan_name if c.isalnum() or c in (' ', '-', '_')).strip()
-    # Replace spaces with underscores
-    safe_name = safe_name.replace(' ', '_')
+    safe_name = safe_filename_stem(plan_name)
     # Add timestamp with microseconds to make it unique
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return f"{safe_name}_{timestamp}.json"
@@ -111,6 +122,7 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
     old_source = plan_obj.source_file
     old_active = plan_obj.is_active
     old_modified = plan_obj.last_modified
+    old_id = plan_obj.plan_id
     new_file = False
 
     if custom_path:
@@ -127,9 +139,11 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
         # Update source_file since we're creating a new file
         plan_obj.source_file = filepath
         # A copy of a saved plan is never the active plan: the original keeps
-        # that role, so there is only ever one active plan
+        # that role, so there is only ever one active plan. It also gets its own
+        # identity, so its calendar events don't replace the original's
         if old_source is not None:
             plan_obj.is_active = False
+            plan_obj.plan_id = uuid.uuid4().hex
 
     # "Last modified" means the content changed, not that it was written again
     if new_file or plan_obj.has_unsaved_changes():
@@ -141,6 +155,7 @@ def save_plan(plan_obj: plan.Plan, custom_path: Optional[Path] = None, overwrite
     except BaseException as e:
         plan_obj.source_file = old_source
         plan_obj.is_active = old_active
+        plan_obj.plan_id = old_id
         plan_obj.last_modified = old_modified
         if isinstance(e, PermissionError):
             raise PermissionError(f"Permission denied: Cannot write to {filepath}")

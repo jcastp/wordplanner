@@ -75,7 +75,7 @@ def display_results(newplan):
     display_section("YOUR WRITING PLAN")
     print(f"Total words: {newplan.total:,.0f} words")
     if newplan.preexisting_words:
-        print(f"Already written before the plan: {newplan.preexisting_words:,} words")
+        print(f"Already written before the plan: {newplan.preexisting_words:,.0f} words")
     print(f"Writing days: {newplan.time:.0f} days")
     print(f"Daily goal: {newplan.daily:,.0f} words per day")
 
@@ -104,8 +104,8 @@ def display_results(newplan):
         completion = newplan.get_completion_percentage()
         remaining = newplan.get_remaining_words()
 
-        print(f"Progress: {total_written:,} words written ({completion:.1f}%)")
-        print(f"Remaining: {remaining:,} words")
+        print(f"Progress: {total_written:,.0f} words written ({completion:.1f}%)")
+        print(f"Remaining: {remaining:,.0f} words")
 
         # Show on-track status if start date is set
         if newplan.start_date:
@@ -1396,7 +1396,7 @@ def update_progress(current_plan):
                 # Show existing progress if any
                 existing = current_plan.get_progress_for_date(today)
                 if existing is not None:
-                    print(f"Current progress: {existing:,} words")
+                    print(f"Current progress: {existing:,.0f} words")
 
                 # Get goal for today
                 daily_goal = current_plan.get_daily_goal(date=today)
@@ -1415,7 +1415,7 @@ def update_progress(current_plan):
 
                     current_plan.record_progress(today, word_count)
                     progress_updated = True
-                    display_success(f"Progress recorded: {word_count:,} words")
+                    display_success(f"Progress recorded: {word_count:,.0f} words")
 
                     # Check if goal was met
                     if word_count >= daily_goal:
@@ -1454,7 +1454,7 @@ def update_progress(current_plan):
                     # Show existing progress if any
                     existing = current_plan.get_progress_for_date(entry_date)
                     if existing is not None:
-                        print(f"Current progress: {existing:,} words")
+                        print(f"Current progress: {existing:,.0f} words")
 
                     # Get goal for this date
                     daily_goal = current_plan.get_daily_goal(date=entry_date)
@@ -1472,7 +1472,7 @@ def update_progress(current_plan):
 
                     current_plan.record_progress(entry_date, word_count)
                     progress_updated = True
-                    display_success(f"Progress recorded: {word_count:,} words")
+                    display_success(f"Progress recorded: {word_count:,.0f} words")
 
                     # Check overall status and offer recalculation
                     if not adjustment_offered:
@@ -1501,7 +1501,7 @@ def update_progress(current_plan):
                     daily_goal = current_plan.get_daily_goal(date=entry_date)
 
                     status_icon = "✓" if word_count >= daily_goal else "○"
-                    print(f"{status_icon} {entry_date.strftime('%Y-%m-%d (%A)')}: {word_count:,} words (goal: {daily_goal:,.0f})")
+                    print(f"{status_icon} {entry_date.strftime('%Y-%m-%d (%A)')}: {word_count:,.0f} words (goal: {daily_goal:,.0f})")
 
                 input("\nPress Enter to continue...")
 
@@ -1670,8 +1670,8 @@ def view_progress_summary(current_plan):
 
     print(f"\nOverall Progress:")
     print(f"  Total goal: {current_plan.total:,.0f} words")
-    print(f"  Written: {total_written:,} words ({completion:.1f}%)")
-    print(f"  Remaining: {remaining:,} words")
+    print(f"  Written: {total_written:,.0f} words ({completion:.1f}%)")
+    print(f"  Remaining: {remaining:,.0f} words")
 
     # Days with progress
     days_recorded = current_plan.get_days_with_progress()
@@ -2018,7 +2018,7 @@ def create_plan_from_template():
     print(f"TEMPLATE: {selected_template.name}")
     print("=" * 50)
     print(f"Description: {selected_template.description}")
-    print(f"Total words: {selected_template.total:,}")
+    print(f"Total words: {selected_template.total:,.0f}")
     if selected_template.time:
         print(f"Duration: {selected_template.time} days")
     if selected_template.daily:
